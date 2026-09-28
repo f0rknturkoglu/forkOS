@@ -290,6 +290,78 @@ def register_agent_tools(server: MCPServer) -> None:
     _register_context_judge_tool(server)
     _register_memory_judge_tool(server)
     _register_answer_judge_tool(server)
+    _register_career_tools(server)
+
+
+def _register_career_tools(server: MCPServer) -> None:
+    from app.modules.opportunity import interview_intelligence as interview_ai
+    from app.modules.opportunity.career_analytics import snapshot
+
+    @server.tool(
+        name="forkos_career_interview",
+        description="Prepare, practice or debrief one canonical interview. Bounded local evidence rules, no send/submit or story mutation. "
+        + _APPROVAL_NOTE,
+        annotations=_write_annotations(idempotent=False),
+    )
+    async def forkos_career_interview(
+        interview_id: str,
+        intent: Literal["prepare", "practice", "debrief"],
+        payload: dict[str, Any] | None = None,
+    ) -> AgentEnvelope[dict[str, Any]]:
+        try:
+            async with SessionLocal() as session:
+                ident = uuid.UUID(interview_id)
+                if intent == "prepare":
+                    result = await interview_ai.prepare(session, ident)
+                elif intent == "practice":
+                    result = await interview_ai.practice(
+                        session, ident, interview_ai.PracticeIn.model_validate(payload or {})
+                    )
+                else:
+                    result = await interview_ai.debrief(
+                        session, ident, interview_ai.DebriefIn.model_validate(payload or {})
+                    )
+                await session.commit()
+                return AgentEnvelope(
+                    source="forkos", data=result.model_dump(mode="json"), truncated=False
+                )
+        except (ValueError, ValidationError) as exc:
+            raise ToolError(f"INVALID_ARGUMENT: {exc}") from exc
+        except Exception as exc:
+            raise ToolError(f"CAREER_FAILED: {type(exc).__name__}") from exc
+
+    @server.tool(
+        name="forkos_career_insights",
+        description="Read deterministic career outcomes for a discovery cohort. Explicit denominators and sample guards; correlation is not causation. No network or mutations.",
+        annotations=READ_ONLY_ANNOTATIONS,
+    )
+    async def forkos_career_insights(
+        days: Annotated[int, Field(ge=1, le=3650)] = 30,
+        minimum: Annotated[int, Field(ge=3, le=100)] = 3,
+    ) -> AgentEnvelope[dict[str, Any]]:
+        try:
+            async with SessionLocal() as session:
+                result = await snapshot(session, days=days, minimum=minimum)
+                data = result.model_dump(mode="json")
+                truncated = False
+                for field in (
+                    "cohorts",
+                    "rejection_patterns",
+                    "skill_gaps",
+                    "source_performance",
+                    "geography",
+                    "lineage",
+                    "calibration",
+                    "evidence_refs",
+                ):
+                    if len(data[field]) > 100:
+                        data[field] = data[field][:100]
+                        truncated = True
+                return AgentEnvelope(source="forkos", data=data, truncated=truncated)
+        except ValueError as exc:
+            raise ToolError(f"INVALID_ARGUMENT: {exc}") from exc
+        except Exception as exc:
+            raise ToolError(f"CAREER_FAILED: {type(exc).__name__}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -1079,7 +1151,8 @@ def _register_context_judge_tool(server: MCPServer) -> None:
             "evidence with a local Context Judge. Returns the original unchanged EvidenceBundle, "
             "baseline, advisory and effective orders. A5.1 creates or removes no evidence and "
             "makes no canonical mutation or truth claim. With the judge off or unavailable, "
-            "effective order remains H3's order. Read-only; local provider only. " + _READ_ONLY_CLAUSE
+            "effective order remains H3's order. Read-only; local provider only. "
+            + _READ_ONLY_CLAUSE
         ),
         annotations=READ_ONLY_ANNOTATIONS,
     )
@@ -1095,8 +1168,14 @@ def _register_context_judge_tool(server: MCPServer) -> None:
         try:
             async with SessionLocal() as session:
                 result = await judgment_svc.judge_context(
-                    session, query=query, entity_id=entity_id, scope=scope,
-                    since=since, until=until, max_depth=max_depth, limit=limit,
+                    session,
+                    query=query,
+                    entity_id=entity_id,
+                    scope=scope,
+                    since=since,
+                    until=until,
+                    max_depth=max_depth,
+                    limit=limit,
                 )
             return AgentEnvelope(source="forkos", data=result, truncated=result.bundle.truncated)
         except ev_svc.EvidenceError as exc:
@@ -1131,7 +1210,9 @@ def _register_memory_judge_tool(server: MCPServer) -> None:
 
 AnswerClaim = Annotated[
     str,
-    Field(min_length=2, max_length=1000, description="Exact claim to verify against forkOS evidence."),
+    Field(
+        min_length=2, max_length=1000, description="Exact claim to verify against forkOS evidence."
+    ),
 ]
 AnswerRetrievalQuery = Annotated[
     str | None,

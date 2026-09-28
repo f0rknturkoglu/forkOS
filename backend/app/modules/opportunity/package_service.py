@@ -12,30 +12,25 @@ Guarantees:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import hashlib
 import json
-from typing import Any, Literal
 import uuid
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.entity import create_entity, touch_entity
+from app.core.entity import touch_entity
 from app.core.events import log_event
-from app.core.models import Entity
-from app.modules.document.models import Document
-from app.modules.opportunity import lifecycle
 from app.modules.opportunity.candidate_context import (
-    CandidateCareerContext,
     build_candidate_career_context,
 )
 from app.modules.opportunity.evaluation_service import (
     CareerEvaluationService,
-    DeepEvaluation,
 )
+from app.modules.opportunity.evidence_integrity import valid_refs
 from app.modules.opportunity.listing_context import (
-    CareerListingContext,
     build_career_listing_context,
 )
 from app.modules.opportunity.models import Application, Opportunity
@@ -43,8 +38,6 @@ from app.modules.opportunity.reasoner.base import (
     ApplicationAnswerDraft,
     CareerReasoner,
     CoverLetterDraft,
-    CvChangeItemDraft,
-    CvFactVerificationDraft,
     DeepEvaluationDraft,
     TailoredCvDraft,
 )
@@ -97,6 +90,10 @@ class KnockoutAnswer(BaseModel):
 
     question: str
     proposed_answer: str
+    classification: Literal["safe_verified", "needs_user_input", "sensitive_user_decision"] = (
+        "needs_user_input"
+    )
+    evidence_refs: list[str] = Field(default_factory=list)
     evidence: str
     confidence: float = 1.0
     warning: str | None = None
@@ -110,6 +107,8 @@ class GeneratedDocumentRef(BaseModel):
     title: str
     file_path: str | None = None
     mime: str = "text/plain"
+    parent_document_id: str | None = None
+    opportunity_id: str | None = None
 
 
 class ApplicationPackage(BaseModel):
@@ -175,11 +174,74 @@ class ApplicationPackageService:
 
         # Re-check evaluation freshness
         evaluation = await self.eval_service.get_evaluation(session, opportunity_id)
-        if evaluation is None or evaluation.is_stale:
+        evaluation_revision = hashlib.sha256(
+            json.dumps(
+                evaluation.model_dump(exclude={"is_stale", "stale_reasons"}) if evaluation else {},
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        if (
+            evaluation is None
+            or evaluation.is_stale
+            or pkg.evaluation_revision != evaluation_revision
+        ):
             pkg.readiness = "STALE_EVALUATION"
-            if "Evaluation is stale. Please refresh evaluation before submitting." not in pkg.warnings:
-                pkg.warnings.append("Evaluation is stale. Please refresh evaluation before submitting.")
+            if (
+                "Evaluation is stale. Please refresh evaluation before submitting."
+                not in pkg.warnings
+            ):
+                pkg.warnings.append(
+                    "Evaluation is stale. Please refresh evaluation before submitting."
+                )
 
+        if pkg.readiness == "READY":
+            context = await build_candidate_career_context(session)
+            from app.modules.document.models import Document
+            from app.modules.document.service import get_local_file_path
+            from app.modules.opportunity.evidence_integrity import claim_matches_fact
+
+            artifact_invalid = False
+            for ref in pkg.generated_documents:
+                try:
+                    ident = uuid.UUID(ref.document_id or "")
+                    document = await session.get(Document, ident)
+                    path = get_local_file_path(ident, ref.title)
+                    artifact_invalid |= (
+                        not document
+                        or not path
+                        or not path.is_file()
+                        or ref.parent_document_id != pkg.base_cv_document_id
+                        or ref.opportunity_id != str(opportunity_id)
+                    )
+                except (ValueError, OSError):
+                    artifact_invalid = True
+            if any(
+                f.status == "unsupported"
+                or (
+                    f.status == "verified"
+                    and not claim_matches_fact(
+                        f.claim, context.get_fact(f.candidate_fact_ref or "")
+                    )
+                )
+                for f in pkg.fact_verification
+            ):
+                pkg.readiness = "UNSUPPORTED_CLAIMS"
+                return pkg
+            if (
+                not context.base_cv
+                or not context.base_cv.get("content_available")
+                or pkg.provenance.get("candidate_context_revision") != context.revision
+                or not pkg.generated_documents
+                or any(not ref.document_id for ref in pkg.generated_documents)
+                or pkg.provenance.get("render_validation") != "passed"
+                or pkg.cover_letter
+                or artifact_invalid
+                or any(f.status == "ambiguous" for f in pkg.fact_verification)
+            ):
+                pkg.readiness = "NEEDS_INPUT"
+                pkg.warnings.append(
+                    "Legacy or incomplete package requires current source/artifact verification."
+                )
         return pkg
 
     get_application_package = get_package
@@ -201,7 +263,9 @@ class ApplicationPackageService:
         # 1. Fetch current DeepEvaluation and enforce non-staleness
         evaluation = await self.eval_service.get_evaluation(session, opportunity_id)
         if evaluation is None:
-            raise ValueError("Opportunity must be evaluated before preparing an application package.")
+            raise ValueError(
+                "Opportunity must be evaluated before preparing an application package."
+            )
 
         if evaluation.is_stale:
             raise ValueError(
@@ -252,7 +316,6 @@ class ApplicationPackageService:
         has_needs_input = False
 
         verified_fact_keys = {f.key for f in cand_ctx.facts if f.verified}
-        verified_skills_lower = {s.lower() for s in cand_ctx.skills}
 
         cv_verifications: list[CvFactVerification] = []
         for fv in tailored_draft.fact_verifications:
@@ -261,13 +324,23 @@ class ApplicationPackageService:
             if status == "unsupported":
                 has_unsupported = True
                 warnings.append(f"Unsupported claim in tailored CV: '{fv.claim}'")
-            elif status == "verified" and fv.candidate_fact_ref:
-                if fv.candidate_fact_ref not in verified_fact_keys and not any(
-                    s in fv.candidate_fact_ref.lower() for s in verified_skills_lower
+            elif status == "verified":
+                fact = cand_ctx.get_fact(fv.candidate_fact_ref or "")
+                from app.modules.opportunity.evidence_integrity import claim_matches_fact
+
+                if (
+                    not fv.candidate_fact_ref
+                    or fv.candidate_fact_ref not in verified_fact_keys
+                    or not claim_matches_fact(fv.claim, fact)
                 ):
                     status = "unsupported"
                     has_unsupported = True
-                    warnings.append(f"Claim references unverified fact key: '{fv.candidate_fact_ref}'")
+                    warnings.append(
+                        f"Claim references unverified fact key: '{fv.candidate_fact_ref}'"
+                    )
+            elif status == "ambiguous":
+                has_needs_input = True
+                warnings.append(f"Ambiguous material claim requires review: '{fv.claim}'")
 
             cv_verifications.append(
                 CvFactVerification(
@@ -280,6 +353,33 @@ class ApplicationPackageService:
 
         app_answers: list[ApplicationAnswer] = []
         for a in answers_draft:
+            from app.modules.opportunity.evidence_integrity import claim_matches_fact
+
+            if a.classification == "safe_verified" and (
+                not valid_refs(a.evidence_refs, cand_ctx)
+                or not any(
+                    claim_matches_fact(a.proposed_answer, cand_ctx.get_fact(ref))
+                    for ref in a.evidence_refs
+                )
+            ):
+                a.classification = "needs_user_input"
+                a.proposed_answer = ""
+                a.evidence_refs = []
+                a.warning = "No valid canonical evidence for answer."
+            if any(
+                term in a.question.casefold()
+                for term in (
+                    "authorized",
+                    "authorization",
+                    "visa",
+                    "sponsor",
+                    "clearance",
+                    "citizenship",
+                )
+            ):
+                a.classification = "sensitive_user_decision"
+                a.proposed_answer = ""
+                a.evidence_refs = []
             if a.classification in ("needs_user_input", "sensitive_user_decision"):
                 has_needs_input = True
                 warnings.append(f"Question requires user input: '{a.question}'")
@@ -294,6 +394,12 @@ class ApplicationPackageService:
                 )
             )
 
+        if not cand_ctx.base_cv or not cand_ctx.base_cv.get("content_available"):
+            has_needs_input = True
+            warnings.append(
+                "Actual canonical CV content is unavailable; metadata cannot establish readiness."
+            )
+
         # Determine readiness state
         if has_unsupported:
             readiness = "UNSUPPORTED_CLAIMS"
@@ -305,28 +411,98 @@ class ApplicationPackageService:
         # 8. Document Generation / Linking (HTML representation)
         generated_docs: list[GeneratedDocumentRef] = []
         html_cv_title = f"{listing_ctx.company} - Tailored CV"
+        from app.modules.document.service import create_local_document
+        from app.modules.opportunity.cv_artifacts import (
+            build_cv_html,
+            render_cv_pdf,
+            verify_material_claims,
+        )
+
+        if not verify_material_claims(tailored_draft, cand_ctx):
+            readiness = "UNSUPPORTED_CLAIMS"
+            has_unsupported = True
+            warnings.append(
+                "Tailored content contains material claims not exactly supported by source evidence; review required."
+            )
+        html_cv = build_cv_html(tailored_draft, cand_ctx)
+        cv_doc = await create_local_document(
+            session,
+            title=f"{opportunity_id}-tailored.html",
+            category="tailored_cv",
+            mime="text/html",
+            content=html_cv.encode(),
+            commit=False,
+        )
         generated_docs.append(
             GeneratedDocumentRef(
-                document_id=None,
+                document_id=str(cv_doc["id"]),
                 doc_type="tailored_cv",
                 title=html_cv_title,
+                file_path=f"/api/documents/{cv_doc['id']}/file",
                 mime="text/html",
             )
         )
-        if cover_draft.cover_letter:
+        pdf, render_validation = await render_cv_pdf(html_cv)
+        if pdf:
+            pdf_doc = await create_local_document(
+                session,
+                title=f"{opportunity_id}-tailored.pdf",
+                category="tailored_cv",
+                mime="application/pdf",
+                content=pdf,
+                commit=False,
+            )
             generated_docs.append(
                 GeneratedDocumentRef(
-                    document_id=None,
+                    document_id=str(pdf_doc["id"]),
+                    doc_type="pdf_cv",
+                    title=html_cv_title,
+                    file_path=f"/api/documents/{pdf_doc['id']}/file",
+                    mime="application/pdf",
+                )
+            )
+        elif readiness == "READY":
+            readiness = "RENDER_FAILED"
+            warnings.append("PDF rendering unavailable or failed; package cannot be READY.")
+        if cover_draft.cover_letter:
+            if not valid_refs(cover_draft.evidence_refs, cand_ctx):
+                readiness = "UNSUPPORTED_CLAIMS"
+                has_unsupported = True
+                warnings.append("Cover letter lacks valid canonical candidate evidence.")
+            # Referencing a true skill does not prove every sentence in generated prose.
+            if readiness == "READY":
+                readiness = "NEEDS_INPUT"
+            warnings.append("Generated cover-letter prose requires explicit material-claim review.")
+            cover_doc = await create_local_document(
+                session,
+                title=f"{opportunity_id}-cover.txt",
+                category="cover_letter",
+                mime="text/plain",
+                content=cover_draft.cover_letter.encode(),
+                commit=False,
+            )
+            generated_docs.append(
+                GeneratedDocumentRef(
+                    document_id=str(cover_doc["id"]),
                     doc_type="cover_letter",
                     title=f"{listing_ctx.company} - Cover Letter",
                     mime="text/plain",
+                    file_path=f"/api/documents/{cover_doc['id']}/file",
                 )
             )
+
+        for reference in generated_docs:
+            reference.parent_document_id = base_cv_id
+            reference.opportunity_id = str(opportunity_id)
 
         package_model = ApplicationPackage(
             application_id=str(opportunity_id),
             opportunity_id=str(opportunity_id),
-            evaluation_revision=f"{evaluation.listing_fingerprint}:{evaluation.candidate_context_revision}",
+            evaluation_revision=hashlib.sha256(
+                json.dumps(
+                    evaluation.model_dump(exclude={"is_stale", "stale_reasons"}), sort_keys=True
+                ).encode()
+            ).hexdigest(),
             listing_fingerprint=evaluation.listing_fingerprint,
             base_cv_document_id=base_cv_id,
             tailored_cv={
@@ -334,13 +510,41 @@ class ApplicationPackageService:
                 "summary": tailored_draft.summary,
                 "skills": tailored_draft.skills,
                 "experience": tailored_draft.experience,
+                "projects": tailored_draft.projects,
+                "languages": tailored_draft.languages,
                 "education": tailored_draft.education,
             },
-            cv_change_audit=[CvChangeItem.model_validate(c.model_dump()) for c in tailored_draft.changes],
+            cv_change_audit=[
+                CvChangeItem.model_validate(c.model_dump()) for c in tailored_draft.changes
+            ],
             fact_verification=cv_verifications,
             cover_letter=cover_draft.cover_letter,
             application_answers=app_answers,
-            knockout_answers=[],
+            knockout_answers=[
+                KnockoutAnswer(
+                    question=a.question,
+                    proposed_answer=a.proposed_answer,
+                    classification=a.classification,
+                    evidence_refs=a.evidence_refs,
+                    evidence=", ".join(a.evidence_refs),
+                    confidence=a.confidence,
+                    warning=a.warning,
+                )
+                for a in app_answers
+                if any(
+                    term in a.question.casefold()
+                    for term in (
+                        "years",
+                        "degree",
+                        "authorized",
+                        "visa",
+                        "sponsor",
+                        "location",
+                        "clearance",
+                        "certification",
+                    )
+                )
+            ],
             warnings=warnings,
             readiness_reasons=list(warnings),
             generated_documents=generated_docs,
@@ -349,12 +553,23 @@ class ApplicationPackageService:
                 "provider": self.reasoner.provider_name,
                 "base_cv_document_id": base_cv_id,
                 "prepared_at": now.isoformat(),
+                "candidate_context_revision": cand_ctx.revision,
+                "render_validation": render_validation["status"],
+                "render_details": render_validation,
+                "visual_validation": "unavailable",
             },
             created_at=now.isoformat(),
             updated_at=now.isoformat(),
         )
 
         # 9. Canonical Persistence: Application entity (preparing status, never auto-submitted)
+        fresh_candidate = await build_candidate_career_context(session)
+        fresh_listing = await build_career_listing_context(session, opp)
+        if (
+            fresh_candidate.revision != cand_ctx.revision
+            or fresh_listing.listing_fingerprint != listing_ctx.listing_fingerprint
+        ):
+            raise ValueError("Evidence changed during package generation; retry required.")
         app = await session.get(Application, opportunity_id)
         if app is None:
             # Create Application entity backed via create_entity
@@ -374,7 +589,7 @@ class ApplicationPackageService:
             app.cover_letter = cover_draft.cover_letter
             app.updated_at = now
             if app.status == "preparing":
-                touch_entity(session, app)
+                await touch_entity(session, opp.id)
 
         await session.flush()
 
@@ -404,6 +619,25 @@ class ApplicationPackageService:
         pkg = await self.get_package(session, opportunity_id)
         if pkg is None:
             raise ValueError("Application package does not exist.")
+        if not user_answer.strip() or not any(
+            a.question == question for a in pkg.application_answers
+        ):
+            raise ValueError("A known question and non-empty user answer are required.")
+        import hashlib
+
+        manual_ref = (
+            f"manual_answer:{opportunity_id}:{hashlib.sha256(question.encode()).hexdigest()[:16]}"
+        )
+        provenance = dict(pkg.provenance)
+        provenance["user_answers"] = dict(provenance.get("user_answers") or {})
+        provenance["user_answers"][manual_ref] = {
+            "question": question,
+            "answer": user_answer,
+            "source_type": "manual",
+            "verified": True,
+            "recorded_at": datetime.now(UTC).isoformat(),
+        }
+        pkg.provenance = provenance
 
         updated_answers = []
         for ans in pkg.application_answers:
@@ -413,7 +647,7 @@ class ApplicationPackageService:
                         question=ans.question,
                         proposed_answer=user_answer,
                         classification="safe_verified",
-                        evidence_refs=["user_provided_answer"],
+                        evidence_refs=[manual_ref],
                         confidence=1.0,
                         warning=None,
                     )
@@ -422,22 +656,43 @@ class ApplicationPackageService:
                 updated_answers.append(ans)
 
         pkg.application_answers = updated_answers
+        for knockout in pkg.knockout_answers:
+            if knockout.question == question:
+                knockout.proposed_answer = user_answer
+                knockout.classification = "safe_verified"
+                knockout.evidence_refs = [manual_ref]
+                knockout.evidence = manual_ref
+                knockout.confidence = 1
+                knockout.warning = None
 
         # Re-check readiness
-        has_unsupported = any(fv.status == "unsupported" for fv in pkg.fact_verification)
+        has_unsupported = pkg.readiness == "UNSUPPORTED_CLAIMS" or any(
+            fv.status == "unsupported" for fv in pkg.fact_verification
+        )
         has_needs_input = any(
             a.classification in ("needs_user_input", "sensitive_user_decision")
             for a in pkg.application_answers
         )
 
         new_warnings = [
-            w for w in pkg.warnings
+            w
+            for w in pkg.warnings
             if not w.startswith(f"Question requires user input: '{question}'")
         ]
 
         if has_unsupported:
             pkg.readiness = "UNSUPPORTED_CLAIMS"
         elif has_needs_input:
+            pkg.readiness = "NEEDS_INPUT"
+        elif pkg.readiness in ("STALE_EVALUATION", "RENDER_FAILED"):
+            pass
+        elif (
+            not pkg.base_cv_document_id
+            or not pkg.generated_documents
+            or pkg.provenance.get("render_validation") != "passed"
+            or bool(pkg.cover_letter)
+            or any(fv.status == "ambiguous" for fv in pkg.fact_verification)
+        ):
             pkg.readiness = "NEEDS_INPUT"
         else:
             pkg.readiness = "READY"
@@ -450,5 +705,20 @@ class ApplicationPackageService:
         if app is not None:
             app.package = pkg.model_dump()
             await session.flush()
+            # Answer resolution cannot bypass the current source/artifact gate.
+            # Revalidate before the outer transaction can commit or return READY.
+            if pkg.readiness == "READY":
+                checked = await self.get_package(session, opportunity_id)
+                if checked is not None:
+                    pkg = checked
+                    app.package = pkg.model_dump()
+                    await session.flush()
+            await log_event(
+                session,
+                verb="opportunity.package_answer_resolved",
+                entity_id=opportunity_id,
+                entity_type="opportunity",
+                payload={"evidence_ref": manual_ref},
+            )
 
         return pkg

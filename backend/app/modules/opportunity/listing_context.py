@@ -9,10 +9,7 @@ Consume C3/C3.2 canonical evidence only:
 
 from __future__ import annotations
 
-import hashlib
-import json
 from typing import Any
-import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -20,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
 from app.modules.opportunity.intelligence import listing_fingerprint
-from app.modules.opportunity.listing_service import OpportunityListingService, compute_jd_hash
+from app.modules.opportunity.listing_service import compute_jd_hash
 from app.modules.opportunity.models import Opportunity, OpportunitySourceObservation
 
 
@@ -51,6 +48,7 @@ async def build_career_listing_context(
     opportunity: Opportunity,
     *,
     title: str | None = None,
+    source_observations: list[OpportunitySourceObservation] | None = None,
 ) -> CareerListingContext:
     """Build CareerListingContext strictly from canonical C3/C3.2 verified evidence."""
     if title is None:
@@ -58,12 +56,15 @@ async def build_career_listing_context(
         title = entity.title if entity else ""
 
     # Fetch source observations
-    res = await session.execute(
-        select(OpportunitySourceObservation).where(
-            OpportunitySourceObservation.opportunity_id == opportunity.id
+    if source_observations is None:
+        res = await session.execute(
+            select(OpportunitySourceObservation).where(
+                OpportunitySourceObservation.opportunity_id == opportunity.id
+            )
         )
-    )
-    observations = list(res.scalars().all())
+        observations = list(res.scalars().all())
+    else:
+        observations = source_observations
 
     raw = dict(opportunity.raw or {})
     canonical_desc = str(raw.get("description") or opportunity.notes or "").strip()
@@ -86,24 +87,29 @@ async def build_career_listing_context(
         jd_ext = enrichment.get("jd_extraction")
         if jd_ext:
             ident_status = jd_ext.get("identity_status")
-            if ident_status in ("invalid_non_job", "uncertain_identity"):
+            if ident_status in ("invalid_non_job", "uncertain_identity") and (
+                not canonical_desc or len(canonical_desc) < 200
+            ):
                 # Non-job error/redirect extraction was recorded
-                if not canonical_desc or len(canonical_desc) < 200:
-                    is_rejected = True
-                    rejection_reason = jd_ext.get("promotion_reason") or ident_status
-            source_provenance.append({
-                "source": obs.source,
-                "url": obs.canonical_url,
-                "jd_extraction": jd_ext,
-            })
+                is_rejected = True
+                rejection_reason = jd_ext.get("promotion_reason") or ident_status
+            source_provenance.append(
+                {
+                    "source": obs.source,
+                    "url": obs.canonical_url,
+                    "jd_extraction": jd_ext,
+                }
+            )
         liv = enrichment.get("liveness")
         if liv:
-            liveness_aggregate["observations"].append({
-                "source": obs.source,
-                "status": liv.get("status"),
-                "checked_at": liv.get("checked_at"),
-                "method": liv.get("method"),
-            })
+            liveness_aggregate["observations"].append(
+                {
+                    "source": obs.source,
+                    "status": liv.get("status"),
+                    "checked_at": liv.get("checked_at"),
+                    "method": liv.get("method"),
+                }
+            )
 
     # Validate JD substantive content
     if not canonical_desc or len(canonical_desc) < 100:
@@ -134,7 +140,9 @@ async def build_career_listing_context(
         "health_score": health_score,
         "jd_completeness": "complete" if len(canonical_desc) >= 300 else "stub",
         "salary_transparency": "stated" if opportunity.compensation else "missing",
-        "liveness_status": "live" if opportunity.source_status == "active" else (opportunity.source_status or "uncertain"),
+        "liveness_status": "live"
+        if opportunity.source_status == "active"
+        else (opportunity.source_status or "uncertain"),
         "repost_frequency": "single",
     }
     repost_signals = {

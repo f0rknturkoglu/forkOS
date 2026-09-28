@@ -138,7 +138,7 @@ async def test_doctor_ready_path_causes_zero_canonical_db_mutations(
     assert len(caps) > 0
     supported_caps = [c for c in caps if c.status.value == "supported"]
     assert doc.capabilities_available == len(supported_caps)
-    assert len(supported_caps) == 4
+    assert len(supported_caps) == 10
 
 
     fp_after = await capture_db_content_fingerprint(db_session)

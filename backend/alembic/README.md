@@ -4,7 +4,7 @@ forkOS migration zincirinin gerçeği dosya adları değil, her revision içinde
 
 ## Güncel durum
 
-- Tek head: `0069_semantic_eligibility`
+- Tek head: `0072_interview_intelligence`
 - Taban: `0001_core`
 - Zincir doğrulaması: `backend/tests/test_migrations.py::test_revisions_form_a_single_chain`
 

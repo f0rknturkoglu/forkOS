@@ -5,6 +5,7 @@ import { api } from "@/core/api";
 import { Button, Checkbox, Chip, Empty, Section, Spinner, cx } from "@/core/ui";
 import type { CareerStory, Interview, InterviewPrepGroup, Opportunity, SalaryConsistency } from "@/core/types";
 import { applicationStatusLabel } from "./labels";
+import { InterviewIntelligencePanel } from "./InterviewIntelligencePanel";
 
 interface PrepGroup {
   application: Opportunity;
@@ -197,6 +198,7 @@ export function InterviewPrepPanel() {
                           </div>
                         ))}
                       </div>
+                      <InterviewIntelligencePanel interviewId={interview.id} />
                     </div>
                   );
                 })}

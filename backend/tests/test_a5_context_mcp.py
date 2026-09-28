@@ -14,7 +14,7 @@ from tests.agent_test_utils import capture_db_content_fingerprint, mcp_session, 
 @pytest.mark.no_database
 async def test_context_judge_tool_contract():
     tools = {tool.name: tool for tool in await mcp_server.list_tools()}
-    assert len(tools) == 34
+    assert len(tools) == 36
     tool = tools["forkos_context_judge"]
     assert tool.annotations.read_only_hint is True
     assert tool.annotations.destructive_hint is False

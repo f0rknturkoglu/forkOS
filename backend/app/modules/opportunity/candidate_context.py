@@ -10,12 +10,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict
 from typing import Any, Literal
-import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
@@ -31,6 +29,7 @@ class CandidateFact(BaseModel):
     value: Any
     source_type: Literal["config", "career_story", "document", "system_setting", "manual"]
     source_id: str | None = None
+    source_locator: str | None = None
     confidence: float = 1.0
     verified: bool = True
 
@@ -62,9 +61,8 @@ class CandidateCareerContext(BaseModel):
     def has_verified_skill(self, skill_name: str) -> bool:
         norm = skill_name.strip().lower()
         for f in self.facts:
-            if f.key.startswith("skill:") and f.verified:
-                if str(f.value).strip().lower() == norm:
-                    return True
+            if f.key.startswith("skill:") and f.verified and str(f.value).strip().lower() == norm:
+                return True
         return False
 
 
@@ -72,8 +70,14 @@ def compute_candidate_context_revision(facts: list[CandidateFact]) -> str:
     """Deterministic hash of sorted facts for evaluation/package staleness checking."""
     fact_tokens = []
     for f in sorted(facts, key=lambda x: (x.key, str(x.value))):
-        val_str = json.dumps(f.value, sort_keys=True) if isinstance(f.value, (dict, list)) else str(f.value)
-        fact_tokens.append(f"{f.key}:{val_str}:{f.source_type}:{f.source_id or ''}:{f.verified}")
+        val_str = (
+            json.dumps(f.value, sort_keys=True)
+            if isinstance(f.value, (dict, list))
+            else str(f.value)
+        )
+        fact_tokens.append(
+            f"{f.key}:{val_str}:{f.source_type}:{f.source_id or ''}:{f.source_locator}:{f.confidence}:{f.verified}"
+        )
     serialized = "|".join(fact_tokens)
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
 
@@ -85,6 +89,7 @@ async def build_candidate_career_context(session: AsyncSession) -> CandidateCare
     # 1. Configured skills and targeting preferences (forkjob / data / config.yaml)
     try:
         from pathlib import Path
+
         cfg_path = jobhunter_config_path()
         if not cfg_path.exists():
             fallback_path = Path(__file__).resolve().parents[3] / "data" / "config.yaml"
@@ -190,7 +195,18 @@ async def build_candidate_career_context(session: AsyncSession) -> CandidateCare
             Entity.archived_at.is_(None),
             Document.category.in_(("cv", "resume", "ozgecmis")),
         )
-        .order_by(Document.synced_at.desc())
+        .order_by(
+            case(
+                (
+                    Document.mime
+                    == "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    0,
+                ),
+                else_=1,
+            ),
+            Document.synced_at.desc(),
+            Document.id,
+        )
         .limit(1)
     )
     cv_row = res_cv.first()
@@ -202,6 +218,17 @@ async def build_candidate_career_context(session: AsyncSession) -> CandidateCare
             "category": cv_doc.category,
             "mime": cv_doc.mime,
         }
+        from app.modules.document.service import get_local_file_path
+        from app.modules.opportunity.cv_evidence import extract_cv_evidence
+
+        path = get_local_file_path(cv_doc.id, cv_title)
+        try:
+            evidence = extract_cv_evidence(path, str(cv_doc.id)) if path else []
+        except (OSError, ValueError):
+            evidence = []
+        facts.extend(evidence)
+        base_cv_dict["content_available"] = bool(evidence)
+        base_cv_dict["sections"] = [f.model_dump() for f in evidence]
         facts.append(
             CandidateFact(
                 key=f"base_cv:{cv_doc.id}",
@@ -209,10 +236,20 @@ async def build_candidate_career_context(session: AsyncSession) -> CandidateCare
                 source_type="document",
                 source_id=str(cv_doc.id),
                 confidence=1.0,
-                verified=True,
+                verified=bool(evidence),
             )
         )
 
+    # CV evidence takes precedence over scoring/targeting keywords. A targeting
+    # keyword alone is not proof that the candidate has that skill.
+    if base_cv_dict and base_cv_dict.get("content_available"):
+        doc_skills = {
+            f.key for f in facts if f.source_type == "document" and f.key.startswith("skill:")
+        }
+        facts = [f for f in facts if not (f.source_type == "config" and f.key in doc_skills)]
+        for fact in facts:
+            if fact.source_type == "config" and fact.key.startswith(("skill:", "skill_alias:")):
+                fact.verified = False
     # Extract high-level lists from facts
     skills = [str(f.value) for f in facts if f.key.startswith("skill:") and f.verified]
     target_roles = [str(f.value) for f in facts if f.key.startswith("target_role:") and f.verified]

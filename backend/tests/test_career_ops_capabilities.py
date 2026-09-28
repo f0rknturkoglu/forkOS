@@ -73,7 +73,7 @@ async def test_doctor_and_adapter_capabilities_agreement(mock_checkout, monkeypa
     caps_ready = await adapter_ready.capabilities()
     supported_ready_count = sum(1 for c in caps_ready if c.status == CapabilityStatus.SUPPORTED)
     assert doc_ready.capabilities_available == supported_ready_count
-    assert doc_ready.capabilities_available == 6  # doctor, reverse_ats, repost, legitimacy, liveness, extract
+    assert doc_ready.capabilities_available == 12  # six upstream + six local C6/C7 capabilities
 
     # Case 2: Browser missing (degraded tier for liveness & extract)
     monkeypatch.setattr("app.integrations.career_ops.doctor.probe_browser_readiness", lambda *args, **kwargs: False)
@@ -82,7 +82,7 @@ async def test_doctor_and_adapter_capabilities_agreement(mock_checkout, monkeypa
     caps_nobrowser = await adapter_nobrowser.capabilities()
     supported_nobrowser_count = sum(1 for c in caps_nobrowser if c.status == CapabilityStatus.SUPPORTED)
     assert doc_nobrowser.capabilities_available == supported_nobrowser_count
-    assert doc_nobrowser.capabilities_available == 4  # doctor, reverse_ats, repost, legitimacy
+    assert doc_nobrowser.capabilities_available == 10
     # liveness and extract should be DEGRADED
     cap_dict = {c.id: c.status for c in caps_nobrowser}
     assert cap_dict["discovery.liveness"] == CapabilityStatus.DEGRADED
@@ -95,7 +95,7 @@ async def test_doctor_and_adapter_capabilities_agreement(mock_checkout, monkeypa
     caps_nodisc = await adapter_nodisc.capabilities()
     supported_nodisc_count = sum(1 for c in caps_nodisc if c.status == CapabilityStatus.SUPPORTED)
     assert doc_nodisc.capabilities_available == supported_nodisc_count
-    assert doc_nodisc.capabilities_available == 3  # doctor, repost, legitimacy
+    assert doc_nodisc.capabilities_available == 9
 
     # Case 4: Integration disabled
     adapter_disabled = CareerOpsAdapter(enabled=False, checkout_dir=mock_checkout)
@@ -122,4 +122,4 @@ async def test_doctor_and_adapter_capabilities_agreement(mock_checkout, monkeypa
     caps_degraded = await adapter_degraded.capabilities()
     supported_degraded_count = sum(1 for c in caps_degraded if c.status == CapabilityStatus.SUPPORTED)
     assert doc_degraded.capabilities_available == supported_degraded_count
-    assert doc_degraded.capabilities_available == 6
+    assert doc_degraded.capabilities_available == 12

@@ -7,6 +7,7 @@ import { VAULT_ITEM_KEY, getVaultItem, getVaultSearchUri, openObsidianUri, type 
 import { planDayForToday } from "@/core/tasks";
 import { Button, Chip, Input, SectionHeader, Select, Spinner, Textarea, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
+import { InterviewIntelligencePanel } from "./InterviewIntelligencePanel";
 import type {
   Application,
   CareerStory,
@@ -694,7 +695,7 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
           {interviews.map((iv) => (
             <li
               key={iv.id}
-              className="flex items-center gap-2 rounded-control border border-subtle px-3 py-2 text-meta"
+              className="flex flex-wrap items-center gap-2 rounded-control border border-subtle px-3 py-2 text-meta"
             >
               <span className="min-w-0 flex-1">
                 <strong className="text-primary">{iv.stage}</strong>
@@ -715,6 +716,9 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
               >
                 <X size={13} />
               </button>
+              <div className="w-full">
+                <InterviewIntelligencePanel interviewId={iv.id} />
+              </div>
             </li>
           ))}
         </ul>

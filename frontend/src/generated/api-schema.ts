@@ -1040,6 +1040,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/career/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Career Insights */
+        get: operations["career_insights_api_career_insights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/career/interview-prep": {
         parameters: {
             query?: never;
@@ -1054,6 +1071,74 @@ export interface paths {
         get: operations["career_interview_prep_api_career_interview_prep_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/interviews/{id}/debrief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Debrief Interview Intelligence */
+        post: operations["debrief_interview_intelligence_api_career_interviews__id__debrief_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/interviews/{id}/intelligence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Interview Intelligence */
+        get: operations["read_interview_intelligence_api_career_interviews__id__intelligence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/interviews/{id}/practice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Practice Interview Intelligence */
+        post: operations["practice_interview_intelligence_api_career_interviews__id__practice_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/interviews/{id}/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare Interview Intelligence */
+        post: operations["prepare_interview_intelligence_api_career_interviews__id__prepare_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6037,6 +6122,65 @@ export interface components {
             /** Suspended */
             suspended?: boolean | null;
         };
+        /** CareerAnalyticsSnapshot */
+        CareerAnalyticsSnapshot: {
+            /** Briefing */
+            briefing: {
+                [key: string]: string;
+            };
+            /** Calibration */
+            calibration: {
+                [key: string]: unknown;
+            }[];
+            /** Cohorts */
+            cohorts: components["schemas"]["Cohort"][];
+            /** Confidence Notes */
+            confidence_notes: string[];
+            /** Conversions */
+            conversions: {
+                [key: string]: components["schemas"]["Conversion"];
+            };
+            /** Durations */
+            durations: {
+                [key: string]: {
+                    [key: string]: number | null;
+                };
+            };
+            /** Evaluated Population */
+            evaluated_population: number;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Fingerprint */
+            fingerprint: string;
+            /** Funnel */
+            funnel: {
+                [key: string]: number;
+            };
+            /** Generated At */
+            generated_at: string;
+            /** Geography */
+            geography: components["schemas"]["Cohort"][];
+            /** Lineage */
+            lineage: {
+                [key: string]: unknown;
+            }[];
+            /** Minimum Sample */
+            minimum_sample: number;
+            /** Period */
+            period: {
+                [key: string]: string;
+            };
+            /** Population */
+            population: number;
+            /** Rejection Patterns */
+            rejection_patterns: {
+                [key: string]: unknown;
+            }[];
+            /** Skill Gaps */
+            skill_gaps: components["schemas"]["SkillGapSignal"][];
+            /** Source Performance */
+            source_performance: components["schemas"]["Cohort"][];
+        };
         /** CareerConnectionOut */
         CareerConnectionOut: {
             /** Company */
@@ -6159,6 +6303,22 @@ export interface components {
              */
             target: string;
         };
+        /** Cohort */
+        Cohort: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Dimension */
+            dimension: string;
+            interview_conversion: components["schemas"]["Conversion"];
+            /** Sample Size */
+            sample_size: number;
+            /** Status */
+            status: string;
+            /** Value */
+            value: string;
+        };
         /** CollectionCount */
         CollectionCount: {
             /** Collection */
@@ -6215,6 +6375,17 @@ export interface components {
             last_context_at?: string | null;
             /** Last Harness */
             last_harness: string | null;
+        };
+        /** Conversion */
+        Conversion: {
+            /** Denominator */
+            denominator: number;
+            /** Numerator */
+            numerator: number;
+            /** Rate */
+            rate: number | null;
+            /** Status */
+            status: string;
         };
         /** ConvertToTaskIn */
         ConvertToTaskIn: {
@@ -6442,6 +6613,37 @@ export interface components {
              * @enum {string}
              */
             status: "verified" | "unsupported" | "ambiguous";
+        };
+        /** DebriefIn */
+        DebriefIn: {
+            /**
+             * Candidate Notes
+             * @default
+             */
+            candidate_notes: string;
+            /** Employer Feedback */
+            employer_feedback?: string | null;
+            /** Follow Up Items */
+            follow_up_items?: string[];
+            /** New Story Proposals */
+            new_story_proposals?: components["schemas"]["StoryProposal"][];
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Outcome If Known */
+            outcome_if_known?: string | null;
+            /** Perceived Gaps */
+            perceived_gaps?: string[];
+            /** Perceived Strengths */
+            perceived_strengths?: string[];
+            /** Questions Asked */
+            questions_asked?: string[];
+            /** Story Updates */
+            story_updates?: string[];
+            /** Topics */
+            topics?: string[];
         };
         /**
          * DecisionIn
@@ -7119,6 +7321,10 @@ export interface components {
              * @default text/plain
              */
             mime: string;
+            /** Opportunity Id */
+            opportunity_id?: string | null;
+            /** Parent Document Id */
+            parent_document_id?: string | null;
             /** Title */
             title: string;
         };
@@ -7350,6 +7556,71 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /** InterviewDebrief */
+        InterviewDebrief: {
+            /**
+             * Candidate Notes
+             * @default
+             */
+            candidate_notes: string;
+            /** Created At */
+            created_at: string;
+            /** Employer Feedback */
+            employer_feedback?: string | null;
+            /**
+             * Employer Feedback Source
+             * @default user_reported_quote_not_independently_verified
+             */
+            employer_feedback_source: string;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Follow Up Items */
+            follow_up_items?: string[];
+            /**
+             * Follow Up Status
+             * @default draft_requires_approval
+             */
+            follow_up_status: string;
+            /**
+             * Interpretation
+             * @default Öz değerlendirme; işverenin karar nedeni değildir.
+             */
+            interpretation: string;
+            /** Interview Id */
+            interview_id: string;
+            /** New Story Proposals */
+            new_story_proposals?: components["schemas"]["StoryProposal"][];
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Outcome If Known */
+            outcome_if_known?: string | null;
+            /** Perceived Gaps */
+            perceived_gaps?: string[];
+            /** Perceived Strengths */
+            perceived_strengths?: string[];
+            /** Questions Asked */
+            questions_asked?: string[];
+            /** Skill Signals */
+            skill_signals: string[];
+            /**
+             * Source Type
+             * @default user_report
+             * @constant
+             */
+            source_type: "user_report";
+            /**
+             * Story Update Status
+             * @default proposal_requires_approval
+             */
+            story_update_status: string;
+            /** Story Updates */
+            story_updates?: string[];
+            /** Topics */
+            topics?: string[];
+        };
         /** InterviewIn */
         InterviewIn: {
             /** Duration Min */
@@ -7369,6 +7640,13 @@ export interface components {
              * @default genel
              */
             stage: string;
+        };
+        /** InterviewIntelligence */
+        InterviewIntelligence: {
+            debrief?: components["schemas"]["InterviewDebrief"] | null;
+            /** Practice */
+            practice?: components["schemas"]["InterviewPracticeSession"][];
+            prep?: components["schemas"]["InterviewPrep"] | null;
         };
         /** InterviewOut */
         InterviewOut: {
@@ -7402,6 +7680,105 @@ export interface components {
             /** Stage */
             stage: string;
         };
+        /** InterviewPracticeSession */
+        InterviewPracticeSession: {
+            /** Candidate Answer */
+            candidate_answer: string;
+            /**
+             * Candidate Context Revision
+             * @default
+             */
+            candidate_context_revision: string;
+            /** Created At */
+            created_at: string;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Feedback */
+            feedback: {
+                [key: string]: string;
+            };
+            /** Gaps */
+            gaps: string[];
+            /** Interview Id */
+            interview_id: string;
+            /**
+             * Model
+             * @default review-hints-v1
+             */
+            model: string;
+            /**
+             * Prep Input Revision
+             * @default
+             */
+            prep_input_revision: string;
+            /**
+             * Provider
+             * @default deterministic
+             */
+            provider: string;
+            /** Question */
+            question: string;
+            /** Stage */
+            stage: string | null;
+            /** Strengths */
+            strengths: string[];
+        };
+        /** InterviewPrep */
+        InterviewPrep: {
+            /** Behavioral Topics */
+            behavioral_topics: string[];
+            /** Candidate Context Revision */
+            candidate_context_revision: string;
+            /** Company Summary */
+            company_summary: string;
+            /** Created At */
+            created_at: string;
+            /** Evaluation Revision */
+            evaluation_revision: string;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Focus Areas */
+            focus_areas: string[];
+            /** Input Revision */
+            input_revision: string;
+            /** Interview Id */
+            interview_id: string;
+            /** Interview Stage */
+            interview_stage: string | null;
+            /**
+             * Is Stale
+             * @default false
+             */
+            is_stale: boolean;
+            /** Likely Questions */
+            likely_questions: string[];
+            /** Listing Fingerprint */
+            listing_fingerprint: string;
+            /**
+             * Model
+             * @default evidence-rules-v1
+             */
+            model: string;
+            /** Opportunity Id */
+            opportunity_id: string;
+            /**
+             * Provider
+             * @default deterministic
+             */
+            provider: string;
+            /** Questions To Ask */
+            questions_to_ask: string[];
+            /** Risks */
+            risks: string[];
+            /** Role Summary */
+            role_summary: string;
+            /** Story Recommendations */
+            story_recommendations: components["schemas"]["StoryRecommendation"][];
+            /** Technical Topics */
+            technical_topics: string[];
+            /** Unknowns */
+            unknowns: string[];
+        };
         /**
          * InterviewPrepOut
          * @description Mulakat hazirligi grubu: ilan + gorusmeler + maas tutarliligi.
@@ -7420,12 +7797,20 @@ export interface components {
         /** KnockoutAnswerOut */
         KnockoutAnswerOut: {
             /**
+             * Classification
+             * @default needs_user_input
+             * @enum {string}
+             */
+            classification: "safe_verified" | "needs_user_input" | "sensitive_user_decision";
+            /**
              * Confidence
              * @default 1
              */
             confidence: number;
             /** Evidence */
             evidence: string;
+            /** Evidence Refs */
+            evidence_refs?: string[];
             /** Proposed Answer */
             proposed_answer: string;
             /** Question */
@@ -9210,6 +9595,13 @@ export interface components {
              */
             interrupted: boolean;
         };
+        /** PracticeIn */
+        PracticeIn: {
+            /** Candidate Answer */
+            candidate_answer: string;
+            /** Question */
+            question: string;
+        };
         /**
          * ProactivityConfigIn
          * @description Yalnizca BILINEN alanlar; bilinmeyen anahtar SESSIZCE DUSMEZ (§106).
@@ -10248,6 +10640,39 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** SkillGapSignal */
+        SkillGapSignal: {
+            /** Confidence */
+            confidence: string;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /**
+             * Explicit Feedback Mentions
+             * @default 0
+             */
+            explicit_feedback_mentions: number;
+            /** Interview Mentions */
+            interview_mentions: number;
+            /** Missing Count */
+            missing_count: number;
+            /** Opportunities Seen */
+            opportunities_seen: number;
+            /** Partial Count */
+            partial_count: number;
+            /** Requirement */
+            requirement: string;
+            /** Role Families */
+            role_families: string[];
+            /** Strong Count */
+            strong_count: number;
+            /**
+             * Trend
+             * @default unavailable_no_historical_snapshots
+             */
+            trend: string;
+            /** Unknown Count */
+            unknown_count: number;
+        };
         /** SkillMatchOut */
         SkillMatchOut: {
             /** Match Ratio */
@@ -10500,6 +10925,33 @@ export interface components {
              * Format: uuid
              */
             topic_id: string;
+        };
+        /** StoryProposal */
+        StoryProposal: {
+            /** Action */
+            action: string;
+            /** Result */
+            result: string;
+            /** Situation */
+            situation: string;
+            /** Task */
+            task: string;
+        };
+        /** StoryRecommendation */
+        StoryRecommendation: {
+            /**
+             * Adaptation Notes
+             * @default Yalnızca doğrulayabildiğin ayrıntıları kullan.
+             */
+            adaptation_notes: string;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Likely Question Types */
+            likely_question_types: string[];
+            /** Story Id */
+            story_id: string;
+            /** Why Relevant */
+            why_relevant: string;
         };
         /** StreakOut */
         StreakOut: {
@@ -13287,6 +13739,38 @@ export interface operations {
             };
         };
     };
+    career_insights_api_career_insights_get: {
+        parameters: {
+            query?: {
+                days?: number;
+                minimum?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareerAnalyticsSnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     career_interview_prep_api_career_interview_prep_get: {
         parameters: {
             query?: never;
@@ -13303,6 +13787,138 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InterviewPrepOut"][];
+                };
+            };
+        };
+    };
+    debrief_interview_intelligence_api_career_interviews__id__debrief_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DebriefIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewDebrief"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_interview_intelligence_api_career_interviews__id__intelligence_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewIntelligence"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    practice_interview_intelligence_api_career_interviews__id__practice_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PracticeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewPracticeSession"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_interview_intelligence_api_career_interviews__id__prepare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterviewPrep"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

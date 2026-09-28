@@ -137,7 +137,7 @@ async def test_tool_surface_and_annotations_over_transport() -> None:
     async with mcp_session() as session:
         tools = {tool.name: tool for tool in (await session.list_tools()).tools}
 
-    assert len(tools) == 34
+    assert len(tools) == 36
     assert set(tools) & H3_TOOLS == H3_TOOLS
     assert set(tools) & H2_TOOLS == H2_TOOLS
 

@@ -143,7 +143,7 @@ class CareerOpsAdapter:
 
     async def capabilities(self) -> list[CareerOpsCapability]:
         doc = await self.doctor()
-        reasoner_available = (getattr(settings, "career_reasoner_provider", "none") or "none").lower() != "none"
+        reasoner_available = settings.career_reasoner_provider == "ollama" and bool(settings.career_reasoner_model)
         ctx = CareerOpsCapabilityContext(
             enabled=self.enabled,
             core_ready=doc.core_ready,

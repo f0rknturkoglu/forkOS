@@ -14,7 +14,6 @@ from app.modules.opportunity.reasoner.base import (
     CvChangeItemDraft,
     CvFactVerificationDraft,
     DeepEvaluationDraft,
-    KnockoutAnswerDraft,
     RequirementAssessmentDraft,
     TailoredCvDraft,
 )
@@ -38,8 +37,22 @@ class DeterministicMockCareerReasoner(CareerReasoner):
         # Deterministic extraction of requirements from JD
         detected_tech = []
         known_keywords = [
-            "python", "fastapi", "react", "typescript", "c#", ".net", "sql", "postgresql",
-            "docker", "kubernetes", "aws", "azure", "graphql", "rust", "go", "llm"
+            "python",
+            "fastapi",
+            "react",
+            "typescript",
+            "c#",
+            ".net",
+            "sql",
+            "postgresql",
+            "docker",
+            "kubernetes",
+            "aws",
+            "azure",
+            "graphql",
+            "rust",
+            "go",
+            "llm",
         ]
         for kw in known_keywords:
             if re.search(r"\b" + re.escape(kw) + r"\b", jd_text):
@@ -90,9 +103,15 @@ class DeterministicMockCareerReasoner(CareerReasoner):
         work_auth_status = "unknown"
         work_auth_details = "Listing does not state explicit work authorization constraints."
         work_auth_evidence = []
-        if "must be authorized to work" in jd_text or "us citizenship" in jd_text or "no sponsorship" in jd_text:
+        if (
+            "must be authorized to work" in jd_text
+            or "us citizenship" in jd_text
+            or "no sponsorship" in jd_text
+        ):
             work_auth_status = "likely_constraint"
-            work_auth_details = "Job posting indicates work authorization or citizenship requirement."
+            work_auth_details = (
+                "Job posting indicates work authorization or citizenship requirement."
+            )
             work_auth_evidence.append("jd_text:work_auth_statement")
 
         # Compensation alignment
@@ -100,7 +119,13 @@ class DeterministicMockCareerReasoner(CareerReasoner):
         if listing_ctx.salary:
             comp_alignment = "disclosed"
 
-        role_fit = "strong" if len(strengths) > len(missing_requirements) else "partial" if strengths else "low"
+        role_fit = (
+            "strong"
+            if len(strengths) > len(missing_requirements)
+            else "partial"
+            if strengths
+            else "low"
+        )
 
         return DeepEvaluationDraft(
             overall_assessment=(
@@ -122,17 +147,25 @@ class DeterministicMockCareerReasoner(CareerReasoner):
                 "evidence": work_auth_evidence,
             },
             sponsorship={
-                "sponsorship_available": "unknown" if "sponsor" not in jd_text else False if "no sponsor" in jd_text else True,
+                "sponsorship_available": "unknown"
+                if "sponsor" not in jd_text
+                else "no sponsor" not in jd_text,
                 "notes": "Extracted deterministically from listing text.",
             },
             compensation={
                 "listing_compensation": listing_ctx.salary,
-                "candidate_preference": str(candidate_ctx.salary_min) if candidate_ctx.salary_min else None,
+                "candidate_preference": str(candidate_ctx.salary_min)
+                if candidate_ctx.salary_min
+                else None,
                 "alignment": comp_alignment,
                 "details": "Deterministic salary comparison.",
             },
-            risks=["Missing requirements: " + ", ".join(missing_requirements)] if missing_requirements else [],
-            unknowns=["Specific team day-to-day workflow not detailed in JD."] if not missing_requirements else [],
+            risks=["Missing requirements: " + ", ".join(missing_requirements)]
+            if missing_requirements
+            else [],
+            unknowns=["Specific team day-to-day workflow not detailed in JD."]
+            if not missing_requirements
+            else [],
             recommended_next_steps=[
                 "Highlight verified strengths in application package.",
                 "Address any skill gaps proactively in cover letter.",
@@ -178,22 +211,28 @@ class DeterministicMockCareerReasoner(CareerReasoner):
             )
 
         return TailoredCvDraft(
-            summary=(
-                f"Experienced engineer specializing in {', '.join(evaluation.strengths[:3]) if evaluation.strengths else 'software engineering'}. "
-                "Proven track record delivering reliable, evidence-driven software systems."
+            summary=" ".join(
+                str(f.value.get("text", ""))
+                for f in candidate_ctx.facts
+                if isinstance(f.value, dict) and f.value.get("section") == "summary"
             ),
             skills=ordered_skills,
             experience=[
-                {
-                    "title": "Software Engineer",
-                    "highlights": [
-                        f"Developed scalable systems using {', '.join(evaluation.strengths[:2]) if evaluation.strengths else 'modern engineering practices'}.",
-                        "Implemented robust automated test suites and architectural boundaries.",
-                    ],
-                }
+                {"text": f.value["text"]}
+                for f in candidate_ctx.facts
+                if isinstance(f.value, dict)
+                and f.value.get("section") == "employment"
             ],
-            education=[],
+            education=[
+                {"text": f.value["text"]}
+                for f in candidate_ctx.facts
+                if isinstance(f.value, dict) and f.value.get("section") == "education"
+            ],
             changes=changes,
+            projects=[{"text": f.value["text"]} for f in candidate_ctx.facts
+                      if isinstance(f.value, dict) and f.value.get("section") == "projects"],
+            languages=[f.value["text"] for f in candidate_ctx.facts
+                       if isinstance(f.value, dict) and f.value.get("section") == "languages"],
             fact_verifications=fact_verifications,
         )
 
@@ -206,7 +245,11 @@ class DeterministicMockCareerReasoner(CareerReasoner):
     ) -> CoverLetterDraft:
         company = listing_ctx.company or "the engineering team"
         role = listing_ctx.title or "this position"
-        key_skills = ", ".join(evaluation.strengths[:3]) if evaluation.strengths else "modern software development"
+        key_skills = (
+            ", ".join(evaluation.strengths[:3])
+            if evaluation.strengths
+            else "modern software development"
+        )
 
         story_paragraph = ""
         evidence_refs = []
@@ -215,7 +258,9 @@ class DeterministicMockCareerReasoner(CareerReasoner):
             story_title = top_story.get("title", "")
             action = top_story.get("action", "")
             result = top_story.get("result", "")
-            story_paragraph = f"\nIn my previous work on {story_title}, {action} which resulted in {result}.\n"
+            story_paragraph = (
+                f"\nIn my previous work on {story_title}, {action} which resulted in {result}.\n"
+            )
             evidence_refs.append(f"career_story:{top_story.get('id')}")
 
         for s in evaluation.strengths[:3]:

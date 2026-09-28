@@ -130,11 +130,18 @@ FAMILIES: tuple[FamilySpec, ...] = (
         summary="H3 kanıtını, A4 hafıza adayını ve açık iddiaları yerel, salt-okunur biçimde değerlendirir; yazma yetkisi vermez.",
         tools=("forkos_context_judge", "forkos_memory_judge", "forkos_answer_judge"),
     ),
+    FamilySpec(
+        id="Career",
+        label="Kariyer zekâsı",
+        summary="Yerel görüşme hazırlığı, sınırlı prova, kullanıcı debrief'i ve salt-okunur sonuç analitiği.",
+        tools=("forkos_career_interview", "forkos_career_insights"),
+    ),
 )
 
 #: Talimat metninde her ailenin ROLÜ. `FAMILIES` ile birebir örtüşmek zorundadır:
 #: eksik bir aile `instructions()` çağrısını sessizce atlamaz, KeyError verir.
 _FAMILY_ROLE: dict[str, str] = {
+    "Career": "Career: evidence-bound interview artifacts require approval for writes; insights are deterministic associations without mutations, never employer motives or automatic actions.",
     "H0": (
         "H0 operational and knowledge context: day briefing, operational search, "
         "entity/project context, recent activity, and Vault knowledge status, search and read."

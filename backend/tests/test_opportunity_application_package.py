@@ -199,7 +199,7 @@ async def test_application_package_answers_needs_user_input_and_resolution(db_se
     resolved_q = [a for a in updated_pkg.application_answers if a.question == "What is your notice period?"][0]
     assert resolved_q.proposed_answer == "2 weeks notice period"
     assert resolved_q.classification == "safe_verified"
-    assert updated_pkg.readiness == "READY"
+    assert updated_pkg.readiness != "READY"  # Missing CV/render cannot be resolved by a notice-period answer.
 
 
 @pytest.mark.asyncio

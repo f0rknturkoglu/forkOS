@@ -192,6 +192,7 @@ async def create_local_document(
     category: str = "cv",
     mime: str | None = None,
     content: bytes,
+    commit: bool = True,
 ) -> dict:
     now = datetime.now(UTC)
     entity = await create_entity(
@@ -224,7 +225,10 @@ async def create_local_document(
         entity_type="document",
         payload={"category": category, "title": title, "size": len(content)},
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return {
         "id": doc.id,
         "title": title,

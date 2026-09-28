@@ -69,6 +69,8 @@ class TailoredCvDraft(BaseModel):
 
     summary: str
     experience: list[dict[str, Any]] = Field(default_factory=list)
+    projects: list[dict[str, Any]] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     education: list[dict[str, Any]] = Field(default_factory=list)
     changes: list[CvChangeItemDraft] = Field(default_factory=list)

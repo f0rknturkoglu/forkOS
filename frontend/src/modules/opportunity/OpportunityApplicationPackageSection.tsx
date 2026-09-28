@@ -74,10 +74,12 @@ export function OpportunityApplicationPackageSection({
 
   const prepareMutation = useMutation({
     mutationFn: () => api.post<ApplicationPackageOut>(`/opportunities/${opportunityId}/prepare-package`),
-    onSuccess: () => {
+    onSuccess: (result) => {
       invalidateAfter("opportunity.write");
       refetch();
-      toast.push("Başvuru paketi başarıyla hazırlandı.", { tone: "ok" });
+      toast.push(`Başvuru paketi üretildi: ${readinessLabel(result.readiness)}.`, {
+        tone: result.readiness === "READY" ? "ok" : "warn",
+      });
     },
     onError: (err: any) => {
       toast.push(err?.message || "Başvuru paketi hazırlanırken hata oluştu.", { tone: "danger" });
@@ -117,15 +119,11 @@ export function OpportunityApplicationPackageSection({
         <Package className="mx-auto mb-2 text-accent" size={28} />
         <h4 className="text-body font-semibold text-primary">Kanıta Dayalı Başvuru Paketi</h4>
         <p className="mx-auto mt-1 max-w-md text-meta text-secondary">
-          Bu pozisyona özel özelleştirilmiş CV revizyonu, STAR hikâyelerinizden beslenen ön yazı ve
-          başvuru tarama soruları için kanıtlanmış yanıt taslakları hazırlar.
+          Bu pozisyona özel özelleştirilmiş CV revizyonu, STAR hikâyelerinizden beslenen ön yazı ve başvuru tarama
+          soruları için kanıtlanmış yanıt taslakları hazırlar.
         </p>
         <div className="mt-4">
-          <Button
-            size="sm"
-            disabled={!online || prepareMutation.isPending}
-            onClick={() => prepareMutation.mutate()}
-          >
+          <Button size="sm" disabled={!online || prepareMutation.isPending} onClick={() => prepareMutation.mutate()}>
             {prepareMutation.isPending ? "Paket Hazırlanıyor…" : "Başvuru Paketini Hazırla"}
           </Button>
         </div>
@@ -142,21 +140,40 @@ export function OpportunityApplicationPackageSection({
         <div className="flex items-center gap-3">
           <span className="text-body font-medium text-primary">Hazırlık Durumu:</span>
           <Chip tone={readinessTone(pkg.readiness)}>{readinessLabel(pkg.readiness)}</Chip>
-          {pkg.updated_at && (
-            <span className="text-meta text-muted">Güncellendi: {relativeTime(pkg.updated_at)}</span>
-          )}
+          {pkg.updated_at && <span className="text-meta text-muted">Güncellendi: {relativeTime(pkg.updated_at)}</span>}
         </div>
-        <Button
-          size="sm"
-          disabled={!online || prepareMutation.isPending}
-          onClick={() => prepareMutation.mutate()}
-        >
+        <Button size="sm" disabled={!online || prepareMutation.isPending} onClick={() => prepareMutation.mutate()}>
           <RefreshCw size={13} className={prepareMutation.isPending ? "animate-spin" : ""} />
           {prepareMutation.isPending ? "Yenileniyor…" : "Paketi Yeniden Oluştur"}
         </Button>
       </div>
 
       {/* Unsupported Claims Alert Gate */}
+      {pkg.generated_documents && pkg.generated_documents.length > 0 && (
+        <div className="space-y-2 rounded-control border border-subtle bg-surface p-3">
+          <h4 className="text-body font-medium text-primary">Üretilen belgeler</h4>
+          <p className="text-meta text-muted">
+            Master CV korunur. Taslak belge bağlantısı, paketin onaylandığı anlamına gelmez.
+          </p>
+          {pkg.generated_documents.map((document, index) =>
+            document.document_id ? (
+              <a
+                key={document.document_id}
+                href={`/api/documents/${encodeURIComponent(document.document_id)}/file`}
+                target="_blank"
+                rel="noreferrer"
+                className="block text-meta text-accent underline"
+              >
+                {document.title} ({document.mime})
+              </a>
+            ) : (
+              <p key={index} className="text-meta text-warn">
+                {document.title}: gerçek belge henüz yok.
+              </p>
+            ),
+          )}
+        </div>
+      )}
       {unsupportedClaims.length > 0 && (
         <div className="rounded-control border border-danger/30 bg-danger/10 p-3.5 text-danger">
           <div className="flex items-start gap-2">
@@ -164,8 +181,8 @@ export function OpportunityApplicationPackageSection({
             <div>
               <strong className="text-body font-semibold">Doğrulanamayan İddia Kapısı (Sıfır Halüsinasyon)</strong>
               <p className="mt-0.5 text-meta">
-                Özelleştirilmiş CV taslağında doğrulanmış profilinizde veya hikâyelerinizde bulunmayan iddialar
-                tespit edildi. Güvenlik gereği paket otomatik onaylanmaz.
+                Özelleştirilmiş CV taslağında doğrulanmış profilinizde veya hikâyelerinizde bulunmayan iddialar tespit
+                edildi. Güvenlik gereği paket otomatik onaylanmaz.
               </p>
               <ul className="mt-2 list-inside list-disc text-meta">
                 {unsupportedClaims.map((claim, idx) => (
@@ -202,9 +219,7 @@ export function OpportunityApplicationPackageSection({
           type="button"
           onClick={() => setActiveTab("answers")}
           className={`rounded-control px-3 py-1.5 text-meta font-medium transition ${
-            activeTab === "answers"
-              ? "bg-surface-sunken text-primary"
-              : "text-muted hover:text-primary"
+            activeTab === "answers" ? "bg-surface-sunken text-primary" : "text-muted hover:text-primary"
           }`}
         >
           Başvuru Soruları & Yanıtlar ({pkg.application_answers?.length || 0})
@@ -213,9 +228,7 @@ export function OpportunityApplicationPackageSection({
           type="button"
           onClick={() => setActiveTab("cv_changes")}
           className={`rounded-control px-3 py-1.5 text-meta font-medium transition ${
-            activeTab === "cv_changes"
-              ? "bg-surface-sunken text-primary"
-              : "text-muted hover:text-primary"
+            activeTab === "cv_changes" ? "bg-surface-sunken text-primary" : "text-muted hover:text-primary"
           }`}
         >
           CV Uyarlama Denetimi ({pkg.cv_change_audit?.length || 0})
@@ -224,9 +237,7 @@ export function OpportunityApplicationPackageSection({
           type="button"
           onClick={() => setActiveTab("cover_letter")}
           className={`rounded-control px-3 py-1.5 text-meta font-medium transition ${
-            activeTab === "cover_letter"
-              ? "bg-surface-sunken text-primary"
-              : "text-muted hover:text-primary"
+            activeTab === "cover_letter" ? "bg-surface-sunken text-primary" : "text-muted hover:text-primary"
           }`}
         >
           Ön Yazı
@@ -239,9 +250,7 @@ export function OpportunityApplicationPackageSection({
           {pkg.application_answers && pkg.application_answers.length > 0 ? (
             pkg.application_answers.map((ans, idx) => {
               const draftValue =
-                answerDrafts[ans.question] !== undefined
-                  ? answerDrafts[ans.question]
-                  : ans.proposed_answer;
+                answerDrafts[ans.question] !== undefined ? answerDrafts[ans.question] : ans.proposed_answer;
 
               return (
                 <div key={idx} className="rounded-control border border-subtle bg-surface p-3.5">
@@ -252,9 +261,7 @@ export function OpportunityApplicationPackageSection({
                     </Chip>
                   </div>
 
-                  <p className="mt-1.5 whitespace-pre-line text-meta text-secondary">
-                    {ans.proposed_answer}
-                  </p>
+                  <p className="mt-1.5 whitespace-pre-line text-meta text-secondary">{ans.proposed_answer}</p>
 
                   {ans.warning && (
                     <p className="mt-1 flex items-center gap-1 text-micro text-warn">
@@ -263,23 +270,17 @@ export function OpportunityApplicationPackageSection({
                     </p>
                   )}
 
-                  {ans.classification === "needs_user_input" && (
+                  {ans.classification !== "safe_verified" && (
                     <div className="mt-3 flex gap-2 border-t border-subtle pt-2">
                       <Input
                         value={draftValue}
-                        onChange={(val) =>
-                          setAnswerDrafts((prev) => ({ ...prev, [ans.question]: val }))
-                        }
+                        onChange={(val) => setAnswerDrafts((prev) => ({ ...prev, [ans.question]: val }))}
                         placeholder="Yanıtınızı girin veya düzenleyin…"
                         className="flex-1"
                       />
                       <Button
                         size="sm"
-                        disabled={
-                          !online ||
-                          !draftValue.trim() ||
-                          resolveAnswerMutation.isPending
-                        }
+                        disabled={!online || !draftValue.trim() || resolveAnswerMutation.isPending}
                         onClick={() =>
                           resolveAnswerMutation.mutate({
                             question: ans.question,
@@ -304,8 +305,8 @@ export function OpportunityApplicationPackageSection({
       {activeTab === "cv_changes" && (
         <div className="space-y-3">
           <p className="text-meta text-secondary">
-            Master CV'niz korunarak ilandaki gereksinimlere göre yapılan düzenlemeler, sıralamalar ve
-            vurgular aşağıda listelenmiştir.
+            Master CV'niz korunarak ilandaki gereksinimlere göre yapılan düzenlemeler, sıralamalar ve vurgular aşağıda
+            listelenmiştir.
           </p>
           {pkg.cv_change_audit && pkg.cv_change_audit.length > 0 ? (
             <div className="space-y-2">
@@ -313,9 +314,7 @@ export function OpportunityApplicationPackageSection({
                 <div key={idx} className="rounded-control border border-subtle bg-surface p-3">
                   <div className="flex items-center gap-2">
                     <Chip>{change.change_type}</Chip>
-                    <span className="text-body font-medium text-primary">
-                      {change.original || "Değişiklik"}
-                    </span>
+                    <span className="text-body font-medium text-primary">{change.original || "Değişiklik"}</span>
                   </div>
                   {change.reason && (
                     <p className="mt-1.5 text-meta text-secondary">
@@ -347,9 +346,7 @@ export function OpportunityApplicationPackageSection({
           </div>
           {pkg.cover_letter ? (
             <div className="rounded-control border border-subtle bg-surface p-4">
-              <p className="whitespace-pre-line text-body text-primary leading-relaxed font-sans">
-                {pkg.cover_letter}
-              </p>
+              <p className="whitespace-pre-line text-body text-primary leading-relaxed font-sans">{pkg.cover_letter}</p>
             </div>
           ) : (
             <Empty>Ön yazı oluşturulmadı.</Empty>

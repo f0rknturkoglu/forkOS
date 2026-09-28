@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -12,11 +10,6 @@ from app.config import settings
 from app.integrations.career_ops.capabilities import (
     count_available_capabilities,
     get_declared_capabilities,
-)
-from app.integrations.career_ops.config import (
-    CAREER_OPS_PINNED_COMMIT,
-    CAREER_OPS_PINNED_VERSION,
-    CAREER_OPS_UPSTREAM_REPO,
 )
 from app.integrations.career_ops.guard import CareerOpsRuntimeGuard
 from app.integrations.career_ops.models import (
@@ -94,7 +87,9 @@ class CareerOpsDoctor:
                 runtime=runtime,
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
-                capabilities_available=0,
+                capabilities_available=count_available_capabilities(
+                    enabled=self.enabled, runtime_ready=False
+                ),
                 warnings=["career-ops capability engine is disabled in configuration."],
             )
 
@@ -106,7 +101,9 @@ class CareerOpsDoctor:
                 runtime=runtime,
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
-                capabilities_available=0,
+                capabilities_available=count_available_capabilities(
+                    enabled=self.enabled, runtime_ready=False
+                ),
                 errors=[runtime.details or "Node runtime incompatible or missing"],
             )
 
@@ -118,7 +115,9 @@ class CareerOpsDoctor:
                 runtime=runtime,
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
-                capabilities_available=0,
+                capabilities_available=count_available_capabilities(
+                    enabled=self.enabled, runtime_ready=False
+                ),
                 errors=[f"career-ops checkout missing at {self.checkout_dir}"],
             )
 
@@ -131,7 +130,9 @@ class CareerOpsDoctor:
                 runtime=runtime,
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
-                capabilities_available=0,
+                capabilities_available=count_available_capabilities(
+                    enabled=self.enabled, runtime_ready=False
+                ),
                 errors=[ident_err or "Failed to read package.json"],
             )
 
@@ -143,7 +144,9 @@ class CareerOpsDoctor:
                 runtime=runtime,
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
-                capabilities_available=0,
+                capabilities_available=count_available_capabilities(
+                    enabled=self.enabled, runtime_ready=False
+                ),
                 errors=[
                     f"Version mismatch! Expected {expected.version}, got {actual_identity.version}"
                 ],
@@ -158,7 +161,9 @@ class CareerOpsDoctor:
                 runtime=runtime,
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
-                capabilities_available=0,
+                capabilities_available=count_available_capabilities(
+                    enabled=self.enabled, runtime_ready=False
+                ),
                 errors=[
                     "Pinned commit SHA could not be positively verified (missing git repository or commit metadata)."
                 ],
@@ -172,7 +177,9 @@ class CareerOpsDoctor:
                 runtime=runtime,
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
-                capabilities_available=0,
+                capabilities_available=count_available_capabilities(
+                    enabled=self.enabled, runtime_ready=False
+                ),
                 errors=[
                     f"Commit mismatch! Expected {expected.commit[:7]}, got {actual_identity.commit[:7]}"
                 ],
@@ -189,14 +196,18 @@ class CareerOpsDoctor:
                 runtime=runtime,
                 upstream_onboarding=None,
                 capabilities_declared=len(declared),
-                capabilities_available=0,
+                capabilities_available=count_available_capabilities(
+                    enabled=self.enabled, runtime_ready=False
+                ),
                 errors=[f"Required core files missing: {', '.join(missing_files)}"],
             )
 
         # Probe browser readiness for C3 execution
         browser_ready = probe_browser_readiness(self.checkout_dir, self.node_bin)
 
-        reasoner_available = (getattr(settings, "career_reasoner_provider", "none") or "none").lower() != "none"
+        reasoner_available = settings.career_reasoner_provider == "ollama" and bool(
+            settings.career_reasoner_model
+        )
         cap_ctx = CareerOpsCapabilityContext(
             enabled=True,
             core_ready=True,
@@ -205,7 +216,6 @@ class CareerOpsDoctor:
             reasoner_available=reasoner_available,
         )
         available_capabilities_count = count_available_capabilities(context=cap_ctx)
-
 
         # Execute upstream doctor in isolated workspace WITHOUT --target
         upstream_onboarding: CareerOpsUpstreamOnboarding | None = None

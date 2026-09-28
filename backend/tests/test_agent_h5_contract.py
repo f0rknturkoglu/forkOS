@@ -40,9 +40,9 @@ async def _tools() -> dict:
 
 async def test_h5_adds_exactly_one_mcp_tool() -> None:
     tools = await _tools()
-    assert len(tools) == 34
+    assert len(tools) == 36
     assert set(tools) & H5_TOOLS == H5_TOOLS
-    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS | A4_TOOLS | {"forkos_context_judge", "forkos_memory_judge", "forkos_answer_judge"}
+    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS | A4_TOOLS | {"forkos_context_judge", "forkos_memory_judge", "forkos_answer_judge", "forkos_career_interview", "forkos_career_insights"}
 
 
 async def test_h5_tool_is_read_only() -> None:
@@ -75,6 +75,7 @@ async def test_no_new_write_tool_was_added() -> None:
         if tool.annotations is not None and tool.annotations.read_only_hint is False
     }
     assert writing == H1_TOOLS | {
+        "forkos_career_interview",
         "hot_memory_store",
         "hot_memory_update",
         "hot_memory_retire",

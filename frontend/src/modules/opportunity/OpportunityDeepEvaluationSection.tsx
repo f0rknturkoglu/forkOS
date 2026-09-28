@@ -80,11 +80,7 @@ export function OpportunityDeepEvaluationSection({
   });
 
   if (isLoading) {
-    return (
-      <div className="py-6 text-center text-meta text-muted">
-        Derin değerlendirme verileri yükleniyor…
-      </div>
-    );
+    return <div className="py-6 text-center text-meta text-muted">Derin değerlendirme verileri yükleniyor…</div>;
   }
 
   if (!evaluation) {
@@ -93,15 +89,11 @@ export function OpportunityDeepEvaluationSection({
         <Sparkles className="mx-auto mb-2 text-accent" size={28} />
         <h4 className="text-body font-semibold text-primary">Derin Kariyer Uzmanı Değerlendirmesi</h4>
         <p className="mx-auto mt-1 max-w-md text-meta text-secondary">
-          İlan metnini, kanıtlanmış teknik becerilerinizi ve kariyer başarılarınızı (STAR hikâyeleri)
-          yapay zekâ destekli kariyer uzmanı gözüyle inceler; kanıta dayalı uyum haritası çıkarır.
+          İlan metnini, kanıtlanmış teknik becerilerinizi ve kariyer başarılarınızı (STAR hikâyeleri) yapay zekâ
+          destekli kariyer uzmanı gözüyle inceler; kanıta dayalı uyum haritası çıkarır.
         </p>
         <div className="mt-4">
-          <Button
-            size="sm"
-            disabled={!online || evaluateMutation.isPending}
-            onClick={() => evaluateMutation.mutate()}
-          >
+          <Button size="sm" disabled={!online || evaluateMutation.isPending} onClick={() => evaluateMutation.mutate()}>
             {evaluateMutation.isPending ? "Değerlendiriliyor…" : "Uzman Değerlendirmesini Başlat"}
           </Button>
         </div>
@@ -120,11 +112,7 @@ export function OpportunityDeepEvaluationSection({
               İlan açıklaması veya aday profil verileriniz güncellendiği için bu değerlendirme bayatlamış olabilir.
             </span>
           </div>
-          <Button
-            size="sm"
-            disabled={!online || evaluateMutation.isPending}
-            onClick={() => evaluateMutation.mutate()}
-          >
+          <Button size="sm" disabled={!online || evaluateMutation.isPending} onClick={() => evaluateMutation.mutate()}>
             <RefreshCw size={13} className={evaluateMutation.isPending ? "animate-spin" : ""} />
             {evaluateMutation.isPending ? "Yenileniyor…" : "Yeniden Değerlendir"}
           </Button>
@@ -136,24 +124,18 @@ export function OpportunityDeepEvaluationSection({
         <div className="rounded-control border border-subtle bg-surface p-3">
           <span className="text-micro font-medium uppercase text-muted">Genel Rol Uyumu</span>
           <div className="mt-1 flex items-center gap-2">
-            <Chip tone={overallFitTone(evaluation.role_fit)}>
-              {overallFitLabel(evaluation.role_fit)}
-            </Chip>
+            <Chip tone={overallFitTone(evaluation.role_fit)}>{overallFitLabel(evaluation.role_fit)}</Chip>
           </div>
         </div>
 
         <div className="rounded-control border border-subtle bg-surface p-3">
           <span className="text-micro font-medium uppercase text-muted">Kıdem Seviyesi</span>
-          <div className="mt-1 text-body font-medium text-primary">
-            {evaluation.seniority_fit}
-          </div>
+          <div className="mt-1 text-body font-medium text-primary">{evaluation.seniority_fit}</div>
         </div>
 
         <div className="rounded-control border border-subtle bg-surface p-3">
           <span className="text-micro font-medium uppercase text-muted">Konum / Çalışma Modeli</span>
-          <div className="mt-1 text-body font-medium text-primary">
-            {evaluation.location_fit}
-          </div>
+          <div className="mt-1 text-body font-medium text-primary">{evaluation.location_fit}</div>
         </div>
       </div>
 
@@ -163,9 +145,7 @@ export function OpportunityDeepEvaluationSection({
           <span className="mb-1 block text-micro font-medium uppercase tracking-wider text-secondary">
             Uzman Değerlendirme Özeti
           </span>
-          <p className="text-body text-secondary leading-relaxed">
-            {evaluation.overall_assessment}
-          </p>
+          <p className="text-body text-secondary leading-relaxed">{evaluation.overall_assessment}</p>
         </div>
       )}
 
@@ -177,23 +157,12 @@ export function OpportunityDeepEvaluationSection({
           </span>
           <div className="space-y-2">
             {evaluation.must_have.map((req, idx) => (
-              <div
-                key={idx}
-                className="rounded-control border border-subtle bg-surface p-3"
-              >
+              <div key={idx} className="rounded-control border border-subtle bg-surface p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-body font-medium text-primary">
-                    {req.requirement}
-                  </span>
-                  <Chip tone={classificationTone(req.classification)}>
-                    {classificationLabel(req.classification)}
-                  </Chip>
+                  <span className="text-body font-medium text-primary">{req.requirement}</span>
+                  <Chip tone={classificationTone(req.classification)}>{classificationLabel(req.classification)}</Chip>
                 </div>
-                {req.reason && (
-                  <p className="mt-1 text-meta text-secondary">
-                    {req.reason}
-                  </p>
-                )}
+                {req.reason && <p className="mt-1 text-meta text-secondary">{req.reason}</p>}
                 {req.candidate_evidence_refs && req.candidate_evidence_refs.length > 0 && (
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <span className="text-micro text-muted">Aday Kanıtı:</span>
@@ -221,15 +190,10 @@ export function OpportunityDeepEvaluationSection({
           </span>
           <div className="space-y-2">
             {evaluation.nice_to_have.map((req, idx) => (
-              <div
-                key={idx}
-                className="rounded-control border border-subtle bg-surface p-2.5"
-              >
+              <div key={idx} className="rounded-control border border-subtle bg-surface p-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-meta text-primary">{req.requirement}</span>
-                  <Chip tone={classificationTone(req.classification)}>
-                    {classificationLabel(req.classification)}
-                  </Chip>
+                  <Chip tone={classificationTone(req.classification)}>{classificationLabel(req.classification)}</Chip>
                 </div>
                 {req.reason && <p className="mt-0.5 text-meta text-muted">{req.reason}</p>}
               </div>
@@ -288,9 +252,7 @@ export function OpportunityDeepEvaluationSection({
               {String((evaluation.work_authorization as any).status || "Belirtilmemiş")}
             </div>
             {(evaluation.work_authorization as any).notes && (
-              <p className="mt-1 text-meta text-muted">
-                {String((evaluation.work_authorization as any).notes)}
-              </p>
+              <p className="mt-1 text-meta text-muted">{String((evaluation.work_authorization as any).notes)}</p>
             )}
           </div>
         )}
@@ -302,9 +264,7 @@ export function OpportunityDeepEvaluationSection({
               {String((evaluation.compensation as any).match || "Belirtilmemiş")}
             </div>
             {(evaluation.compensation as any).notes && (
-              <p className="mt-1 text-meta text-muted">
-                {String((evaluation.compensation as any).notes)}
-              </p>
+              <p className="mt-1 text-meta text-muted">{String((evaluation.compensation as any).notes)}</p>
             )}
           </div>
         )}

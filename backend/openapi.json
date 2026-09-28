@@ -2591,6 +2591,167 @@
         "title": "CardPatch",
         "type": "object"
       },
+      "CareerAnalyticsSnapshot": {
+        "properties": {
+          "briefing": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Briefing",
+            "type": "object"
+          },
+          "calibration": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Calibration",
+            "type": "array"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/Cohort"
+            },
+            "title": "Cohorts",
+            "type": "array"
+          },
+          "confidence_notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Confidence Notes",
+            "type": "array"
+          },
+          "conversions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Conversion"
+            },
+            "title": "Conversions",
+            "type": "object"
+          },
+          "durations": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "title": "Durations",
+            "type": "object"
+          },
+          "evaluated_population": {
+            "title": "Evaluated Population",
+            "type": "integer"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "funnel": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Funnel",
+            "type": "object"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "geography": {
+            "items": {
+              "$ref": "#/components/schemas/Cohort"
+            },
+            "title": "Geography",
+            "type": "array"
+          },
+          "lineage": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Lineage",
+            "type": "array"
+          },
+          "minimum_sample": {
+            "title": "Minimum Sample",
+            "type": "integer"
+          },
+          "period": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Period",
+            "type": "object"
+          },
+          "population": {
+            "title": "Population",
+            "type": "integer"
+          },
+          "rejection_patterns": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Rejection Patterns",
+            "type": "array"
+          },
+          "skill_gaps": {
+            "items": {
+              "$ref": "#/components/schemas/SkillGapSignal"
+            },
+            "title": "Skill Gaps",
+            "type": "array"
+          },
+          "source_performance": {
+            "items": {
+              "$ref": "#/components/schemas/Cohort"
+            },
+            "title": "Source Performance",
+            "type": "array"
+          }
+        },
+        "required": [
+          "period",
+          "generated_at",
+          "fingerprint",
+          "population",
+          "evaluated_population",
+          "minimum_sample",
+          "funnel",
+          "conversions",
+          "durations",
+          "cohorts",
+          "rejection_patterns",
+          "skill_gaps",
+          "source_performance",
+          "geography",
+          "lineage",
+          "calibration",
+          "confidence_notes",
+          "evidence_refs",
+          "briefing"
+        ],
+        "title": "CareerAnalyticsSnapshot",
+        "type": "object"
+      },
       "CareerConnectionOut": {
         "properties": {
           "company": {
@@ -3039,6 +3200,46 @@
         "title": "CarryOverIn",
         "type": "object"
       },
+      "Cohort": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "dimension": {
+            "title": "Dimension",
+            "type": "string"
+          },
+          "interview_conversion": {
+            "$ref": "#/components/schemas/Conversion"
+          },
+          "sample_size": {
+            "title": "Sample Size",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dimension",
+          "value",
+          "sample_size",
+          "counts",
+          "interview_conversion",
+          "status"
+        ],
+        "title": "Cohort",
+        "type": "object"
+      },
       "CollectionCount": {
         "properties": {
           "collection": {
@@ -3207,6 +3408,41 @@
           "has_active_continuity"
         ],
         "title": "ContinuityStatusOut",
+        "type": "object"
+      },
+      "Conversion": {
+        "properties": {
+          "denominator": {
+            "title": "Denominator",
+            "type": "integer"
+          },
+          "numerator": {
+            "title": "Numerator",
+            "type": "integer"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "numerator",
+          "denominator",
+          "rate",
+          "status"
+        ],
+        "title": "Conversion",
         "type": "object"
       },
       "ConvertToTaskIn": {
@@ -3877,6 +4113,111 @@
           "status"
         ],
         "title": "CvFactVerificationOut",
+        "type": "object"
+      },
+      "DebriefIn": {
+        "properties": {
+          "candidate_notes": {
+            "default": "",
+            "maxLength": 12000,
+            "title": "Candidate Notes",
+            "type": "string"
+          },
+          "employer_feedback": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employer Feedback"
+          },
+          "follow_up_items": {
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Follow Up Items",
+            "type": "array"
+          },
+          "new_story_proposals": {
+            "items": {
+              "$ref": "#/components/schemas/StoryProposal"
+            },
+            "maxItems": 5,
+            "title": "New Story Proposals",
+            "type": "array"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "outcome_if_known": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome If Known"
+          },
+          "perceived_gaps": {
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Perceived Gaps",
+            "type": "array"
+          },
+          "perceived_strengths": {
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Perceived Strengths",
+            "type": "array"
+          },
+          "questions_asked": {
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Questions Asked",
+            "type": "array"
+          },
+          "story_updates": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Story Updates",
+            "type": "array"
+          },
+          "topics": {
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Topics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "occurred_at"
+        ],
+        "title": "DebriefIn",
         "type": "object"
       },
       "DecisionIn": {
@@ -5618,6 +5959,28 @@
             "title": "Mime",
             "type": "string"
           },
+          "opportunity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opportunity Id"
+          },
+          "parent_document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Document Id"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -6187,6 +6550,163 @@
         "title": "IncomePatch",
         "type": "object"
       },
+      "InterviewDebrief": {
+        "properties": {
+          "candidate_notes": {
+            "default": "",
+            "maxLength": 12000,
+            "title": "Candidate Notes",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "employer_feedback": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employer Feedback"
+          },
+          "employer_feedback_source": {
+            "default": "user_reported_quote_not_independently_verified",
+            "title": "Employer Feedback Source",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "follow_up_items": {
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Follow Up Items",
+            "type": "array"
+          },
+          "follow_up_status": {
+            "default": "draft_requires_approval",
+            "title": "Follow Up Status",
+            "type": "string"
+          },
+          "interpretation": {
+            "default": "Öz değerlendirme; işverenin karar nedeni değildir.",
+            "title": "Interpretation",
+            "type": "string"
+          },
+          "interview_id": {
+            "title": "Interview Id",
+            "type": "string"
+          },
+          "new_story_proposals": {
+            "items": {
+              "$ref": "#/components/schemas/StoryProposal"
+            },
+            "maxItems": 5,
+            "title": "New Story Proposals",
+            "type": "array"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "outcome_if_known": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome If Known"
+          },
+          "perceived_gaps": {
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Perceived Gaps",
+            "type": "array"
+          },
+          "perceived_strengths": {
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Perceived Strengths",
+            "type": "array"
+          },
+          "questions_asked": {
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Questions Asked",
+            "type": "array"
+          },
+          "skill_signals": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skill Signals",
+            "type": "array"
+          },
+          "source_type": {
+            "const": "user_report",
+            "default": "user_report",
+            "title": "Source Type",
+            "type": "string"
+          },
+          "story_update_status": {
+            "default": "proposal_requires_approval",
+            "title": "Story Update Status",
+            "type": "string"
+          },
+          "story_updates": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Story Updates",
+            "type": "array"
+          },
+          "topics": {
+            "items": {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Topics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "occurred_at",
+          "interview_id",
+          "skill_signals",
+          "evidence_refs",
+          "created_at"
+        ],
+        "title": "InterviewDebrief",
+        "type": "object"
+      },
       "InterviewIn": {
         "properties": {
           "duration_min": {
@@ -6264,6 +6784,39 @@
           }
         },
         "title": "InterviewIn",
+        "type": "object"
+      },
+      "InterviewIntelligence": {
+        "properties": {
+          "debrief": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InterviewDebrief"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "practice": {
+            "items": {
+              "$ref": "#/components/schemas/InterviewPracticeSession"
+            },
+            "title": "Practice",
+            "type": "array"
+          },
+          "prep": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InterviewPrep"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "InterviewIntelligence",
         "type": "object"
       },
       "InterviewOut": {
@@ -6363,6 +6916,254 @@
         "title": "InterviewOut",
         "type": "object"
       },
+      "InterviewPracticeSession": {
+        "properties": {
+          "candidate_answer": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Candidate Answer",
+            "type": "string"
+          },
+          "candidate_context_revision": {
+            "default": "",
+            "title": "Candidate Context Revision",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "feedback": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Feedback",
+            "type": "object"
+          },
+          "gaps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Gaps",
+            "type": "array"
+          },
+          "interview_id": {
+            "title": "Interview Id",
+            "type": "string"
+          },
+          "model": {
+            "default": "review-hints-v1",
+            "title": "Model",
+            "type": "string"
+          },
+          "prep_input_revision": {
+            "default": "",
+            "title": "Prep Input Revision",
+            "type": "string"
+          },
+          "provider": {
+            "default": "deterministic",
+            "title": "Provider",
+            "type": "string"
+          },
+          "question": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "strengths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Strengths",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question",
+          "candidate_answer",
+          "interview_id",
+          "stage",
+          "feedback",
+          "strengths",
+          "gaps",
+          "evidence_refs",
+          "created_at"
+        ],
+        "title": "InterviewPracticeSession",
+        "type": "object"
+      },
+      "InterviewPrep": {
+        "properties": {
+          "behavioral_topics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Behavioral Topics",
+            "type": "array"
+          },
+          "candidate_context_revision": {
+            "title": "Candidate Context Revision",
+            "type": "string"
+          },
+          "company_summary": {
+            "title": "Company Summary",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "evaluation_revision": {
+            "title": "Evaluation Revision",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "focus_areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Focus Areas",
+            "type": "array"
+          },
+          "input_revision": {
+            "title": "Input Revision",
+            "type": "string"
+          },
+          "interview_id": {
+            "title": "Interview Id",
+            "type": "string"
+          },
+          "interview_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interview Stage"
+          },
+          "is_stale": {
+            "default": false,
+            "title": "Is Stale",
+            "type": "boolean"
+          },
+          "likely_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Likely Questions",
+            "type": "array"
+          },
+          "listing_fingerprint": {
+            "title": "Listing Fingerprint",
+            "type": "string"
+          },
+          "model": {
+            "default": "evidence-rules-v1",
+            "title": "Model",
+            "type": "string"
+          },
+          "opportunity_id": {
+            "title": "Opportunity Id",
+            "type": "string"
+          },
+          "provider": {
+            "default": "deterministic",
+            "title": "Provider",
+            "type": "string"
+          },
+          "questions_to_ask": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Questions To Ask",
+            "type": "array"
+          },
+          "risks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Risks",
+            "type": "array"
+          },
+          "role_summary": {
+            "title": "Role Summary",
+            "type": "string"
+          },
+          "story_recommendations": {
+            "items": {
+              "$ref": "#/components/schemas/StoryRecommendation"
+            },
+            "title": "Story Recommendations",
+            "type": "array"
+          },
+          "technical_topics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Technical Topics",
+            "type": "array"
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknowns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "interview_id",
+          "opportunity_id",
+          "listing_fingerprint",
+          "evaluation_revision",
+          "candidate_context_revision",
+          "input_revision",
+          "company_summary",
+          "role_summary",
+          "interview_stage",
+          "focus_areas",
+          "technical_topics",
+          "behavioral_topics",
+          "likely_questions",
+          "story_recommendations",
+          "questions_to_ask",
+          "risks",
+          "unknowns",
+          "evidence_refs",
+          "created_at"
+        ],
+        "title": "InterviewPrep",
+        "type": "object"
+      },
       "InterviewPrepOut": {
         "description": "Mulakat hazirligi grubu: ilan + gorusmeler + maas tutarliligi.",
         "properties": {
@@ -6404,6 +7205,16 @@
       },
       "KnockoutAnswerOut": {
         "properties": {
+          "classification": {
+            "default": "needs_user_input",
+            "enum": [
+              "safe_verified",
+              "needs_user_input",
+              "sensitive_user_decision"
+            ],
+            "title": "Classification",
+            "type": "string"
+          },
           "confidence": {
             "default": 1.0,
             "title": "Confidence",
@@ -6412,6 +7223,13 @@
           "evidence": {
             "title": "Evidence",
             "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
           },
           "proposed_answer": {
             "title": "Proposed Answer",
@@ -11913,6 +12731,28 @@
         "title": "PomodoroStop",
         "type": "object"
       },
+      "PracticeIn": {
+        "properties": {
+          "candidate_answer": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Candidate Answer",
+            "type": "string"
+          },
+          "question": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question",
+          "candidate_answer"
+        ],
+        "title": "PracticeIn",
+        "type": "object"
+      },
       "ProactivityConfigIn": {
         "additionalProperties": false,
         "description": "Yalnizca BILINEN alanlar; bilinmeyen anahtar SESSIZCE DUSMEZ (§106).",
@@ -14797,6 +15637,80 @@
         "title": "SilentApplicationOut",
         "type": "object"
       },
+      "SkillGapSignal": {
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "explicit_feedback_mentions": {
+            "default": 0,
+            "title": "Explicit Feedback Mentions",
+            "type": "integer"
+          },
+          "interview_mentions": {
+            "title": "Interview Mentions",
+            "type": "integer"
+          },
+          "missing_count": {
+            "title": "Missing Count",
+            "type": "integer"
+          },
+          "opportunities_seen": {
+            "title": "Opportunities Seen",
+            "type": "integer"
+          },
+          "partial_count": {
+            "title": "Partial Count",
+            "type": "integer"
+          },
+          "requirement": {
+            "title": "Requirement",
+            "type": "string"
+          },
+          "role_families": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Role Families",
+            "type": "array"
+          },
+          "strong_count": {
+            "title": "Strong Count",
+            "type": "integer"
+          },
+          "trend": {
+            "default": "unavailable_no_historical_snapshots",
+            "title": "Trend",
+            "type": "string"
+          },
+          "unknown_count": {
+            "title": "Unknown Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requirement",
+          "opportunities_seen",
+          "strong_count",
+          "partial_count",
+          "missing_count",
+          "unknown_count",
+          "interview_mentions",
+          "role_families",
+          "confidence",
+          "evidence_refs"
+        ],
+        "title": "SkillGapSignal",
+        "type": "object"
+      },
       "SkillMatchOut": {
         "properties": {
           "match_ratio": {
@@ -15381,6 +16295,77 @@
           "title"
         ],
         "title": "StatsTopicOut",
+        "type": "object"
+      },
+      "StoryProposal": {
+        "properties": {
+          "action": {
+            "maxLength": 2000,
+            "title": "Action",
+            "type": "string"
+          },
+          "result": {
+            "maxLength": 2000,
+            "title": "Result",
+            "type": "string"
+          },
+          "situation": {
+            "maxLength": 2000,
+            "title": "Situation",
+            "type": "string"
+          },
+          "task": {
+            "maxLength": 2000,
+            "title": "Task",
+            "type": "string"
+          }
+        },
+        "required": [
+          "situation",
+          "task",
+          "action",
+          "result"
+        ],
+        "title": "StoryProposal",
+        "type": "object"
+      },
+      "StoryRecommendation": {
+        "properties": {
+          "adaptation_notes": {
+            "default": "Yalnızca doğrulayabildiğin ayrıntıları kullan.",
+            "title": "Adaptation Notes",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "likely_question_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Likely Question Types",
+            "type": "array"
+          },
+          "story_id": {
+            "title": "Story Id",
+            "type": "string"
+          },
+          "why_relevant": {
+            "title": "Why Relevant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "story_id",
+          "why_relevant",
+          "likely_question_types",
+          "evidence_refs"
+        ],
+        "title": "StoryRecommendation",
         "type": "object"
       },
       "StreakOut": {
@@ -20599,6 +21584,59 @@
         ]
       }
     },
+    "/api/career/insights": {
+      "get": {
+        "operationId": "career_insights_api_career_insights_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "minimum",
+            "required": false,
+            "schema": {
+              "default": 3,
+              "title": "Minimum",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CareerAnalyticsSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Career Insights",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/career/interview-prep": {
       "get": {
         "description": "Mülakat hazırlığı grupları: görüşmeler + maaş tutarlılığı TEK turda.",
@@ -20620,6 +21658,198 @@
           }
         },
         "summary": "Career Interview Prep",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/career/interviews/{id}/debrief": {
+      "post": {
+        "operationId": "debrief_interview_intelligence_api_career_interviews__id__debrief_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DebriefIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewDebrief"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Debrief Interview Intelligence",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/career/interviews/{id}/intelligence": {
+      "get": {
+        "operationId": "read_interview_intelligence_api_career_interviews__id__intelligence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewIntelligence"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Interview Intelligence",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/career/interviews/{id}/practice": {
+      "post": {
+        "operationId": "practice_interview_intelligence_api_career_interviews__id__practice_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PracticeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewPracticeSession"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Practice Interview Intelligence",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/career/interviews/{id}/prepare": {
+      "post": {
+        "operationId": "prepare_interview_intelligence_api_career_interviews__id__prepare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewPrep"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare Interview Intelligence",
         "tags": [
           "opportunities"
         ]

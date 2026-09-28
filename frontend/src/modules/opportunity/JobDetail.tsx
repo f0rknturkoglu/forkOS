@@ -309,7 +309,6 @@ function ListingHealthSection({ item, online }: { item: Opportunity; online: boo
     unchecked: "neutral",
   };
 
-
   const completenessLabels: Record<string, string> = {
     complete: "Tam Açıklama (>1000 kr)",
     concise: "Özet Açıklama (300-1000 kr)",

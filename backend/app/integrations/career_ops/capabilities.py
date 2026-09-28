@@ -104,6 +104,12 @@ ALL_CAPABILITIES: tuple[CareerOpsCapability, ...] = (
         description="Verify CV visual layout and pagination via Playwright.",
     ),
     CareerOpsCapability(
+        id="application.package",
+        domain="application",
+        name="Application Package",
+        description="Create source-bound derivative documents without submission.",
+    ),
+    CareerOpsCapability(
         id="application.cover_letter",
         domain="application",
         name="Cover Letter Generation",
@@ -189,6 +195,12 @@ def get_capability_status(
 
     if not context.enabled:
         return CapabilityStatus.DISABLED
+    # These run in forkOS, independently of the optional pinned Node engine.
+    if capability_id in {"interview.practice", "interview.debrief", "analytics.funnel", "analytics.rejection_patterns", "analytics.skill_gap", "analytics.calibration"}:
+        return CapabilityStatus.SUPPORTED
+    if capability_id == "interview.prepare":
+        # Operation requires actual CV + valid listing + current C4 evaluation.
+        return CapabilityStatus.DEGRADED
     if not context.core_ready:
         return CapabilityStatus.UNAVAILABLE
     if capability_id == "foundation.doctor":
@@ -217,7 +229,7 @@ def get_capability_status(
         "evaluation.work_authorization",
         "cv.tailor",
         "cv.verify_facts",
-        "application.cover",
+        "application.cover_letter",
         "application.answers",
         "application.package",
     )
@@ -227,8 +239,7 @@ def get_capability_status(
         return CapabilityStatus.DEGRADED
 
     if capability_id == "cv.render_pdf":
-        if context.browser_ready and getattr(context, "reasoner_available", False):
-            return CapabilityStatus.SUPPORTED
+        # Browser availability alone does not prove renderer, layout and read order.
         return CapabilityStatus.DEGRADED
 
     return CapabilityStatus.UNAVAILABLE

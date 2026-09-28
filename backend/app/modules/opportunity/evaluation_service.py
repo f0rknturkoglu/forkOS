@@ -11,28 +11,24 @@ Coordinates:
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal
-import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import log_event
 from app.modules.opportunity.candidate_context import (
-    CandidateCareerContext,
     build_candidate_career_context,
 )
 from app.modules.opportunity.listing_context import (
-    CareerListingContext,
     build_career_listing_context,
 )
 from app.modules.opportunity.models import Opportunity
 from app.modules.opportunity.reasoner.base import (
     CareerReasoner,
-    CareerReasonerError,
     DeepEvaluationDraft,
-    RequirementAssessmentDraft,
 )
 from app.modules.opportunity.reasoner.factory import get_career_reasoner
 
@@ -119,6 +115,15 @@ class CareerEvaluationService:
             stale_reasons.append("Candidate facts or profile modified since evaluation.")
 
         evaluation = DeepEvaluation.model_validate(raw_eval)
+        from app.modules.opportunity.evidence_integrity import valid_refs
+
+        if any(
+            item.classification in {"strong", "partial"}
+            and not valid_refs(item.candidate_evidence_refs, cand_ctx)
+            for item in evaluation.must_have + evaluation.nice_to_have
+        ):
+            is_stale = True
+            stale_reasons.append("Stored candidate evidence failed current integrity validation.")
         evaluation.is_stale = is_stale
         evaluation.stale_reasons = stale_reasons
         return evaluation
@@ -154,6 +159,18 @@ class CareerEvaluationService:
 
         # Execute reasoner draft
         draft: DeepEvaluationDraft = await self.reasoner.evaluate(listing_ctx, cand_ctx)
+        from app.modules.opportunity.evidence_integrity import validate_evaluation
+
+        validate_evaluation(draft, cand_ctx)
+        fresh_candidate = await build_candidate_career_context(session)
+        fresh_listing = await build_career_listing_context(session, opp)
+        if (
+            fresh_candidate.revision != cand_ctx.revision
+            or fresh_listing.listing_fingerprint != listing_ctx.listing_fingerprint
+        ):
+            raise ValueError(
+                "Candidate or listing evidence changed during evaluation; retry required."
+            )
 
         eval_model = DeepEvaluation(
             opportunity_id=str(opportunity_id),
@@ -167,8 +184,12 @@ class CareerEvaluationService:
             role_fit=draft.role_fit,
             seniority_fit=draft.seniority_fit,
             location_fit=draft.location_fit,
-            must_have=[RequirementAssessment.model_validate(m.model_dump()) for m in draft.must_have],
-            nice_to_have=[RequirementAssessment.model_validate(n.model_dump()) for n in draft.nice_to_have],
+            must_have=[
+                RequirementAssessment.model_validate(m.model_dump()) for m in draft.must_have
+            ],
+            nice_to_have=[
+                RequirementAssessment.model_validate(n.model_dump()) for n in draft.nice_to_have
+            ],
             strengths=draft.strengths,
             partial_matches=draft.partial_matches,
             missing_requirements=draft.missing_requirements,

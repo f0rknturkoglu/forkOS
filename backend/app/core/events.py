@@ -84,6 +84,8 @@ ACTIVITY_FILTERS: dict[str, tuple[str, ...]] = {
         "career_story.updated", "document.created", "document.deleted",
         "opportunity.created", "opportunity.deleted", "opportunity.duplicates_merged",
         "opportunity.evaluated", "opportunity.evaluation_updated", "opportunity.interview_added",
+        "opportunity.package_prepared", "opportunity.package_answer_resolved",
+        "opportunity.interview_prepared", "opportunity.interview_practiced", "opportunity.interview_debriefed",
         "opportunity.interview_deleted", "opportunity.interview_updated", "opportunity.items_added",
         "opportunity.pruned", "opportunity.requirement_added",
         "opportunity.requirement_document_bound", "opportunity.restored",

@@ -142,7 +142,7 @@ async def test_capability_metadata_matches_registered_tool_surface() -> None:
     # İki yön: kayıtlı olup metadatada olmayan ve metadatada olup kayıtlı olmayan araç yok.
     assert registered - capabilities.all_tools() == set()
     assert capabilities.all_tools() - registered == set()
-    assert capabilities.tool_count() == len(registered) == 34
+    assert capabilities.tool_count() == len(registered) == 36
     assert capabilities.family_counts() == {
         "H0": 8,
         "H1": 11,
@@ -153,6 +153,7 @@ async def test_capability_metadata_matches_registered_tool_surface() -> None:
         "H6": 1,
         "H7": 1,
         "A5": 3,
+        "Career": 2,
     }
     assert [family.id for family in capabilities.FAMILIES] == [
         "H0",
@@ -164,6 +165,7 @@ async def test_capability_metadata_matches_registered_tool_surface() -> None:
         "H6",
         "H7",
         "A5",
+        "Career",
     ]
 
 
@@ -368,14 +370,14 @@ async def test_brain_block_shape_and_endpoint_host() -> None:
     assert brain["endpoint"] == "http://127.0.0.1:9123/mcp"
     assert brain["transport"] == "streamable_http"
     assert brain["loopback_only"] is True
-    assert brain["tool_count"] == 34
+    assert brain["tool_count"] == 36
 
     families = brain["families"]
-    assert [row["id"] for row in families] == [*[f"H{index}" for index in range(8)], "A5"]
+    assert [row["id"] for row in families] == [*[f"H{index}" for index in range(8)], "A5", "Career"]
     for row in families:
         assert set(row) == {"id", "label", "summary", "tool_count"}
         assert row["label"] and row["summary"]
-    assert sum(row["tool_count"] for row in families) == 34
+    assert sum(row["tool_count"] for row in families) == 36
 
     assert set(payload["local_cognition"]) == {
         "enabled",
@@ -410,7 +412,7 @@ async def test_agent_status_route_serves_the_typed_payload() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["brain"]["endpoint"] == "http://127.0.0.1:9123/mcp"
-    assert body["brain"]["tool_count"] == 34
+    assert body["brain"]["tool_count"] == 36
     assert body["local_cognition"]["state"] in STATES
     # Varsayılan ayarlarda H4 kapalıdır: prob atılmaz, dış çağrı olmaz.
     assert body["local_cognition"]["state"] == "disabled"

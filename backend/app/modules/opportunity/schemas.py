@@ -733,6 +733,8 @@ class ApplicationAnswerOut(BaseModel):
 class KnockoutAnswerOut(BaseModel):
     question: str
     proposed_answer: str
+    classification: Literal["safe_verified", "needs_user_input", "sensitive_user_decision"] = "needs_user_input"
+    evidence_refs: list[str] = Field(default_factory=list)
     evidence: str
     confidence: float = 1.0
     warning: str | None = None
@@ -744,6 +746,8 @@ class GeneratedDocumentRefOut(BaseModel):
     title: str
     file_path: str | None = None
     mime: str = "text/plain"
+    parent_document_id: str | None = None
+    opportunity_id: str | None = None
 
 
 class ApplicationPackageOut(BaseModel):

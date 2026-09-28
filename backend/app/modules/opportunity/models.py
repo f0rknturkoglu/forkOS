@@ -217,6 +217,8 @@ class Interview(Base):
     outcome: Mapped[str | None] = mapped_column(Text)
     salary_stated: Mapped[str | None] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer, default=0)
+    # Preparation/practice/debrief artifacts, not a second interview lifecycle.
+    intelligence: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class CareerStory(EntityBacked, Base):

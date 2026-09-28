@@ -9,10 +9,12 @@ import { CompanyResearchPanel } from "./CompanyResearchPanel";
 import { InterviewPrepPanel } from "./InterviewPrepPanel";
 import { CoverLetterPanel } from "./CoverLetterPanel";
 import { JobhunterSettings } from "./JobhunterSettings";
+import { CareerInsightsPanel } from "./CareerInsightsPanel";
 
-type CareerTab = "stories" | "connections" | "company" | "interview" | "cover" | "settings";
+type CareerTab = "stories" | "connections" | "company" | "interview" | "cover" | "settings" | "insights";
 
 const TABS = [
+  { id: "insights", label: "İçgörüler" },
   { id: "stories", label: "Hikâye bankası" },
   { id: "connections", label: "Bağlantı ağı" },
   { id: "company", label: "Şirket araştırması" },
@@ -57,6 +59,7 @@ export function CareerWorkspace({
           etiketler kırpılmaz, erişilebilir adlar rozetle birlikte verilir. */}
       <Tabs value={tab} onChange={setTab} items={[...TABS]} ariaLabel="Kariyer çalışma alanı sekmeleri" />
       {tab === "stories" && <CareerStoryBank focusId={focusStoryId} />}
+      {tab === "insights" && <CareerInsightsPanel />}
       {tab === "connections" && <CareerConnectionsPanel focusId={focusConnectionId} />}
       {tab === "company" && <CompanyResearchPanel jobKinds={jobKinds} />}
       {tab === "interview" && <InterviewPrepPanel />}

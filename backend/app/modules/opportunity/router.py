@@ -18,8 +18,11 @@ from app.integrations.obsidian import service as obsidian_service
 from app.integrations.obsidian.models import VaultItem
 from app.integrations.obsidian.router import vault_http_error
 from app.modules.opportunity import career as career_service
+from app.modules.opportunity import interview_intelligence as interview_ai
 from app.modules.opportunity import lifecycle, scoring, service
 from app.modules.opportunity.browse import BrowseFilters, browse_opportunities
+from app.modules.opportunity.career_analytics import CareerAnalyticsSnapshot, snapshot
+from app.modules.opportunity.evaluation_service import CareerEvaluationService
 from app.modules.opportunity.intelligence import (
     classify_reply,
     enrich_opportunities,
@@ -28,8 +31,10 @@ from app.modules.opportunity.intelligence import (
     update_evaluation,
 )
 from app.modules.opportunity.models import Application, Opportunity, OpportunityRequirement
+from app.modules.opportunity.package_service import ApplicationPackageService
 from app.modules.opportunity.schemas import (
     ApplicationListOut,
+    ApplicationPackageOut,
     ApplicationTimelineOut,
     CareerConnectionOut,
     CareerConnectionsImportOut,
@@ -39,6 +44,7 @@ from app.modules.opportunity.schemas import (
     CoverLetterOut,
     CoverLetterReviewIn,
     CoverLetterReviewOut,
+    DeepEvaluationOut,
     InterviewPrepOut,
     OpportunityBrowseOut,
     OpportunityConnectionsOut,
@@ -55,15 +61,11 @@ from app.modules.opportunity.schemas import (
     ReplyAnalysisOut,
     RequirementIn,
     RequirementOut,
+    ResolveAnswerIn,
     SalaryConsistencyOut,
     SilentApplicationOut,
     TransitionIn,
-    DeepEvaluationOut,
-    ApplicationPackageOut,
-    ResolveAnswerIn,
 )
-from app.modules.opportunity.evaluation_service import CareerEvaluationService
-from app.modules.opportunity.package_service import ApplicationPackageService
 from app.modules.opportunity.sources_router import router as sources_router
 from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo
@@ -364,9 +366,7 @@ async def opportunity_detail(item_id: UUID, session: AsyncSession = Depends(get_
     if row is None:
         raise HTTPException(404)
     app = await service.get_application(session, item_id)
-    enriched = await enrich_opportunities(
-        session, [row], [service._out(row, application=app)]
-    )
+    enriched = await enrich_opportunities(session, [row], [service._out(row, application=app)])
     return enriched[0]
 
 
@@ -438,7 +438,9 @@ async def requirements(item_id: UUID, session: AsyncSession = Depends(get_sessio
     )
 
 
-@router.post("/opportunities/{item_id}/requirements", response_model=RequirementOut, status_code=201)
+@router.post(
+    "/opportunities/{item_id}/requirements", response_model=RequirementOut, status_code=201
+)
 async def requirement(
     item_id: UUID, body: RequirementIn, session: AsyncSession = Depends(get_session)
 ):
@@ -514,9 +516,7 @@ async def add_opportunity_todo(
 
 
 @router.post("/opportunities/{item_id}/research-note", response_model=VaultItem)
-async def get_or_create_research_note(
-    item_id: UUID, session: AsyncSession = Depends(get_session)
-):
+async def get_or_create_research_note(item_id: UUID, session: AsyncSession = Depends(get_session)):
     """Fırsatın kanonik araştırma notunu çözer, yoksa Vault'ta oluşturur.
 
     Kimlik fırsatın UUID'sidir: aynı fırsat için ikinci dosya üretilmez.
@@ -959,4 +959,62 @@ async def resolve_application_package_answer(
 # Kaynak/jobhunter uclari (sources*, sync*, jobhunter) sources_router'da.
 # include_router() bu FastAPI surumunde lazy _IncludedRouter sarmali uretir ve
 # route.path erisimini kiran testlerle uyumsuzdur; rotalari dogrudan ekliyoruz.
+
+
+@router.get(
+    "/career/interviews/{id}/intelligence", response_model=interview_ai.InterviewIntelligence
+)
+async def read_interview_intelligence(id: UUID, session: AsyncSession = Depends(get_session)):
+    try:
+        return await interview_ai.get_intelligence(session, id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/career/interviews/{id}/prepare", response_model=interview_ai.InterviewPrep)
+async def prepare_interview_intelligence(id: UUID, session: AsyncSession = Depends(get_session)):
+    try:
+        result = await interview_ai.prepare(session, id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    await session.commit()
+    return result
+
+
+@router.post(
+    "/career/interviews/{id}/practice", response_model=interview_ai.InterviewPracticeSession
+)
+async def practice_interview_intelligence(
+    id: UUID, body: interview_ai.PracticeIn, session: AsyncSession = Depends(get_session)
+):
+    try:
+        result = await interview_ai.practice(session, id, body)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    await session.commit()
+    return result
+
+
+@router.post("/career/interviews/{id}/debrief", response_model=interview_ai.InterviewDebrief)
+async def debrief_interview_intelligence(
+    id: UUID, body: interview_ai.DebriefIn, session: AsyncSession = Depends(get_session)
+):
+    try:
+        result = await interview_ai.debrief(session, id, body)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    await session.commit()
+    return result
+
+
+@router.get("/career/insights", response_model=CareerAnalyticsSnapshot)
+async def career_insights(
+    days: int = 30, minimum: int = 3, session: AsyncSession = Depends(get_session)
+):
+    try:
+        return await snapshot(session, days=days, minimum=minimum)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
 router.routes.extend(sources_router.routes)
