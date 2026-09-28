@@ -4443,6 +4443,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sources/career-ops/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Career Ops Providers
+         * @description Pinned provider registry and actual configured scan target coverage.
+         */
+        get: operations["career_ops_providers_api_sources_career_ops_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sources/catalog": {
         parameters: {
             query?: never;
@@ -21362,6 +21382,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    career_ops_providers_api_sources_career_ops_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

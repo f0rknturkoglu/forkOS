@@ -18,6 +18,7 @@ services:
     command: sh -c "alembic upgrade head && pytest -q"
     environment:
       DATABASE_URL: postgresql+asyncpg://lifeos:lifeos@db-test:5432/forkos_test
+      CAREER_OPS_ROOT: /career-ops
     volumes:
       - ./backend:/app:z
       - ./docs:/docs:ro
@@ -27,6 +28,7 @@ services:
       # test eder; repo koku test konteynerine mount edilir (okuma icin).
       - ./Makefile:/Makefile:z
       - ./compose.yaml:/compose.yaml:ro
+      - ./.vendor/career-ops:/career-ops:ro
     depends_on:
       db-test:
         condition: service_healthy

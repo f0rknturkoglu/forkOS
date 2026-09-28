@@ -1,4 +1,7 @@
+from pathlib import Path
+
 import pytest
+
 from app.integrations.career_ops.adapter import CareerOpsAdapter
 from app.integrations.career_ops.models import CareerOpsStatusEnum
 
@@ -92,7 +95,6 @@ async def test_doctor_separates_upstream_onboarding_and_does_not_pass_target_fla
         runner=MockRunner(),
     )
     # Monkeypatch git check to return expected commit
-    adapter._doctor._expected_identity().commit
     import subprocess
     orig_check_output = subprocess.check_output
 
@@ -125,4 +127,3 @@ def test_probe_browser_readiness(tmp_path: Path):
 
     # Missing node_modules/playwright returns False
     assert probe_browser_readiness(tmp_path) is False
-

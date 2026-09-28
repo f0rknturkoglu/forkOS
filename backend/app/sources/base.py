@@ -126,6 +126,10 @@ def source_class(source: object) -> SourceClass:
     sid = source_id_of(source)
     if getattr(source, "opt_in", False) or getattr(source, "slow_optin", False):
         return SourceClass.SLOW_OPTIN
+    # Bounded public-board provider sweep is fast enough for ordinary refresh.
+    # Company aggregates and global reverse ATS remain explicit/full-only.
+    if sid == "careerops:boards":
+        return SourceClass.NORMAL
     if sid in SLOW_OPTIN_SOURCE_IDS or sid.startswith("careerops:"):
         return SourceClass.SLOW_OPTIN
     if sid in CRITICAL_SOURCE_IDS or ats_platform_of(sid) in CRITICAL_ATS:

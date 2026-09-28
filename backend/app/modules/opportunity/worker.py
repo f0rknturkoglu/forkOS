@@ -405,8 +405,12 @@ async def poll_named_source(source_id: str, *, batch_id=None) -> int:
     from app.config import settings
     all_registered = [*forkjob_sources(include_opt_in=True), *SOURCES]
     if settings.career_ops_enabled and settings.career_ops_discovery_enabled:
-        from app.sources.career_ops_sources import get_career_ops_sources
+        from app.sources.career_ops_sources import (
+            get_career_ops_provider_sources,
+            get_career_ops_sources,
+        )
         all_registered.extend(get_career_ops_sources())
+        all_registered.extend(get_career_ops_provider_sources())
 
     source = next(
         (

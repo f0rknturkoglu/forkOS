@@ -22,7 +22,6 @@ from app.core.notifications import notify
 
 # Application CRM -- service.py uzerinden dogrudan import edenler bu isimleri korur.
 from app.modules.opportunity import lifecycle
-from app.modules.opportunity.listing_service import OpportunityListingService
 from app.modules.opportunity.application import (  # noqa: F401 (re-export: router service.X ile erisir)
     REJECTION_REASONS,
     TERMINAL_STATUSES,
@@ -597,6 +596,7 @@ def canonical_cluster(rows: Sequence[Opportunity]) -> Opportunity:
             row.status == "discovered",
             row.applied_at is None,
             not bool(row.notes),
+            not row.source.startswith("careerops:"),
             row.found_at,
             str(row.id),
         ),
@@ -880,7 +880,7 @@ async def _refresh_opportunity(
         merged_raw["career_ops"] = raw["career_ops"]
     if "cluster_key" in raw and raw["cluster_key"]:
         merged_raw.setdefault("cluster_key", raw["cluster_key"])
-    if raw.get("description") and not merged_raw.get("description"):
+    if raw.get("description") and len(str(raw["description"])) > len(str(merged_raw.get("description") or "")):
         merged_raw["description"] = raw["description"]
 
     existing_sources = list(merged_raw.get("sources", [opportunity.source]))
@@ -891,12 +891,14 @@ async def _refresh_opportunity(
     merged_raw["sources"] = existing_sources
     opportunity.raw = merged_raw
 
+    same_primary_source = opportunity.source == source_label and not source_label.startswith("careerops:")
+
     # Field-aware non-destructive updates (Finding 16)
-    if category is not None and (not opportunity.category or opportunity.source == source_label):
+    if category is not None and (not opportunity.category or same_primary_source):
         opportunity.category = category
-    if published_at is not None and (opportunity.published_at is None or opportunity.source == source_label):
+    if published_at is not None and (opportunity.published_at is None or same_primary_source):
         opportunity.published_at = published_at
-    if deadline_at is not None and (opportunity.deadline_at is None or opportunity.source == source_label):
+    if deadline_at is not None and (opportunity.deadline_at is None or same_primary_source):
         opportunity.deadline_at = deadline_at
 
     # Finding 20: Do not degrade/erase skill_match_ratio when incoming description is empty
@@ -911,31 +913,36 @@ async def _refresh_opportunity(
         opportunity.score_source = "forkjob-rules"
         opportunity.score_computed_at = now
 
-    if forkjob.get("country") and (not opportunity.country or opportunity.source == source_label):
+    if forkjob.get("country") and (not opportunity.country or same_primary_source):
         opportunity.country = forkjob.get("country")
-    if forkjob.get("region") and (not opportunity.region or opportunity.source == source_label):
+    if forkjob.get("region") and (not opportunity.region or same_primary_source):
         opportunity.region = forkjob.get("region")
-    if job.company and (not opportunity.organization or opportunity.source == source_label):
+    if job.company and (not opportunity.organization or same_primary_source):
         opportunity.organization = job.company
-    if job.url and (not opportunity.url or opportunity.source == source_label):
+    if job.url and (not opportunity.url or same_primary_source):
         opportunity.url = job.url
-    if job.location and (not opportunity.location or opportunity.source == source_label):
+    if job.location and (not opportunity.location or same_primary_source):
         opportunity.location = job.location
 
     if forkjob.get("work_mode"):
         mode = str(forkjob["work_mode"])
-        if mode and mode != "unknown" and (not opportunity.remote or opportunity.remote == "unknown" or opportunity.source == source_label):
+        if mode and mode != "unknown" and (not opportunity.remote or opportunity.remote == "unknown" or same_primary_source):
             opportunity.remote = mode
     elif getattr(job, "work_mode", None) is not None:
         mode_val = job.work_mode.value if hasattr(job.work_mode, "value") else str(job.work_mode)
         if mode_val and mode_val != "unknown":
-            if not opportunity.remote or opportunity.remote == "unknown" or opportunity.source == source_label:
+            if not opportunity.remote or opportunity.remote == "unknown" or same_primary_source:
                 opportunity.remote = mode_val
         elif not opportunity.remote:
             opportunity.remote = mode_val
 
-    if job.salary and (not opportunity.compensation or opportunity.source == source_label):
+    if job.salary and (not opportunity.compensation or same_primary_source):
         opportunity.compensation = job.salary
+
+    # User state and richer fields stay put, but when the same discovered job
+    # arrives from both engines the visible primary source is career-ops.
+    if source_label.startswith("careerops:") and opportunity.source.startswith("jobhunter:"):
+        opportunity.source = source_label
 
     opportunity.last_seen_at = now
     opportunity.source_status = "active"

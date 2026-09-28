@@ -78,9 +78,101 @@ def _catalog_sources() -> list:
     sources = [*forkjob_sources(include_opt_in=True), *ANNOUNCEMENT_SOURCES]
     from app.config import settings
     if settings.career_ops_enabled and settings.career_ops_discovery_enabled:
-        from app.sources.career_ops_sources import get_career_ops_sources
+        from app.sources.career_ops_sources import (
+            get_career_ops_provider_sources,
+            get_career_ops_sources,
+        )
         sources.extend(get_career_ops_sources())
+        sources.extend(get_career_ops_provider_sources())
     return sources
+
+
+@router.get("/sources/career-ops/providers")
+async def career_ops_providers(session: AsyncSession = Depends(get_session)):
+    """Pinned provider registry and actual configured scan target coverage."""
+    from app.integrations.career_ops.adapter import REVERSE_ATS_PROVIDERS, CareerOpsAdapter
+    from app.integrations.career_ops.provider_targets import build_provider_targets
+    from app.modules.opportunity.models import Opportunity, OpportunitySourceObservation
+
+    adapter = CareerOpsAdapter()
+    doctor = await adapter.doctor()
+    inventory = None
+    error = None
+    if doctor.core_ready:
+        try:
+            inventory = (await adapter.provider_inventory()).model_dump()
+        except Exception as exc:
+            error = str(exc)
+    targets = build_provider_targets()
+    configured_counts: dict[str, int] = {}
+    for target in [*targets["job_boards"], *targets["tracked_companies"]]:
+        provider = target.get("provider")
+        if isinstance(provider, str):
+            configured_counts[provider] = configured_counts.get(provider, 0) + 1
+    provider_rows = [
+        {
+            **provider,
+            "configured_targets": configured_counts.get(provider["id"], 0),
+            "reverse_scan": provider["id"] in REVERSE_ATS_PROVIDERS,
+        }
+        for provider in (inventory["providers"] if inventory else [])
+    ]
+    grouped = (
+        select(
+            OpportunitySourceObservation.opportunity_id,
+            func.bool_or(OpportunitySourceObservation.source.like("careerops:%")).label("career_ops"),
+            func.bool_or(OpportunitySourceObservation.source.like("jobhunter:%")).label("forkjob"),
+        )
+        .group_by(OpportunitySourceObservation.opportunity_id)
+        .subquery()
+    )
+    contribution = (
+        await session.execute(
+            select(
+                func.count().filter(grouped.c.career_ops).label("seen"),
+                func.count().filter(grouped.c.career_ops & ~grouped.c.forkjob).label("unique"),
+                func.count().filter(grouped.c.career_ops & grouped.c.forkjob).label("overlap"),
+            )
+        )
+    ).one()
+    first_career_observation = (
+        select(
+            OpportunitySourceObservation.opportunity_id,
+            func.min(OpportunitySourceObservation.first_seen_at).label("first_seen_at"),
+        )
+        .where(OpportunitySourceObservation.source.like("careerops:%"))
+        .group_by(OpportunitySourceObservation.opportunity_id)
+        .subquery()
+    )
+    new_canonical = (
+        await session.execute(
+            select(func.count())
+            .select_from(Opportunity)
+            .join(first_career_observation, first_career_observation.c.opportunity_id == Opportunity.id)
+            .where(first_career_observation.c.first_seen_at == Opportunity.found_at)
+        )
+    ).scalar_one()
+    return {
+        "status": doctor.status.value,
+        "core_ready": doctor.core_ready,
+        "node_version": doctor.runtime.node_version,
+        "expected_commit": doctor.expected_identity.commit,
+        "actual_commit": doctor.actual_identity.commit if doctor.actual_identity else None,
+        "providers": provider_rows,
+        "provider_count": len(provider_rows),
+        "plugins": inventory["plugins"] if inventory else [],
+        "plugins_unconfigured": len(inventory["plugins"]) if inventory else 0,
+        "configured_boards": len(targets["job_boards"]),
+        "configured_companies": len(targets["tracked_companies"]),
+        "contribution": {
+            "career_ops_seen": contribution.seen,
+            "career_ops_unique": contribution.unique,
+            "career_ops_overlap_with_forkjob": contribution.overlap,
+            "career_ops_new_canonical": new_canonical,
+            "career_ops_existing_strengthened": contribution.seen - new_canonical,
+        },
+        "error": error or "; ".join(doctor.errors or doctor.warnings),
+    }
 
 
 @router.get("/sources/runs")
@@ -550,8 +642,8 @@ def _validate_scoring_payload(body: dict) -> None:
     if floor is not None and cap is not None and floor > cap:
         raise HTTPException(422, "scoring.score_floor, score_cap'ten büyük olamaz")
     kill = number(scoring, "kill_score")
-    if kill is not None and floor is not None and cap is not None and not floor <= kill <= cap:
-        raise HTTPException(422, "scoring.kill_score skor aralığının dışında")
+    if kill is not None and floor is not None and kill > floor:
+        raise HTTPException(422, "scoring.kill_score skor tabanından büyük olamaz")
 
     skills = scoring.get("skills")
     if skills is not None:
@@ -571,8 +663,8 @@ def _validate_scoring_payload(body: dict) -> None:
             raise HTTPException(422, "balance objesi gerekli")
         quotas = balance.get("quotas")
         if quotas is not None:
-            if not isinstance(quotas, dict) or not quotas:
-                raise HTTPException(422, "balance.quotas boş olamaz")
+            if not isinstance(quotas, dict):
+                raise HTTPException(422, "balance.quotas nesne olmalı")
             for key, value in quotas.items():
                 if not str(key).strip() or isinstance(value, bool) or not isinstance(value, int):
                     raise HTTPException(422, "balance.quotas anahtar/sayı çiftleri istiyor")

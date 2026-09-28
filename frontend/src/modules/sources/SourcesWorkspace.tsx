@@ -70,6 +70,7 @@ import {
   useSourceCacheClear,
   useSourceCachePrune,
   useSourceCatalog,
+  useCareerOpsProviders,
   useSourceCoverage,
   useSourceRefresh,
   useSourceRefreshOne,
@@ -139,6 +140,7 @@ export function SourcesWorkspace({
   const copy = FRAMING_COPY[framing];
 
   const catalog = useSourceCatalog();
+  const careerOps = useCareerOpsProviders();
   const coverage = useSourceCoverage();
   const runs = useSourceRuns();
   const cache = useSourceCache();
@@ -322,6 +324,80 @@ export function SourcesWorkspace({
           hint={sync.isError ? "durum alınamadı" : running.size > 0 ? "şu an çekiliyor" : undefined}
         />
       </MetricStrip>
+
+      <Section
+        title="career-ops sağlayıcıları"
+        hint="Sağlayıcı sayısı kaynak sayısı değildir; yalnız yapılandırılmış hedefler taranır."
+      >
+        {careerOps.isPending ? (
+          <p className="text-meta text-muted">Sağlayıcı kayıtları yükleniyor…</p>
+        ) : careerOps.isError ? (
+          <p role="alert" className="text-meta text-danger">
+            Sağlayıcı durumu alınamadı.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2 text-meta">
+              <Chip tone={careerOps.data?.core_ready ? "ok" : "danger"}>
+                {careerOps.data?.core_ready ? "çalışıyor" : "çalışmıyor"}
+              </Chip>
+              <span>{careerOps.data?.provider_count ?? 0} sağlayıcı yüklendi</span>
+              <span>{careerOps.data?.configured_boards ?? 0} pano hedefi</span>
+              <span>{careerOps.data?.configured_companies ?? 0} şirket hedefi</span>
+              <span>{careerOps.data?.plugins_unconfigured ?? 0} eklenti yapılandırılmamış</span>
+            </div>
+            {careerOps.data?.contribution && (
+              <p className="text-meta text-secondary">
+                {careerOps.data.contribution.career_ops_seen} fırsatta gözlem ·{" "}
+                {careerOps.data.contribution.career_ops_unique} yalnız career-ops ·{" "}
+                {careerOps.data.contribution.career_ops_overlap_with_forkjob} forkjob ile ortak ·{" "}
+                {careerOps.data.contribution.career_ops_new_canonical} yeni kanonik ·{" "}
+                {careerOps.data.contribution.career_ops_existing_strengthened} mevcut kayda katkı
+              </p>
+            )}
+            {careerOps.data?.error && (
+              <p role="alert" className="text-meta text-danger">
+                {careerOps.data.error}
+              </p>
+            )}
+            {careerOps.data?.core_ready && (
+              <p className="text-meta text-muted">
+                Node {careerOps.data.node_version} · sabit sürüm {careerOps.data.actual_commit?.slice(0, 7)} · pano ve
+                şirket çekimleri tam taramada ayrı kaynaklar olarak görünür.
+              </p>
+            )}
+            {(careerOps.data?.providers?.length ?? 0) > 0 && (
+              <Disclosure summary={`Yüklü sağlayıcıları göster (${careerOps.data?.providers?.length})`}>
+                <ul className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {careerOps.data?.providers?.map((provider) => (
+                    <li
+                      key={provider.id}
+                      className="flex items-center justify-between gap-2 rounded-control border border-line px-2 py-1.5 text-meta"
+                    >
+                      <span className="min-w-0 truncate" title={provider.id}>
+                        {provider.id}
+                      </span>
+                      <Chip tone={provider.configured_targets || provider.reverse_scan ? "ok" : "neutral"}>
+                        {provider.configured_targets
+                          ? `${provider.configured_targets} hedef`
+                          : provider.reverse_scan
+                            ? "ters ATS"
+                            : "hedef yok"}
+                      </Chip>
+                    </li>
+                  ))}
+                </ul>
+              </Disclosure>
+            )}
+            {(careerOps.data?.plugins?.length ?? 0) > 0 && (
+              <p className="text-meta text-muted">
+                Anahtar/izin isteyen veya ayrıca etkinleştirilen eklentiler kapalı:{" "}
+                {careerOps.data?.plugins?.map((plugin) => plugin.id).join(", ")}.
+              </p>
+            )}
+          </div>
+        )}
+      </Section>
 
       {/* ── İLGİ İSTEYEN: yalnız sorun varken panel; yoksa tek sakin satır ── */}
       {coverageState !== "ready" ? (

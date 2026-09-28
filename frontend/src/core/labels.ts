@@ -15,6 +15,11 @@ export function sourceLabel(source: string): string {
     return "Özel İlan";
   }
   const parts = source.split(":");
+  if (parts[0] === "careerops") {
+    if (parts[1] === "boards") return "career-ops · açık panolar";
+    if (parts[1] === "companies") return "career-ops · takip edilen şirketler";
+    return `career-ops · ${parts.slice(1).join(":")}`;
+  }
   if (parts[0] === "jobhunter") {
     // Şirket/portal kimliği tek parçaysa ("jobhunter:eures") yalnızca o ad
     // gösterilir; "jobhunter:" öneki kullanıcıya hiçbir şey söylemez.

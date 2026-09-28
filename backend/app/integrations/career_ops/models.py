@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import (
@@ -17,7 +17,7 @@ from pydantic import (
 )
 
 
-class CareerOpsStatusEnum(str, Enum):
+class CareerOpsStatusEnum(StrEnum):
     READY = "ready"
     DISABLED = "disabled"
     UNAVAILABLE = "unavailable"
@@ -26,7 +26,7 @@ class CareerOpsStatusEnum(str, Enum):
     DEGRADED = "degraded"
 
 
-class CapabilityStatus(str, Enum):
+class CapabilityStatus(StrEnum):
     SUPPORTED = "supported"
     DEGRADED = "degraded"
     UNAVAILABLE = "unavailable"
@@ -155,6 +155,73 @@ class CareerOpsScanReceipt(BaseModel):
     retiredBoardsSkipped: StrictInt | None = None
     cappedBoards: StrictInt | None = None
     offers: list[Any] = Field(default_factory=list)
+
+
+class CareerOpsProviderInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    detect_capable: StrictBool
+    provider_type: Literal["unknown"]
+    requires_auth: bool | None = None
+    browser_required: bool | None = None
+    globally_enumerable: bool | None = None
+
+
+class CareerOpsPluginInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    required_env: list[str]
+    hooks: list[str]
+    status: Literal["unconfigured"]
+
+
+class CareerOpsProviderInventory(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal["forkos.careerops.providers@1"]
+    files: StrictInt
+    providers: list[CareerOpsProviderInfo]
+    plugins: list[CareerOpsPluginInfo] = Field(default_factory=list)
+
+
+class CareerOpsProviderOffer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    company: str
+    title: str
+    url: str
+    location: str | None = None
+    description: str | None = None
+    salary: str | None = None
+    posted_at: datetime | None = None
+    provider: str
+    target: str
+    kind: Literal["company", "board"]
+
+
+class CareerOpsProviderTargetResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target: str
+    provider: str | None = None
+    status: Literal["ok", "partial", "error", "unconfigured"]
+    found: StrictInt
+
+
+class CareerOpsProviderScanReceipt(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal["forkos.careerops.scan@1"]
+    providers_loaded: StrictInt
+    targets_scanned: StrictInt
+    boards_scanned: StrictInt
+    companies_scanned: StrictInt
+    offers: list[CareerOpsProviderOffer]
+    errors: list[dict[str, str | None]]
+    target_results: list[CareerOpsProviderTargetResult]
+    partial: StrictBool
 
 
 class CareerOpsLivenessReceipt(BaseModel):

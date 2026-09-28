@@ -52,7 +52,7 @@ export function LinkedInProfilesEditor({ online }: { online: boolean }) {
   return (
     <Section title="LinkedIn arama profilleri">
       <p className="mb-2 text-meta text-muted">
-        Varsayılan profiller portallarla birleşir; seninkiler en sona eklenir ve senkron turlarında çalışır.
+        Bu yerel profiller LinkedIn kaynağını elle yenilediğinde kullanılır; aramalar repoya kaydedilmez.
       </p>
       <div className="space-y-2">
         {editing.map((row, index) => (

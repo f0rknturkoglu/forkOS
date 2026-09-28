@@ -79,25 +79,8 @@ sources:
       # acilir; burada sabit true yazmak env'i anlamsiz kiliyordu.
       ca_cert_env: FORKJOB_LINKEDIN_CA_CERT
       user_agent_env: FORKJOB_LINKEDIN_USER_AGENT
-      searches:
-        - name: spain-backend
-          term: backend engineer
-          location: Spain
-          results_wanted: 100
-          hours_old: 72
-          fetch_description: false
-        - name: madrid-python
-          term: python developer
-          location: Madrid, Spain
-          results_wanted: 50
-          hours_old: 168
-          fetch_description: true
-        - name: spain-remote
-          term: software engineer
-          location: Spain
-          results_wanted: 50
-          is_remote: true
-          fetch_description: false
+      # Kişisel aramalar yalnızca git dışı linkedin-profiles.yaml.user dosyasından gelir.
+      searches: []
 
   - key: bebee
     label: beBee

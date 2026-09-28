@@ -205,7 +205,7 @@ def get_capability_status(
         return CapabilityStatus.UNAVAILABLE
     if capability_id == "foundation.doctor":
         return CapabilityStatus.SUPPORTED
-    if capability_id == "discovery.reverse_ats":
+    if capability_id in {"discovery.reverse_ats", "discovery.scan"}:
         if not context.discovery_enabled:
             return CapabilityStatus.DISABLED
         return CapabilityStatus.SUPPORTED
@@ -263,46 +263,3 @@ def count_available_capabilities(
         for cap in ALL_CAPABILITIES
         if get_capability_status(cap.id, context=context) == CapabilityStatus.SUPPORTED
     )
-
-
-
-
-def get_provider_capability_inventory() -> dict[str, dict[str, str]]:
-    """Diagnostic inventory of the pinned career-ops provider universe (§40)."""
-    return {
-        "greenhouse": {
-            "status": "supported",
-            "protocol": "reverse_ats_json",
-            "source_id": "careerops:greenhouse",
-        },
-        "lever": {
-            "status": "supported",
-            "protocol": "reverse_ats_json",
-            "source_id": "careerops:lever",
-        },
-        "ashby": {
-            "status": "supported",
-            "protocol": "reverse_ats_json",
-            "source_id": "careerops:ashby",
-        },
-        "workday": {
-            "status": "supported",
-            "protocol": "reverse_ats_json_multitenant",
-            "source_id": "careerops:workday",
-        },
-        "icims": {
-            "status": "supported",
-            "protocol": "reverse_ats_json",
-            "source_id": "careerops:icims",
-        },
-        "bamboohr": {
-            "status": "supported",
-            "protocol": "reverse_ats_json",
-            "source_id": "careerops:bamboohr",
-        },
-        "curated_scan_lane": {
-            "status": "deferred_contract_limitation",
-            "protocol": "scan.mjs --json",
-            "reason": "Machine receipt produces added_urls array only; lacks offer metadata for canonical ingestion",
-        },
-    }

@@ -7,7 +7,6 @@ from app.integrations.career_ops.capabilities import (
     CapabilityStatus,
     get_capability_status,
     get_declared_capabilities,
-    get_provider_capability_inventory,
 )
 from app.integrations.career_ops.models import CareerOpsStatusEnum
 from app.integrations.career_ops.reasoner_status import (
@@ -41,11 +40,7 @@ def test_capability_registry():
 
     status_rev = get_capability_status("discovery.reverse_ats", enabled=True, runtime_ready=True)
     assert status_rev == CapabilityStatus.SUPPORTED
-
-    inv = get_provider_capability_inventory()
-    assert "greenhouse" in inv
-    assert inv["greenhouse"]["status"] == "supported"
-    assert inv["curated_scan_lane"]["status"] == "deferred_contract_limitation"
+    assert get_capability_status("discovery.scan", enabled=True, runtime_ready=True) == CapabilityStatus.SUPPORTED
 
 
 @pytest.mark.no_database
@@ -77,7 +72,7 @@ async def test_doctor_and_adapter_capabilities_agreement(mock_checkout, monkeypa
     caps_ready = await adapter_ready.capabilities()
     supported_ready_count = sum(1 for c in caps_ready if c.status == CapabilityStatus.SUPPORTED)
     assert doc_ready.capabilities_available == supported_ready_count
-    assert doc_ready.capabilities_available == 12  # six upstream + six local C6/C7 capabilities
+    assert doc_ready.capabilities_available == 13
 
     # Case 2: Browser missing (degraded tier for liveness & extract)
     monkeypatch.setattr("app.integrations.career_ops.doctor.probe_browser_readiness", lambda *args, **kwargs: False)
@@ -86,7 +81,7 @@ async def test_doctor_and_adapter_capabilities_agreement(mock_checkout, monkeypa
     caps_nobrowser = await adapter_nobrowser.capabilities()
     supported_nobrowser_count = sum(1 for c in caps_nobrowser if c.status == CapabilityStatus.SUPPORTED)
     assert doc_nobrowser.capabilities_available == supported_nobrowser_count
-    assert doc_nobrowser.capabilities_available == 10
+    assert doc_nobrowser.capabilities_available == 11
     # liveness and extract should be DEGRADED
     cap_dict = {c.id: c.status for c in caps_nobrowser}
     assert cap_dict["discovery.liveness"] == CapabilityStatus.DEGRADED
@@ -126,7 +121,7 @@ async def test_doctor_and_adapter_capabilities_agreement(mock_checkout, monkeypa
     caps_degraded = await adapter_degraded.capabilities()
     supported_degraded_count = sum(1 for c in caps_degraded if c.status == CapabilityStatus.SUPPORTED)
     assert doc_degraded.capabilities_available == supported_degraded_count
-    assert doc_degraded.capabilities_available == 12
+    assert doc_degraded.capabilities_available == 13
 
 
 @pytest.mark.no_database

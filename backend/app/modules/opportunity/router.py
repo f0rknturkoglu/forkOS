@@ -32,6 +32,7 @@ from app.modules.opportunity.intelligence import (
     list_silent_applications,
     update_evaluation,
 )
+from app.modules.opportunity.listing_service import OpportunityListingService
 from app.modules.opportunity.models import Application, Opportunity, OpportunityRequirement
 from app.modules.opportunity.package_service import ApplicationPackageService
 from app.modules.opportunity.schemas import (
@@ -838,7 +839,7 @@ async def check_opportunity_liveness(
     session: AsyncSession = Depends(get_session),
 ):
     """Fırsatın kaynak linklerinin canlılığını doğrula ve durumunu güncelle."""
-    listing_service = service.OpportunityListingService()
+    listing_service = OpportunityListingService()
     try:
         result = await listing_service.verify_opportunity_liveness(session, id, force=force)
     except ValueError as exc:
@@ -857,7 +858,7 @@ async def extract_opportunity_jd(
     session: AsyncSession = Depends(get_session),
 ):
     """Fırsatın iş ilanı metnini çıkar ve açıklama taslaksa kanonik açıklamaya yükselt."""
-    listing_service = service.OpportunityListingService()
+    listing_service = OpportunityListingService()
     try:
         result = await listing_service.enrich_job_description(session, id, force=force)
     except ValueError as exc:

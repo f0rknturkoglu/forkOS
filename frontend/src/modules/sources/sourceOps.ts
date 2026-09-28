@@ -61,6 +61,42 @@ export interface SourceCatalogEntry {
  */
 export type CoverageRow = SourceCoverageRow & { retry_at?: string | null };
 
+interface CareerOpsProviderStatus {
+  status: string;
+  core_ready: boolean;
+  node_version: string | null;
+  expected_commit: string;
+  actual_commit: string | null;
+  provider_count: number;
+  plugins_unconfigured: number;
+  plugins: { id: string; required_env: string[]; hooks: string[]; status: "unconfigured" }[];
+  configured_boards: number;
+  configured_companies: number;
+  error: string | null;
+  providers: {
+    id: string;
+    detect_capable: boolean;
+    provider_type: string;
+    configured_targets: number;
+    reverse_scan: boolean;
+  }[];
+  contribution: {
+    career_ops_seen: number;
+    career_ops_unique: number;
+    career_ops_overlap_with_forkjob: number;
+    career_ops_new_canonical: number;
+    career_ops_existing_strengthened: number;
+  };
+}
+
+export function useCareerOpsProviders() {
+  return useQuery({
+    queryKey: ["career-ops-providers"],
+    queryFn: () => api.get<CareerOpsProviderStatus>("/sources/career-ops/providers"),
+    staleTime: 60_000,
+  });
+}
+
 export function useSourceCatalog() {
   return useQuery({
     queryKey: ["source-catalog"],

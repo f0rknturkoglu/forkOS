@@ -67,6 +67,7 @@ services:
       - ./backend/data:/app/data:z
       - ./backend/backups:/app/backups:z
       - ./backend/app/sources/forkjob_core/data:/app/app/sources/forkjob_core/data:z
+      - ./.vendor/career-ops:/career-ops:ro
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
@@ -102,6 +103,17 @@ services:
       # ayarlari orada da gerekir (bkz. .env.example).
       FORKJOB_LINKEDIN_ALLOW_DIRECT: ${FORKJOB_LINKEDIN_ALLOW_DIRECT:-0}
       FORKJOB_LINKEDIN_PROXIES_FILE: ${FORKJOB_LINKEDIN_PROXIES_FILE:-}
+      CAREER_OPS_ENABLED: ${CAREER_OPS_ENABLED:-1}
+      CAREER_OPS_ROOT: /career-ops
+      CAREER_OPS_NODE_BIN: node
+      CAREER_OPS_RUNTIME_DIR: /app/data/runtime/career-ops
+      CAREER_OPS_TIMEOUT_SECONDS: ${CAREER_OPS_TIMEOUT_SECONDS:-30.0}
+      CAREER_OPS_MAX_BUFFER_BYTES: ${CAREER_OPS_MAX_BUFFER_BYTES:-524288}
+      CAREER_OPS_DISCOVERY_ENABLED: ${CAREER_OPS_DISCOVERY_ENABLED:-1}
+      CAREER_OPS_DISCOVERY_TIMEOUT_SECONDS: ${CAREER_OPS_DISCOVERY_TIMEOUT_SECONDS:-300.0}
+      CAREER_OPS_DISCOVERY_SINCE_DAYS: ${CAREER_OPS_DISCOVERY_SINCE_DAYS:-7}
+      CAREER_OPS_DISCOVERY_LIMIT: ${CAREER_OPS_DISCOVERY_LIMIT:-200}
+      CAREER_OPS_DISCOVERY_MAX_BUFFER_BYTES: ${CAREER_OPS_DISCOVERY_MAX_BUFFER_BYTES:-4194304}
     ports:
       - "${BIND_ADDR:-127.0.0.1}:8787:8787"   # DIŞARI AÇMA — auth yok
     depends_on:
@@ -126,6 +138,7 @@ services:
       - ./backend/data:/app/data:z
       - ./backend/backups:/app/backups:z
       - ./backend/app/sources/forkjob_core/data:/app/app/sources/forkjob_core/data:z
+      - ./.vendor/career-ops:/career-ops:ro
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lifeos}:${POSTGRES_PASSWORD:-lifeos}@db:5432/${POSTGRES_DB:-lifeos}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
@@ -141,6 +154,17 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://127.0.0.1:8787/api/auth/google/callback}
       WORKER_ENABLED: "1"
+      CAREER_OPS_ENABLED: ${CAREER_OPS_ENABLED:-1}
+      CAREER_OPS_ROOT: /career-ops
+      CAREER_OPS_NODE_BIN: node
+      CAREER_OPS_RUNTIME_DIR: /app/data/runtime/career-ops
+      CAREER_OPS_TIMEOUT_SECONDS: ${CAREER_OPS_TIMEOUT_SECONDS:-30.0}
+      CAREER_OPS_MAX_BUFFER_BYTES: ${CAREER_OPS_MAX_BUFFER_BYTES:-524288}
+      CAREER_OPS_DISCOVERY_ENABLED: ${CAREER_OPS_DISCOVERY_ENABLED:-1}
+      CAREER_OPS_DISCOVERY_TIMEOUT_SECONDS: ${CAREER_OPS_DISCOVERY_TIMEOUT_SECONDS:-300.0}
+      CAREER_OPS_DISCOVERY_SINCE_DAYS: ${CAREER_OPS_DISCOVERY_SINCE_DAYS:-7}
+      CAREER_OPS_DISCOVERY_LIMIT: ${CAREER_OPS_DISCOVERY_LIMIT:-200}
+      CAREER_OPS_DISCOVERY_MAX_BUFFER_BYTES: ${CAREER_OPS_DISCOVERY_MAX_BUFFER_BYTES:-4194304}
     depends_on:
       db:
         condition: service_healthy

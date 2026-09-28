@@ -2,6 +2,7 @@ import ipaddress
 import json
 import shutil
 import uuid
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -32,20 +33,28 @@ from app.integrations.career_ops.models import (
     CareerOpsJobExtractionResult,
     CareerOpsLivenessReceipt,
     CareerOpsOfferReceipt,
+    CareerOpsProviderInventory,
+    CareerOpsProviderScanReceipt,
     CareerOpsRepostCluster,
     CareerOpsScanReceipt,
+)
+from app.integrations.career_ops.provider_targets import (
+    build_provider_targets,
+    project_provider_targets,
 )
 from app.integrations.career_ops.runner import CareerOpsRunner, SubprocessCareerOpsRunner
 from app.integrations.career_ops.targeting import CareerOpsDiscoveryConfigBuilder
 
-REVERSE_ATS_PROVIDERS: frozenset[str] = frozenset({
-    "greenhouse",
-    "lever",
-    "ashby",
-    "workday",
-    "icims",
-    "bamboohr",
-})
+REVERSE_ATS_PROVIDERS: frozenset[str] = frozenset(
+    {
+        "greenhouse",
+        "lever",
+        "ashby",
+        "workday",
+        "icims",
+        "bamboohr",
+    }
+)
 
 
 def _is_safe_http_url(url: str) -> bool:
@@ -82,8 +91,6 @@ def _is_safe_http_url(url: str) -> bool:
         return True
     except Exception:
         return False
-
-
 
 
 class CareerOpsAdapter:
@@ -160,6 +167,67 @@ class CareerOpsAdapter:
             for c in get_declared_capabilities()
         ]
 
+    async def provider_inventory(self) -> CareerOpsProviderInventory:
+        self.guard.ensure_ready(required_script="scan.mjs")
+        result = await self.runner.run_script("bridges/provider-scan.mjs", ["inventory"])
+        if result.exit_code != 0:
+            raise CareerOpsExecutionError(result.stderr.strip() or "Provider inventory failed")
+        try:
+            inventory = CareerOpsProviderInventory.model_validate_json(result.stdout)
+        except Exception as exc:
+            raise CareerOpsInvalidOutputError(f"Invalid provider inventory: {exc}") from exc
+        ids = [provider.id for provider in inventory.providers]
+        if len(ids) != len(set(ids)) or inventory.files != len(ids):
+            raise CareerOpsInvalidOutputError("Provider registry has missing or duplicate modules")
+        return inventory
+
+    async def provider_scan(
+        self,
+        *,
+        targets: dict[str, Any] | None = None,
+        since_days: int | None = None,
+    ) -> CareerOpsProviderScanReceipt:
+        self.guard.ensure_ready(required_script="scan.mjs")
+        if not settings.career_ops_discovery_enabled:
+            raise CareerOpsConfigurationError("career-ops discovery capability is disabled")
+        days = since_days or settings.career_ops_discovery_since_days
+        if not 1 <= days <= 90:
+            raise ValueError("since_days must be between 1 and 90")
+        scan_targets = targets if targets is not None else build_provider_targets()
+        for target in [
+            *scan_targets.get("tracked_companies", []),
+            *scan_targets.get("job_boards", []),
+        ]:
+            for key in ("careers_url", "api", "url"):
+                value = target.get(key)
+                if value is not None and (
+                    not isinstance(value, str) or not _is_safe_http_url(value)
+                ):
+                    raise CareerOpsSecurityError(f"Unsafe provider target {key}")
+        projection = project_provider_targets(
+            self.runtime_dir,
+            scan_targets,
+            days,
+        )
+        try:
+            result = await self.runner.run_script(
+                "bridges/provider-scan.mjs",
+                ["scan", str(projection)],
+                timeout_seconds=settings.career_ops_discovery_timeout_seconds,
+                max_buffer_bytes=settings.career_ops_discovery_max_buffer_bytes,
+            )
+        finally:
+            projection.unlink(missing_ok=True)
+        if result.exit_code != 0:
+            raise CareerOpsExecutionError(result.stderr.strip() or "Provider scan failed")
+        try:
+            receipt = CareerOpsProviderScanReceipt.model_validate_json(result.stdout)
+        except Exception as exc:
+            raise CareerOpsInvalidOutputError(f"Invalid provider scan receipt: {exc}") from exc
+        for offer in receipt.offers:
+            if not _is_safe_http_url(offer.url):
+                raise CareerOpsSecurityError(f"Unsafe provider offer URL: {offer.url}")
+        return receipt
 
     async def reverse_scan(
         self,
@@ -183,7 +251,6 @@ class CareerOpsAdapter:
         if norm_provider not in REVERSE_ATS_PROVIDERS:
             raise CareerOpsSecurityError(
                 f"Unknown or unallowlisted discovery provider '{provider}'. "
-
                 f"Valid providers: {sorted(REVERSE_ATS_PROVIDERS)}"
             )
 
@@ -220,7 +287,6 @@ class CareerOpsAdapter:
         finally:
             portals_path.unlink(missing_ok=True)
 
-
         if exec_res.exit_code not in (0, 2):
             raise CareerOpsExecutionError(
                 f"scan-ats-full.mjs exited with code {exec_res.exit_code}: {exec_res.stderr.strip() or exec_res.stdout.strip()}"
@@ -229,7 +295,9 @@ class CareerOpsAdapter:
         # 4. Parse stdout strictly as single JSON document (Finding H)
         raw_stdout = exec_res.stdout.strip()
         if not raw_stdout:
-            raise CareerOpsInvalidOutputError("scan-ats-full.mjs produced empty stdout in --json mode")
+            raise CareerOpsInvalidOutputError(
+                "scan-ats-full.mjs produced empty stdout in --json mode"
+            )
 
         try:
             payload = json.loads(raw_stdout)
@@ -315,7 +383,18 @@ class CareerOpsAdapter:
                     upstream_metadata={
                         k: v
                         for k, v in raw_offer.items()
-                        if k not in ("company", "title", "url", "location", "postedAt", "dateStatus", "blacklisted", "note", "source")
+                        if k
+                        not in (
+                            "company",
+                            "title",
+                            "url",
+                            "location",
+                            "postedAt",
+                            "dateStatus",
+                            "blacklisted",
+                            "note",
+                            "source",
+                        )
                     },
                 )
             )
@@ -488,7 +567,10 @@ class CareerOpsAdapter:
 
             parsed_url = urlparse(final_url or url)
             host = (parsed_url.netloc or "").lower()
-            if any(ats in host for ats in ("myworkdayjobs.com", "ashbyhq.com", "greenhouse.io", "lever.co")):
+            if any(
+                ats in host
+                for ats in ("myworkdayjobs.com", "ashbyhq.com", "greenhouse.io", "lever.co")
+            ):
                 method = "ats_api"
             else:
                 method = "browser"
@@ -570,7 +652,5 @@ class CareerOpsAdapter:
                 shutil.rmtree(scratch_dir, ignore_errors=True)
             parent_scratch = self.runtime_dir / "repost_scratch"
             if parent_scratch.exists() and not any(parent_scratch.iterdir()):
-                try:
+                with suppress(OSError):
                     parent_scratch.rmdir()
-                except OSError:
-                    pass

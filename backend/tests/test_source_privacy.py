@@ -78,6 +78,14 @@ def test_tracked_template_carries_no_personal_data(template_path: Path) -> None:
     assert all(entry == [] for entry in entries), f"{template_path.name} kişisel kayıt içeriyor"
 
 
+def test_linkedin_registry_has_no_personal_default_searches() -> None:
+    """Kayıtlı kaynak, kullanıcının yerel aramalarına yabancı hedef eklememeli."""
+    registry = profiles_module.TEMPLATE_PROFILES_PATH.with_name("portals.yaml")
+    raw = yaml.safe_load(registry.read_text(encoding="utf-8")) or {}
+    linkedin = next(portal for portal in raw["sources"] if portal["key"] == "linkedin")
+    assert linkedin["config"]["searches"] == []
+
+
 def test_save_targets_the_runtime_file_not_the_template(tmp_path: Path, monkeypatch) -> None:
     """Web UI'ın yazdığı dosya runtime hedefidir; şablon asla yazılmaz."""
     runtime_profiles = tmp_path / "linkedin-profiles.yaml.user"

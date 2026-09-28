@@ -10,9 +10,8 @@ from app.integrations.career_ops.config import (
     CAREER_OPS_PINNED_COMMIT,
     CAREER_OPS_PINNED_VERSION,
 )
+from app.integrations.career_ops.provider_targets import build_provider_targets
 from app.sources.base import FetchOutcome, RawItem, SourceClass
-
-
 from app.sources.forkjob_core.models import cluster_key as compute_cluster_key
 
 
@@ -103,3 +102,76 @@ def get_career_ops_sources(adapter: Any | None = None) -> list[CareerOpsReverseS
         CareerOpsReverseSource(provider=provider, adapter=adapter)
         for provider in sorted(REVERSE_ATS_PROVIDERS)
     ]
+
+
+@dataclass
+class CareerOpsProviderSource:
+    """One bounded scan for a category of configured upstream provider targets."""
+
+    mode: str
+    adapter: Any | None = None
+    interval_minutes: int = 1440
+    source_class: str = SourceClass.SLOW_OPTIN.value
+    timeout_seconds: float = 300.0
+    skip_closure_sweep: bool = True
+
+    @property
+    def id(self) -> str:
+        return f"careerops:{self.mode}"
+
+    @property
+    def label(self) -> str:
+        return "career-ops açık panolar" if self.mode == "boards" else "career-ops takip edilen şirketler"
+
+    @property
+    def category(self) -> str:
+        return "provider_board" if self.mode == "boards" else "provider_company"
+
+    async def fetch(self) -> FetchOutcome:
+        targets = build_provider_targets()
+        if self.mode == "boards":
+            targets["tracked_companies"] = []
+        else:
+            targets["job_boards"] = []
+        receipt = await (self.adapter or CareerOpsAdapter()).provider_scan(targets=targets)
+        items: list[RawItem] = []
+        for offer in receipt.offers:
+            company = offer.company or offer.target
+            ckey = compute_cluster_key(company, offer.title, offer.location)
+            items.append(RawItem(
+                external_id=offer.url,
+                title=offer.title,
+                url=offer.url,
+                summary=offer.description,
+                published_at=offer.posted_at,
+                extra={
+                    "organization": company,
+                    "location": offer.location,
+                    "compensation": offer.salary,
+                    "description": offer.description,
+                    "kind": "job",
+                    "cluster_key": ckey,
+                    "forkjob": {
+                        "cluster_key": ckey,
+                        "company": company,
+                        "title": offer.title,
+                        "location": offer.location,
+                    },
+                    "career_ops": {
+                        "engine_version": CAREER_OPS_PINNED_VERSION,
+                        "engine_commit": CAREER_OPS_PINNED_COMMIT,
+                        "provider": offer.provider,
+                        "target": offer.target,
+                        "target_kind": offer.kind,
+                    },
+                },
+            ))
+        details = [f"{error.get('target')}: {error.get('error')}" for error in receipt.errors]
+        bounded = sum(result.status == "partial" for result in receipt.target_results)
+        if bounded:
+            details.append(f"{bounded} hedefte sonuç sınırına ulaşıldı")
+        return FetchOutcome(items=items, partial=receipt.partial, detail="; ".join(details[:5]))
+
+
+def get_career_ops_provider_sources(adapter: Any | None = None) -> list[CareerOpsProviderSource]:
+    return [CareerOpsProviderSource(mode=mode, adapter=adapter) for mode in ("boards", "companies")]

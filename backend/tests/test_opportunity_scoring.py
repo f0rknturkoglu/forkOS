@@ -290,6 +290,16 @@ async def test_profile_change_marks_evaluations_stale(client: AsyncClient):
 # ---------------------------------------------------------------------------
 
 
+async def test_default_scoring_config_can_be_saved_unchanged(client: AsyncClient):
+    """UI'ın GET çıktısı, negatif eleme skoru ve boş kotalarla PUT'a uygun olmalı."""
+    current = (await client.get("/api/sources/jobhunter/config")).json()
+
+    saved = await client.put("/api/sources/jobhunter/config", json=current)
+
+    assert saved.status_code == 200
+    assert (await client.get("/api/sources/jobhunter/config")).json() == current
+
+
 async def test_invalid_scoring_config_is_rejected_without_breaking_the_running_one(
     client: AsyncClient,
 ):

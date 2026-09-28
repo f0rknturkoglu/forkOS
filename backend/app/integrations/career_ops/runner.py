@@ -25,6 +25,7 @@ ALLOWLISTED_SCRIPTS: frozenset[str] = frozenset({
     "detect-reposts.mjs",
     "bridges/liveness.mjs",
     "bridges/render.mjs",
+    "bridges/provider-scan.mjs",
 })
 
 

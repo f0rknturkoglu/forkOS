@@ -33354,6 +33354,26 @@
         ]
       }
     },
+    "/api/sources/career-ops/providers": {
+      "get": {
+        "description": "Pinned provider registry and actual configured scan target coverage.",
+        "operationId": "career_ops_providers_api_sources_career_ops_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Career Ops Providers",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
     "/api/sources/catalog": {
       "get": {
         "description": "Kaynak katalogu: sinif, tahmini sure ve devre kesici durumu.",

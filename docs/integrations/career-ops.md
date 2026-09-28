@@ -105,7 +105,7 @@ Tüm betik çağrılarına `CAREER_OPS_ROOT`, `CAREER_OPS_DATA_DIR` ve `CAREER_O
 
 | Ayar                          | Varsayılan        | Açıklama                                                           |
 | ----------------------------- | ----------------- | ------------------------------------------------------------------ |
-| `CAREER_OPS_ENABLED`          | `False`           | Entegrasyon anahtarı. Kapalıyken forkOS sıfır bağımlılıkla açılır. |
+| `CAREER_OPS_ENABLED`          | Compose'da `True` | Pinli checkout kuruluysa etkin; `0` ile kapatılabilir.            |
 | `CAREER_OPS_ROOT`             | `""`              | career-ops dizini (boşsa `.vendor/career-ops` çözülür).            |
 | `CAREER_OPS_NODE_BIN`         | `"node"`          | Node.js çalıştırılabilir dosya yolu.                               |
 | `CAREER_OPS_TIMEOUT_SECONDS`  | `30.0`            | Azami betik zaman aşımı süresi.                                    |
@@ -198,7 +198,7 @@ Aşağıdaki 6 ATS sağlayıcısı `careerops:<provider>` ad alanında forkOS ka
 - `careerops:icims`
 - `careerops:bamboohr`
 
-Tüm `careerops:*` kaynakları **`SourceClass.SLOW_OPTIN`** olarak sınıflandırılmıştır. Arka plan otomatik periyodik taramalarına dahil edilmez; yalnızca açık kullanıcı isteği veya manuel tetikleme ile çalıştırılır.
+Altı ters-ATS ve `careerops:companies` **`SourceClass.SLOW_OPTIN`** olarak kalır. Sınırlı açık pano taraması `careerops:boards` ise **normal** yenilemeye dahildir. Worker kapalıyken otomatik periyodik tarama yapılmaz; manuel yenileme API'nin kalıcı kuyruğundan yürür.
 
 ### 9.2 Çalışma Zamanı Dinamik Portals Projeksiyonu
 
@@ -209,11 +209,36 @@ forkOS kendi kullanıcı tercihlerini (`config.yaml` içindeki rol terimleri, be
 - Betik çalışması tamamlandığında `finally:` bloğunda derhal silinir (`unlink`).
 - `.vendor/career-ops` içerisine hiçbir filtre ya da ayar dosyası yazılmaz.
 
+### 9.2.1 Tam sağlayıcı kayıt defteri ve hedefler
+
+Altı ters-ATS kaynağı korunur. Bunlara ek olarak `careerops:boards` ve
+`careerops:companies` kaynakları, pinli checkout'un `providers/_registry.mjs`
+kayıt defterini kullanır. Sağlayıcı modülü bir kaynak veya hazır hedef demek
+değildir: kayıt defterindeki sağlayıcı sayısı, taranacak pano/şirket sayısından
+ayrı gösterilir. Bilinmeyen kimlik doğrulama/tarayıcı gereksinimi “hazır” diye
+işaretlenmez.
+
+Pano hedefleri açık kamu akışlarından, şirket hedefleri forkOS'un doğrulanmış
+ATS şirket kayıtlarından türetilir. Ek hedefler yalnız yerel ve git dışı
+`backend/data/career-ops-targets.yaml.user` dosyasındaki `job_boards` ve
+`tracked_companies` listeleriyle verilebilir. Bu liste upstream checkout'a
+kopyalanmaz. Her koşuda geçici JSON-biçimli `provider-portals-*.yml` üretilir
+ve işlem sonunda silinir. Sağlayıcı taraması CV'ye göre başlık/konum filtresi
+uygulamaz; istek/sayfa/kayıt sınırına çarparsa kısmi koşum bildirir. Kayıtlar
+forkOS'un mevcut kanonik `Opportunity` ve `source_run` akışına girer.
+
+Compose API/worker ortamına `CAREER_OPS_*` değişkenlerini aktarır, Node 22 ve
+Git sağlar, checkout'u salt okunur `/career-ops` yoluna bağlar. `make career-ops-setup`
+sonrası `/api/system/career-ops/doctor` gerçek pin ve Node
+durumunu; `/api/sources/career-ops/providers` ise kayıt defteri, yapılandırılmış
+hedef ve kanonik katkı sayılarını gösterir. Genel yenileme açık panoları içerir;
+“Tam tarama” şirketleri ve ters-ATS kaynaklarını da içerir.
+
 ### 9.3 Makine Sözleşmesi ve Güvenli Çalıştırma
 
 - **Yalnızca JSON Çıktı**: Betik `scan-ats-full.mjs --json --dry-run` bayraklarıyla çağrılır. Disk veya veritabanına doğrudan yazma kesinlikle engellenir.
 - **Tek Belge Ayrıştırma**: `stdout` içindeki JSON belgesi güvenle ayıklanır; eksik/bozuk çıktılarda `CareerOpsInvalidOutputError` fırlatılır.
-- **Runner İzin Listesi**: Yalnızca onaylı `scan-ats-full.mjs` ve `doctor.mjs` betiklerinin çalıştırılmasına izin verilir; keyfi dosya/argüman yürütme güvenlik hatası üretir.
+- **Runner İzin Listesi**: Yalnızca onaylı upstream ve forkOS köprü betikleri çalıştırılabilir; keyfi dosya/argüman yürütme güvenlik hatası üretir.
 
 ### 9.4 Çok Kaynaklı Kanonik Birleştirme ve Dedup
 
@@ -230,25 +255,28 @@ Bu nedenle:
 - `backend/app/modules/opportunity/worker.py` içerisinde `careerops:` öneki `MISSING_SWEEP_EXEMPT_PREFIXES` arasına alınmıştır.
 - `careerops:*` taramalarında görünmeyen mevcut ilanlar **asla** süpürülmez ve kapanmış olarak işaretlenmez.
 
-### 9.6 Lane B (`scan.mjs`) Analizi ve Ertelenme Gerekçesi
+### 9.6 Sağlayıcı taraması makine sözleşmesi
 
-`scan.mjs` betiği `--json` parametresiyle çağrıldığında yalnızca `{"added_urls": ["https://..."]}` listesi üretmektedir; başlık, şirket adı, konum veya tarih gibi ilan meta verilerini sağlamamaktadır. Bu durum forkOS `RawItem` sözleşmesini karşılamadığı ve C2'de LLM kullanımına izin verilmediği için, `discovery.scan` yeteneği **`UNAVAILABLE`** olarak bırakılmış ve registry envanterinde gerekçesiyle belgelenmiştir.
+`scan.mjs --json` yalnız URL listesi döndürdüğünden forkOS bu çıktıyı ilan
+verisi gibi yorumlamaz. `bridges/provider-scan.mjs`, aynı upstream
+`providers/_registry.mjs` ve `providers/_http.mjs` sözleşmelerini kullanarak
+pinli sağlayıcıların `fetch()` sonuçlarını türlenmiş tek JSON belgesine çevirir.
+Her hedefin hata/kısmi sonucu ayrıdır; bir hedef bozulunca diğerleri korunur.
+Proje edilen yapılandırma ve çıktılar forkOS çalışma diziniyle sınırlıdır;
+upstream tracker/pipeline dosyaları kalıcılık kaynağı değildir.
 
 ---
 
 ## 10. Yetenek Envanteri ve Durum Tablosu
 
-`get_provider_capability_inventory()` çağrısıyla elde edilen sağlayıcı bazlı entegrasyon matrisi:
-
-| Sağlayıcı     | Tarama Kabiliyeti | Durum         | Gerekçe                                                  |
-| ------------- | ----------------- | ------------- | -------------------------------------------------------- |
-| `greenhouse`  | Reverse ATS       | `SUPPORTED`   | `scan-ats-full.mjs` üzerinden tam entegre                |
-| `lever`       | Reverse ATS       | `SUPPORTED`   | `scan-ats-full.mjs` üzerinden tam entegre                |
-| `ashby`       | Reverse ATS       | `SUPPORTED`   | `scan-ats-full.mjs` üzerinden tam entegre                |
-| `workday`     | Reverse ATS       | `SUPPORTED`   | `scan-ats-full.mjs` üzerinden tam entegre                |
-| `icims`       | Reverse ATS       | `SUPPORTED`   | `scan-ats-full.mjs` üzerinden tam entegre                |
-| `bamboohr`    | Reverse ATS       | `SUPPORTED`   | `scan-ats-full.mjs` üzerinden tam entegre                |
-| `portal_scan` | Broad Scan        | `UNAVAILABLE` | `scan.mjs` yalnızca URL döner, ilan meta verisi sağlamaz |
+`/api/sources/career-ops/providers` dinamik kayıt defterini döndürür. Pinli
+checkout'ta 89 açık sağlayıcı modülü bulunur; bu sayı hard-code edilmez.
+`discovery.scan` ve `discovery.reverse_ats`, motor/keşif açık ve pin doğrulanmışsa
+desteklenir. Altı ters-ATS kaynağı ayrı kalır; pano/şirket taraması diğer
+sağlayıcıları yapılandırılmış hedeflerle kullanır. Bir sağlayıcının kayıtlı
+olması onun için otomatik hedef veya başarılı canlı koşum bulunduğu anlamına
+gelmez. Auth/plugin modülleri ayrıca listelenir ve kullanıcı yapılandırması
+olmadan çalıştırılmaz.
 
 ---
 
