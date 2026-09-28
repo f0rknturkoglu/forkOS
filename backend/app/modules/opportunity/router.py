@@ -18,10 +18,12 @@ from app.integrations.obsidian import service as obsidian_service
 from app.integrations.obsidian.models import VaultItem
 from app.integrations.obsidian.router import vault_http_error
 from app.modules.opportunity import career as career_service
+from app.modules.opportunity import career_strategy_proposals as strategy_proposals
 from app.modules.opportunity import interview_intelligence as interview_ai
 from app.modules.opportunity import lifecycle, scoring, service
 from app.modules.opportunity.browse import BrowseFilters, browse_opportunities
 from app.modules.opportunity.career_analytics import CareerAnalyticsSnapshot, snapshot
+from app.modules.opportunity.career_strategy import CareerStrategySnapshot, strategy_snapshot
 from app.modules.opportunity.evaluation_service import CareerEvaluationService
 from app.modules.opportunity.intelligence import (
     classify_reply,
@@ -968,9 +970,7 @@ async def review_application_package_cover_letter(
 ):
     """Ön yazının açık kullanıcı incelemesini kaydet; başvuru göndermez."""
     try:
-        result = await ApplicationPackageService().review_cover_letter(
-            session, id, body.decision
-        )
+        result = await ApplicationPackageService().review_cover_letter(session, id, body.decision)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     await session.commit()
@@ -1036,6 +1036,54 @@ async def career_insights(
         return await snapshot(session, days=days, minimum=minimum)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/career/strategy", response_model=CareerStrategySnapshot)
+async def career_strategy(
+    days: int = Query(30, ge=1, le=3650),
+    minimum: int = Query(3, ge=3, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    """Read-only career briefing over canonical evidence and commitments."""
+    return await strategy_snapshot(session, days=days, minimum=minimum)
+
+
+@router.get("/career/strategy/proposals", response_model=list[strategy_proposals.ProposalOut])
+async def career_strategy_proposals(session: AsyncSession = Depends(get_session)):
+    return await strategy_proposals.list_proposals(session)
+
+
+@router.post(
+    "/career/strategy/proposals/refresh", response_model=list[strategy_proposals.ProposalOut]
+)
+async def refresh_career_strategy_proposals(session: AsyncSession = Depends(get_session)):
+    """Persist bounded proposals; no Goal/Learning/Todo is created here."""
+    return await strategy_proposals.refresh_proposals(session)
+
+
+@router.post(
+    "/career/strategy/proposals/{proposal_id}/approve",
+    response_model=strategy_proposals.ProposalOut,
+)
+async def approve_career_strategy_proposal(
+    proposal_id: UUID, session: AsyncSession = Depends(get_session)
+):
+    try:
+        return await strategy_proposals.approve_proposal(session, proposal_id)
+    except strategy_proposals.ProposalError as exc:
+        raise HTTPException(exc.status, {"code": exc.code, "message": exc.message}) from exc
+
+
+@router.post(
+    "/career/strategy/proposals/{proposal_id}/reject", response_model=strategy_proposals.ProposalOut
+)
+async def reject_career_strategy_proposal(
+    proposal_id: UUID, session: AsyncSession = Depends(get_session)
+):
+    try:
+        return await strategy_proposals.reject_proposal(session, proposal_id)
+    except strategy_proposals.ProposalError as exc:
+        raise HTTPException(exc.status, {"code": exc.code, "message": exc.message}) from exc
 
 
 router.routes.extend(sources_router.routes)

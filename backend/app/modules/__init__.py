@@ -74,6 +74,7 @@ from app.modules.document import MODULE as document_module  # noqa: E402
 from app.modules.execution import MODULE as execution_module  # noqa: E402
 from app.modules.finance import MODULE as finance_module  # noqa: E402
 from app.modules.flashcard import MODULE as flashcard_module  # noqa: E402
+from app.modules.goal import MODULE as goal_module  # noqa: E402
 from app.modules.learning import MODULE as learning_module  # noqa: E402
 from app.modules.media import MODULE as media_module  # noqa: E402
 from app.modules.note import MODULE as note_module  # noqa: E402
@@ -96,6 +97,7 @@ MODULES: list[ModuleSpec] = [
     bookmark_module,
     rss_module,
     flashcard_module,
+    goal_module,
     todo_module,
     today_module,
     pomodoro_module,

@@ -90,3 +90,46 @@ export function reviewChangeRows(stats: ReviewPreview["stats"], previousStats: u
   }
   return rows;
 }
+
+/** Career counts are observations, not a conversion funnel or success score. */
+export function careerReviewRows(
+  stats: ReviewPreview["stats"],
+  previousStats: unknown | null,
+): [string, number, string | null][] {
+  const rows = [
+    ["Keşfedilen", "discovered"],
+    ["Başvurulan", "applied"],
+    ["Görüşme", "interview"],
+    ["Teklif", "offer"],
+  ] as const;
+  return rows.map(([label, key]) => {
+    const current = stats.applications[key];
+    const before = previousStats === null ? null : statNumber(previousStats, ["applications", key]);
+    const change =
+      before === null ? null : `${current - before >= 0 ? "+" : ""}${current - before} önceki haftaya göre`;
+    return [label, current, change];
+  });
+}
+
+export function careerGoalReviewRows(
+  stats: ReviewPreview["stats"],
+  previousStats: unknown | null,
+): { id: string; title: string; progress: string; change: string | null }[] {
+  const previous =
+    previousStats && typeof previousStats === "object" && "career_goals" in previousStats
+      ? (previousStats as { career_goals?: unknown }).career_goals
+      : null;
+  const prior = Array.isArray(previous) ? previous : [];
+  return (stats.career_goals ?? []).map((goal) => {
+    const old = prior.find((item) => item && typeof item === "object" && item.goal_id === goal.goal_id);
+    const comparable =
+      old && typeof old.completed_milestones === "number" && old.milestone_count === goal.milestone_count;
+    const delta = comparable ? goal.completed_milestones - old.completed_milestones : null;
+    return {
+      id: goal.goal_id,
+      title: goal.title,
+      progress: `${goal.completed_milestones}/${goal.milestone_count}${goal.progress_percent === null ? " · yüzde için payda yok" : ` · %${goal.progress_percent}`}`,
+      change: delta === null ? null : delta === 0 ? "değişmedi" : `${delta > 0 ? "+" : ""}${delta} kilometre taşı`,
+    };
+  });
+}

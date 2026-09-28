@@ -27,7 +27,13 @@ import { navigate, useHashRoute } from "@/app/router";
 import { appWeekStartKey, formatTrDate, formatTrDateTime, localDateKey, todayKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 import { buildReviewDigest } from "./reviewDigest";
-import { reviewChangeRows, reviewMetricRows, reviewSecondarySignals } from "./reviewMetrics";
+import {
+  careerGoalReviewRows,
+  careerReviewRows,
+  reviewChangeRows,
+  reviewMetricRows,
+  reviewSecondarySignals,
+} from "./reviewMetrics";
 
 /** Kayıtlı değerlendirme satırı. `stats` eski kayıtlarda eksik alan taşıyabilir. */
 interface SavedReviewRow {
@@ -220,6 +226,44 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                 ))}
               </MetricStrip>
             </div>
+
+            {kind === "weekly" && (
+              <Section title="Kariyer haftası" hint="Kayıtlı gözlemler; sonuç veya neden tahmini değil">
+                <div className="flex flex-wrap gap-2">
+                  {careerReviewRows(
+                    stats,
+                    previous?.period_start === adjacentPeriod("weekly", period, -1) ? previous.stats : null,
+                  ).map(([label, count, change]) => (
+                    <Chip key={label} tone="neutral">
+                      {label}: {count}
+                      {change ? ` · ${change}` : ""}
+                    </Chip>
+                  ))}
+                </div>
+                <p className="mt-2 text-meta text-muted">
+                  Karşılaştırma yalnızca bitişik haftanın kayıtlı snapshot’ı varsa yapılır. Eksik yanıt veya sonuç sıfır
+                  başarı sayılmaz.
+                </p>
+                {(stats.career_goals ?? []).length > 0 && (
+                  <div className="mt-3 space-y-1 border-t border-subtle pt-3">
+                    <p className="text-meta font-semibold text-primary">Onaylı hedefler</p>
+                    {careerGoalReviewRows(
+                      stats,
+                      previous?.period_start === adjacentPeriod("weekly", period, -1) ? previous.stats : null,
+                    ).map((goal) => (
+                      <p key={goal.id} className="text-meta text-secondary">
+                        {goal.title}: {goal.progress}
+                        {goal.change ? ` · ${goal.change}` : ""}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-2 text-meta text-muted">
+                  Karar bekleyen kariyer önerisi: {stats.career_proposals_pending ?? "ölçülmedi"}. Bu sayı kaydedilmiş
+                  değerlendirmede o andaki snapshot’tır.
+                </p>
+              </Section>
+            )}
 
             <div className="space-y-3">
               <SectionHeader label="Neler oldu?" />

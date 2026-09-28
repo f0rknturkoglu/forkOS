@@ -98,8 +98,9 @@ def canonical_url(url: str | None) -> str | None:
         netloc = netloc[:-3]
     if scheme == "https" and netloc.endswith(":443"):
         netloc = netloc[:-4]
-    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True)
-             if not _tracking_param(k)]
+    query = [
+        (k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if not _tracking_param(k)
+    ]
     path = parts.path.rstrip("/")
     return urlunsplit((scheme, netloc, path, urlencode(query), ""))
 
@@ -124,7 +125,7 @@ def _course_search_text(
 
 def _kind_for_url(url: str | None) -> str:
     """Yer iminden gelen kaynagin turu: video siteleri video, digerleri link."""
-    host = (urlsplit(url).netloc.lower() if url else "")
+    host = urlsplit(url).netloc.lower() if url else ""
     if any(host.endswith(site) for site in ("youtube.com", "youtu.be", "vimeo.com")):
         return "video"
     return "link"
@@ -173,19 +174,23 @@ async def _validate_parent(
     if topic_id is None:
         return
     ancestors = (
-        await session.execute(
-            text(
-                """with recursive chain as (
+        (
+            await session.execute(
+                text(
+                    """with recursive chain as (
                     select id, parent_id, 1 as depth from study_topic where id = :pid
                     union all
                     select t.id, t.parent_id, c.depth + 1
                       from study_topic t join chain c on t.id = c.parent_id
                      where c.depth < :limit)
                 select id from chain"""
-            ),
-            {"pid": parent_id, "limit": MAX_DEPTH},
+                ),
+                {"pid": parent_id, "limit": MAX_DEPTH},
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if topic_id in set(ancestors):
         raise LearningCommandError("konu kendi alt agacinin altina tasinamaz")
 
@@ -335,7 +340,11 @@ async def _course_links(session: AsyncSession, course_ids: list[UUID]) -> dict[U
     )
     out: dict[UUID, dict] = {}
     for course_id in course_ids:
-        out[course_id] = {"area_ids": [], "topic_ids": [], "resource_count": int(counts.get(course_id, 0))}
+        out[course_id] = {
+            "area_ids": [],
+            "topic_ids": [],
+            "resource_count": int(counts.get(course_id, 0)),
+        }
     for from_id, to_id, entity_type in links:
         bucket = out.get(from_id)
         if bucket is None:
@@ -378,9 +387,7 @@ async def _sync_course_links(
         await link(session, course_id, target, "references")
 
 
-def _sync_course_state(
-    course: Course, *, progress_given: bool, status_given: bool
-) -> None:
+def _sync_course_state(course: Course, *, progress_given: bool, status_given: bool) -> None:
     """Tarih/durum semantiginin TEK noktasi.
 
     `progress_pct == 100` ile `status == 'done'` birbirini tutar: yuzde 100
@@ -423,9 +430,7 @@ async def list_courses(
     if area_id is not None:
         stmt = stmt.where(
             Course.id.in_(
-                select(Link.from_id).where(
-                    Link.to_id == area_id, Link.relation == "references"
-                )
+                select(Link.from_id).where(Link.to_id == area_id, Link.relation == "references")
             )
         )
     rows = (await session.execute(stmt)).all()
@@ -516,9 +521,7 @@ async def patch_course(session: AsyncSession, course_id: UUID, data) -> dict | N
     if certificate is not _UNSET and certificate is not None:
         # PHASE 3: sertifika yalnızca belge olabilir. `note` artık canlı bir
         # forkOS tipi değildir (bilgi Vault'ta yaşar), bu yüzden kabul edilmez.
-        await _validate_entities(
-            session, [certificate], expected=("document",), label="sertifika"
-        )
+        await _validate_entities(session, [certificate], expected=("document",), label="sertifika")
     for key, value in values.items():
         setattr(course, key, value)
     if certificate is not _UNSET:
@@ -532,9 +535,7 @@ async def patch_course(session: AsyncSession, course_id: UUID, data) -> dict | N
         session,
         course.id,
         title=title,
-        search_text=_course_search_text(
-            title or "", course.platform, course.url, course.notes
-        ),
+        search_text=_course_search_text(title or "", course.platform, course.url, course.notes),
     )
     await _sync_course_links(session, course.id, area_ids=area_ids, topic_ids=topic_ids)
     if archived is True:
@@ -544,7 +545,9 @@ async def patch_course(session: AsyncSession, course_id: UUID, data) -> dict | N
     if course.status != old_status:
         verb = {
             "done": "course.completed",
-            "in_progress": "course.started" if old_status in ("planned", "dropped") else "course.reopened",
+            "in_progress": "course.started"
+            if old_status in ("planned", "dropped")
+            else "course.reopened",
             "planned": "course.reopened",
         }.get(course.status)
         if verb is not None:
@@ -750,7 +753,7 @@ async def delete_area(session: AsyncSession, area_id: UUID) -> bool:
 # ---------------------------------------------------------------------------
 
 
-async def create_topic(session: AsyncSession, data) -> dict:
+async def create_topic(session: AsyncSession, data, *, commit: bool = True) -> dict:
     if await session.get(StudyArea, data.area_id) is None:
         raise LearningCommandError("alan bulunamadi")
     await _validate_parent(session, data.area_id, data.parent_id)
@@ -777,7 +780,10 @@ async def create_topic(session: AsyncSession, data) -> dict:
             entity_type="study_topic",
             payload={"topic_id": str(topic.id), "area_id": str(topic.area_id), "title": data.title},
         )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return topic_out(topic, data.title)
 
 
@@ -796,9 +802,7 @@ async def patch_topic(session: AsyncSession, topic_id: UUID, data) -> dict | Non
     for key, value in values.items():
         setattr(topic, key, value)
     if title is not None:
-        await touch_entity(
-            session, topic.id, title=title, search_text=_topic_search_text(title)
-        )
+        await touch_entity(session, topic.id, title=title, search_text=_topic_search_text(title))
     else:
         await touch_entity(session, topic.id)
     entity = await session.get(Entity, topic.id)
@@ -807,8 +811,11 @@ async def patch_topic(session: AsyncSession, topic_id: UUID, data) -> dict | Non
 
     if title is not None:
         await log_event(
-            session, verb="study.topic_renamed", entity_id=topic.id,
-            entity_type="study_topic", payload={**base, "title": title},
+            session,
+            verb="study.topic_renamed",
+            entity_id=topic.id,
+            entity_type="study_topic",
+            payload={**base, "title": title},
         )
     if parent_given and topic.parent_id != old_parent:
         await log_event(
@@ -847,12 +854,17 @@ async def patch_topic(session: AsyncSession, topic_id: UUID, data) -> dict | Non
                 verb="study.topic_completed",
                 entity_id=topic.id,
                 entity_type="study_topic",
-                payload={**base, "total_minutes": (await _topic_metrics(session, topic.id))["minutes"]},
+                payload={
+                    **base,
+                    "total_minutes": (await _topic_metrics(session, topic.id))["minutes"],
+                },
             )
         elif topic.status == "in_progress":
             await log_event(
                 session,
-                verb="study.topic_started" if old_status == "not_started" else "study.topic_reopened",
+                verb="study.topic_started"
+                if old_status == "not_started"
+                else "study.topic_reopened",
                 entity_id=topic.id,
                 entity_type="study_topic",
                 payload={**base, "from": old_status, "to": topic.status},
@@ -976,8 +988,6 @@ async def topic_progress(session: AsyncSession, topic_id: UUID) -> dict:
         raise LearningNotFoundError("konu bulunamadi")
     metrics = await _topic_metrics(session, topic_id)
     return {"total": metrics["total"], "done": metrics["done"], "pct": metrics["pct"]}
-
-
 
 
 async def _ancestors(session: AsyncSession, topic_id: UUID) -> list[dict]:
@@ -1304,9 +1314,7 @@ def _area_out_from_graph(graph: dict, nodes: dict[UUID, dict]) -> dict:
         ),
         "focus_minutes": sum(int(n["focus_minutes"]) for n in all_nodes),
         "stale_count": sum(
-            1
-            for n in all_nodes
-            if n["last_studied_at"] is None or n["last_studied_at"] < cutoff
+            1 for n in all_nodes if n["last_studied_at"] is None or n["last_studied_at"] < cutoff
         ),
         "last_studied_at": max(
             (n["last_studied_at"] for n in all_nodes if n["last_studied_at"] is not None),
@@ -1340,25 +1348,28 @@ async def area_tree(
         node = nodes[nid]
         payload.append(
             {
-                **{k: node[k] for k in (
-                    "id",
-                    "title",
-                    "parent_id",
-                    "depth",
-                    "position",
-                    "status",
-                    "confidence",
-                    "mastery",
-                    "target_min",
-                    "last_studied_at",
-                    "next_review_at",
-                    "path",
-                    "resource_total",
-                    "resource_done",
-                    "focus_minutes",
-                    "focus_sessions",
-                    "child_count",
-                )},
+                **{
+                    k: node[k]
+                    for k in (
+                        "id",
+                        "title",
+                        "parent_id",
+                        "depth",
+                        "position",
+                        "status",
+                        "confidence",
+                        "mastery",
+                        "target_min",
+                        "last_studied_at",
+                        "next_review_at",
+                        "path",
+                        "resource_total",
+                        "resource_done",
+                        "focus_minutes",
+                        "focus_sessions",
+                        "child_count",
+                    )
+                },
                 "review_due": _is_due(node["next_review_at"]),
                 "progress_pct": (
                     round(node["resource_done"] * 100 / node["resource_total"])
@@ -1409,23 +1420,26 @@ async def tree(session: AsyncSession, area_id: UUID) -> list[dict]:
             node = nodes[nid]
             out.append(
                 {
-                    **{k: node[k] for k in (
-                        "id",
-                        "title",
-                        "area_id",
-                        "parent_id",
-                        "status",
-                        "confidence",
-                        "target_min",
-                        "position",
-                        "mastery",
-                        "last_studied_at",
-                        "interval_days",
-                        "ease",
-                        "review_count",
-                        "last_reviewed_at",
-                        "next_review_at",
-                    )},
+                    **{
+                        k: node[k]
+                        for k in (
+                            "id",
+                            "title",
+                            "area_id",
+                            "parent_id",
+                            "status",
+                            "confidence",
+                            "target_min",
+                            "position",
+                            "mastery",
+                            "last_studied_at",
+                            "interval_days",
+                            "ease",
+                            "review_count",
+                            "last_reviewed_at",
+                            "next_review_at",
+                        )
+                    },
                     "progress": {
                         "total": node["resource_total"],
                         "done": node["resource_done"],
@@ -1479,9 +1493,9 @@ async def stale(
     ).scalar_one()
     rows = (
         await session.execute(
-            base.order_by(
-                StudyTopic.last_studied_at.asc().nullsfirst(), Entity.title
-            ).limit(limit).offset(offset)
+            base.order_by(StudyTopic.last_studied_at.asc().nullsfirst(), Entity.title)
+            .limit(limit)
+            .offset(offset)
         )
     ).all()
     return {
@@ -1576,7 +1590,11 @@ async def topic_review_queue(
     )
 
     buckets: dict[str, list[dict]] = {
-        "due_today": [], "overdue": [], "upcoming": [], "new_topics": [], "weak": []
+        "due_today": [],
+        "overdue": [],
+        "upcoming": [],
+        "new_topics": [],
+        "weak": [],
     }
     for topic, title, area_title in rows:
         row = _review_row(topic, title, area_title or "")
@@ -1611,7 +1629,9 @@ async def review_topic(session: AsyncSession, topic_id: UUID, data) -> dict | No
     topic.review_count += 1
     topic.last_reviewed_at = now
     # Aralik 0 ise konu bugun tekrar kuyrugunda kalir; aksi halde hedef gunun basi.
-    topic.next_review_at = now if interval == 0 else _due_at(local_today() + timedelta(days=interval))
+    topic.next_review_at = (
+        now if interval == 0 else _due_at(local_today() + timedelta(days=interval))
+    )
     entity = await session.get(Entity, topic.id)
     label = entity.title if entity else ""
     if data.mastery is not None and data.mastery != topic.mastery:
@@ -1686,7 +1706,11 @@ async def study_stats(session: AsyncSession, *, value: str = "week") -> dict:
         {"area_id": area_id, "title": title, "minutes": int(minutes)}
         for area_id, title, minutes in (
             await session.execute(
-                select(StudyTopic.area_id, Entity.title, func.coalesce(func.sum(PomodoroSession.actual_min), 0))
+                select(
+                    StudyTopic.area_id,
+                    Entity.title,
+                    func.coalesce(func.sum(PomodoroSession.actual_min), 0),
+                )
                 .join(PomodoroSession, PomodoroSession.context_entity_id == StudyTopic.id)
                 .join(Entity, Entity.id == StudyTopic.area_id)
                 .where(*focus_filter)
@@ -1699,7 +1723,11 @@ async def study_stats(session: AsyncSession, *, value: str = "week") -> dict:
         {"topic_id": topic_id, "title": title, "minutes": int(minutes)}
         for topic_id, title, minutes in (
             await session.execute(
-                select(StudyTopic.id, Entity.title, func.coalesce(func.sum(PomodoroSession.actual_min), 0))
+                select(
+                    StudyTopic.id,
+                    Entity.title,
+                    func.coalesce(func.sum(PomodoroSession.actual_min), 0),
+                )
                 .join(PomodoroSession, PomodoroSession.context_entity_id == StudyTopic.id)
                 .join(Entity, Entity.id == StudyTopic.id)
                 .where(*focus_filter)
@@ -1717,9 +1745,7 @@ async def study_stats(session: AsyncSession, *, value: str = "week") -> dict:
     planned_minutes = int((await session.execute(planned_stmt)).scalar_one())
 
     course_rows = dict(
-        (
-            await session.execute(select(Course.status, func.count()).group_by(Course.status))
-        ).all()
+        (await session.execute(select(Course.status, func.count()).group_by(Course.status))).all()
     )
     delta_stmt = select(
         func.coalesce(
@@ -1812,7 +1838,9 @@ async def create_resource(session: AsyncSession, topic_id: UUID, data) -> dict:
         session,
         type=LearningResource.ENTITY_TYPE,
         title=title,
-        search_text=_resource_search_text(title, values.get("url"), values.get("note"), values["kind"]),
+        search_text=_resource_search_text(
+            title, values.get("url"), values.get("note"), values["kind"]
+        ),
     )
     item = LearningResource(id=entity.id, topic_id=topic_id, **values)
     session.add(item)
@@ -1883,9 +1911,7 @@ async def attach_bookmark(session: AsyncSession, topic_id: UUID, bookmark_id: UU
         },
     )
     await session.commit()
-    row = (
-        await session.execute(_resource_select().where(LearningResource.id == item.id))
-    ).first()
+    row = (await session.execute(_resource_select().where(LearningResource.id == item.id))).first()
     return _resource_row_out(row)
 
 
@@ -1938,9 +1964,7 @@ async def patch_resource(session: AsyncSession, resource_id: UUID, data) -> dict
         payload={"topic_id": str(item.topic_id), "title": label, "fields": changed},
     )
     await session.commit()
-    row = (
-        await session.execute(_resource_select().where(LearningResource.id == item.id))
-    ).first()
+    row = (await session.execute(_resource_select().where(LearningResource.id == item.id))).first()
     return _resource_row_out(row)
 
 
@@ -1967,9 +1991,7 @@ async def delete_resource(session: AsyncSession, resource_id: UUID) -> bool:
 # ---------------------------------------------------------------------------
 
 
-async def create_todo_for_topic(
-    session: AsyncSession, topic_id: UUID, data=None
-) -> dict:
+async def create_todo_for_topic(session: AsyncSession, topic_id: UUID, data=None) -> dict:
     """Konudan gorev uretir + `prepares_for` bagini TEK transaction'da yazar.
 
     Idempotent: konunun ACIK (`open`/`doing`) gorevi varsa yenisi acilmaz,
@@ -2039,7 +2061,7 @@ def _flatten_seeds(topics: list, prefix: str | None) -> list[_SeedNode]:
         for position, node in enumerate(nodes):
             title = node.title
             if prefix:
-                title = title[len(prefix):] if title.startswith(prefix) else title
+                title = title[len(prefix) :] if title.startswith(prefix) else title
             title = _clean(title)
             path = f"{parent_path} / {title}" if parent_path else title
             index = len(flat)
@@ -2071,7 +2093,9 @@ async def _resolve_import_area(session: AsyncSession, data, *, create: bool) -> 
         return {"area_id": area.id, "title": title, "exists": True}
     wanted = _norm(data.area or "")
     rows = (
-        await session.execute(select(StudyArea.id, Entity.title).join(Entity, Entity.id == StudyArea.id))
+        await session.execute(
+            select(StudyArea.id, Entity.title).join(Entity, Entity.id == StudyArea.id)
+        )
     ).all()
     for area_id, title in rows:
         if _norm(title) == wanted:
@@ -2079,7 +2103,10 @@ async def _resolve_import_area(session: AsyncSession, data, *, create: bool) -> 
     if not create:
         return {"area_id": None, "title": _clean(data.area or ""), "exists": False}
     entity = await create_entity(
-        session, type="study_area", title=_clean(data.area or ""), search_text=_area_search_text(data.area or "")
+        session,
+        type="study_area",
+        title=_clean(data.area or ""),
+        search_text=_area_search_text(data.area or ""),
     )
     session.add(StudyArea(id=entity.id, active=True, position=0))
     await session.flush()
@@ -2097,8 +2124,14 @@ async def _import_state(session: AsyncSession, area_id: UUID):
     """Alandaki mevcut konular + kaynaklar: (parent, norm baslik) -> id eslemesi."""
     rows = (
         await session.execute(
-            select(StudyTopic.id, StudyTopic.parent_id, StudyTopic.status, StudyTopic.target_min,
-                   StudyTopic.position, Entity.title)
+            select(
+                StudyTopic.id,
+                StudyTopic.parent_id,
+                StudyTopic.status,
+                StudyTopic.target_min,
+                StudyTopic.position,
+                Entity.title,
+            )
             .join(Entity, Entity.id == StudyTopic.id)
             .where(StudyTopic.area_id == area_id)
         )

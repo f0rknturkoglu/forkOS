@@ -57,6 +57,7 @@ class CareerAnalyticsSnapshot(BaseModel):
     period: dict[str, str]
     generated_at: str
     fingerprint: str
+    candidate_context_revision: str = ""
     population: int
     evaluated_population: int
     minimum_sample: int
@@ -496,4 +497,6 @@ async def snapshot(
                 ],
             }
         )
-    return compute_snapshot(records, days=days, minimum=minimum, now=now)
+    result = compute_snapshot(records, days=days, minimum=minimum, now=now)
+    result.candidate_context_revision = candidate.revision
+    return result

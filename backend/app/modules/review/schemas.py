@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TodoReviewStats(BaseModel):
@@ -68,8 +68,17 @@ class GithubReviewStats(BaseModel):
 
 class FlashcardReviewStats(BaseModel):
     """Donemde tekrar edilen kart sayisi + deste kirilimi."""
+
     reviewed: int
     decks: dict[str, int]
+
+
+class CareerGoalReviewProgress(BaseModel):
+    goal_id: uuid.UUID
+    title: str
+    completed_milestones: int
+    milestone_count: int
+    progress_percent: int | None
 
 
 class ReviewStats(BaseModel):
@@ -82,6 +91,8 @@ class ReviewStats(BaseModel):
     study: StudyReviewStats
     flashcards: FlashcardReviewStats
     github: GithubReviewStats
+    career_goals: list[CareerGoalReviewProgress] = Field(default_factory=list)
+    career_proposals_pending: int = Field(default_factory=int)
 
 
 class UnfinishedTodo(BaseModel):

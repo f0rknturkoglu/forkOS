@@ -15,8 +15,11 @@ router = APIRouter(tags=["review"])
 
 
 @router.get("/reviews/preview", response_model=ReviewPreview)
-async def preview(kind: str = "weekly", period_start: date = Query(default_factory=local_today),
-                  session: AsyncSession = Depends(get_session)):
+async def preview(
+    kind: str = "weekly",
+    period_start: date = Query(default_factory=local_today),
+    session: AsyncSession = Depends(get_session),
+):
     try:
         return await service.preview(session, kind, period_start)
     except ValueError as exc:
@@ -34,14 +37,18 @@ async def create_review(body: ReviewIn, session: AsyncSession = Depends(get_sess
 
 
 @router.get("/reviews", response_model=list[ReviewOut])
-async def list_reviews(kind: str | None = None, limit: int = Query(20, ge=1, le=100),
-                       session: AsyncSession = Depends(get_session)):
+async def list_reviews(
+    kind: str | None = None,
+    limit: int = Query(20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
     return await service.list_reviews(session, kind, limit)
 
 
 @router.patch("/reviews/{review_id}", response_model=ReviewOut)
-async def patch_review_note(review_id: uuid.UUID, body: ReviewNotePatch,
-                            session: AsyncSession = Depends(get_session)):
+async def patch_review_note(
+    review_id: uuid.UUID, body: ReviewNotePatch, session: AsyncSession = Depends(get_session)
+):
     result = await service.update_note(session, review_id, body.note)
     if result is None:
         raise HTTPException(404, "değerlendirme bulunamadı")

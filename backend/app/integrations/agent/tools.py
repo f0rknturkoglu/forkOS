@@ -296,6 +296,7 @@ def register_agent_tools(server: MCPServer) -> None:
 def _register_career_tools(server: MCPServer) -> None:
     from app.modules.opportunity import interview_intelligence as interview_ai
     from app.modules.opportunity.career_analytics import snapshot
+    from app.modules.opportunity.career_strategy import strategy_snapshot
 
     @server.tool(
         name="forkos_career_interview",
@@ -332,15 +333,31 @@ def _register_career_tools(server: MCPServer) -> None:
 
     @server.tool(
         name="forkos_career_insights",
-        description="Read deterministic career outcomes for a discovery cohort. Explicit denominators and sample guards; correlation is not causation. No network or mutations.",
+        description="Read deterministic career outcomes or strategy/next-action briefing. Explicit denominators and sample guards; correlation is not causation. No network or mutations.",
         annotations=READ_ONLY_ANNOTATIONS,
     )
     async def forkos_career_insights(
         days: Annotated[int, Field(ge=1, le=3650)] = 30,
         minimum: Annotated[int, Field(ge=3, le=100)] = 3,
+        intent: Literal["analytics", "strategy", "what_should_i_do"] = "analytics",
     ) -> AgentEnvelope[dict[str, Any]]:
         try:
             async with SessionLocal() as session:
+                if intent != "analytics":
+                    result = await strategy_snapshot(session, days=days, minimum=minimum)
+                    data = result.model_dump(mode="json")
+                    if intent == "what_should_i_do":
+                        data = {
+                            key: data[key]
+                            for key in (
+                                "generated_at",
+                                "evidence_revision",
+                                "primary_action",
+                                "alternatives",
+                                "uncertainties",
+                            )
+                        }
+                    return AgentEnvelope(source="forkos", data=data, truncated=False)
                 result = await snapshot(session, days=days, minimum=minimum)
                 data = result.model_dump(mode="json")
                 truncated = False

@@ -37,11 +37,17 @@ RELATIONS: dict[str, tuple[str, str]] = {
     # Govde metnindeki [[wikilink]]'ten uretilir (core/refs.py). Backlink
     # paneli ve graf bu iliskiyi okur; elle kurulmaz, metinden turer.
     "mentions": ("Bahsettikleri", "Buraya bağlananlar"),
+    "advances_goal": ("İlerletilen hedef", "Hedefe katkı"),
+    "advances_goal_milestone": ("İlerletilen hedef adımı", "Adıma katkı"),
+    "originated_from": ("Kaynak öneri", "Öneriden oluştu"),
+    "targets": ("Hedeflenen kayıt", "Bu kaydı hedefleyen öneri"),
 }
 
 
 async def link(
-    session: AsyncSession, from_id: uuid.UUID, to_id: uuid.UUID,
+    session: AsyncSession,
+    from_id: uuid.UUID,
+    to_id: uuid.UUID,
     relation: str = "related",
 ) -> None:
     if from_id == to_id:
@@ -51,12 +57,18 @@ async def link(
 
 
 async def unlink(
-    session: AsyncSession, from_id: uuid.UUID, to_id: uuid.UUID,
+    session: AsyncSession,
+    from_id: uuid.UUID,
+    to_id: uuid.UUID,
     relation: str = "related",
 ) -> None:
-    row = (await session.execute(
-        select(Link).where(Link.from_id == from_id, Link.to_id == to_id,
-                           Link.relation == relation))).scalar_one_or_none()
+    row = (
+        await session.execute(
+            select(Link).where(
+                Link.from_id == from_id, Link.to_id == to_id, Link.relation == relation
+            )
+        )
+    ).scalar_one_or_none()
     if row is not None:
         await session.delete(row)
 
@@ -64,9 +76,7 @@ async def unlink(
 #: PHASE 3'te dondurulmuş eski Notlar ailesi: `note`, `note_folder`,
 #: `note_attachment`. Hiçbiri canlı forkOS kaydı gibi sunulmaz ve hiçbirine
 #: YENİ bağ kurulmaz. Bu ailenin TEK kaynağı burasıdır.
-FROZEN_LEGACY_ENTITY_TYPES: frozenset[str] = frozenset(
-    {"note", "note_folder", "note_attachment"}
-)
+FROZEN_LEGACY_ENTITY_TYPES: frozenset[str] = frozenset({"note", "note_folder", "note_attachment"})
 
 #: Operasyonel ilişki yüzeylerinde (RelatedPanel/BacklinksPanel) GÖSTERİLMEYEN
 #: entity tipleri. Legacy Notlar PHASE 3'te dondurulmuş arşivdir: bağları
@@ -109,24 +119,28 @@ async def related(session: AsyncSession, entity_id: uuid.UUID) -> list[dict]:
     direction: "outgoing" (bu kayittan disari), "incoming" (disaridan bu kayda).
     label: iliski sozlugundeki ileri/geri etiket -- UI yonu duzeltir.
     """
-    links = (await session.execute(
-        select(Link).where(or_(Link.from_id == entity_id, Link.to_id == entity_id))
-    )).scalars()
+    links = (
+        await session.execute(
+            select(Link).where(or_(Link.from_id == entity_id, Link.to_id == entity_id))
+        )
+    ).scalars()
     rows: list[dict] = []
     other_ids: set[uuid.UUID] = set()
     for lk in links:
         outgoing = lk.from_id == entity_id
         other_ids.add(lk.to_id if outgoing else lk.from_id)
         forward, backward = RELATIONS.get(lk.relation, (lk.relation, lk.relation))
-        rows.append({
-            "relation": lk.relation,
-            "direction": "outgoing" if outgoing else "incoming",
-            "label": forward if outgoing else backward,
-            "to_id": str(lk.to_id if outgoing else lk.from_id),
-        })
+        rows.append(
+            {
+                "relation": lk.relation,
+                "direction": "outgoing" if outgoing else "incoming",
+                "label": forward if outgoing else backward,
+                "to_id": str(lk.to_id if outgoing else lk.from_id),
+            }
+        )
     entities = {
-        e.id: e for e in (await session.execute(
-            select(Entity).where(Entity.id.in_(other_ids)))).scalars()
+        e.id: e
+        for e in (await session.execute(select(Entity).where(Entity.id.in_(other_ids)))).scalars()
     }
     return [
         {

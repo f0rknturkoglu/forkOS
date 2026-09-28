@@ -1181,6 +1181,97 @@ export interface paths {
         patch: operations["patch_career_story_api_career_stories__story_id__patch"];
         trace?: never;
     };
+    "/api/career/strategy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Career Strategy
+         * @description Read-only career briefing over canonical evidence and commitments.
+         */
+        get: operations["career_strategy_api_career_strategy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/strategy/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Career Strategy Proposals */
+        get: operations["career_strategy_proposals_api_career_strategy_proposals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/strategy/proposals/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Career Strategy Proposals
+         * @description Persist bounded proposals; no Goal/Learning/Todo is created here.
+         */
+        post: operations["refresh_career_strategy_proposals_api_career_strategy_proposals_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/strategy/proposals/{proposal_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Career Strategy Proposal */
+        post: operations["approve_career_strategy_proposal_api_career_strategy_proposals__proposal_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/career/strategy/proposals/{proposal_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Career Strategy Proposal */
+        post: operations["reject_career_strategy_proposal_api_career_strategy_proposals__proposal_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/courses": {
         parameters: {
             query?: never;
@@ -1868,6 +1959,76 @@ export interface paths {
          * @description Anki .apkg / .csv / .txt ic aktarim. `deck` = hedef destek adi (opsiyonel).
          */
         post: operations["import_cards_api_flashcard_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goal-milestones/{milestone_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Milestone */
+        patch: operations["update_milestone_api_goal_milestones__milestone_id__patch"];
+        trace?: never;
+    };
+    "/api/goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Goals */
+        get: operations["goals_api_goals_get"];
+        put?: never;
+        /** Create Goal */
+        post: operations["create_goal_api_goals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{goal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Goal */
+        get: operations["goal_api_goals__goal_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Goal */
+        patch: operations["update_goal_api_goals__goal_id__patch"];
+        trace?: never;
+    };
+    "/api/goals/{goal_id}/milestones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Milestone */
+        post: operations["add_milestone_api_goals__goal_id__milestones_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6153,6 +6314,11 @@ export interface components {
             calibration: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Candidate Context Revision
+             * @default
+             */
+            candidate_context_revision: string;
             /** Cohorts */
             cohorts: components["schemas"]["Cohort"][];
             /** Confidence Notes */
@@ -6237,6 +6403,22 @@ export interface components {
             /** Updated */
             updated: number;
         };
+        /** CareerGoalReviewProgress */
+        CareerGoalReviewProgress: {
+            /** Completed Milestones */
+            completed_milestones: number;
+            /**
+             * Goal Id
+             * Format: uuid
+             */
+            goal_id: string;
+            /** Milestone Count */
+            milestone_count: number;
+            /** Progress Percent */
+            progress_percent: number | null;
+            /** Title */
+            title: string;
+        };
         /** CareerStoryIn */
         CareerStoryIn: {
             /** Action */
@@ -6310,6 +6492,40 @@ export interface components {
             task?: string | null;
             /** Title */
             title?: string | null;
+        };
+        /** CareerStrategySnapshot */
+        CareerStrategySnapshot: {
+            /** Alternatives */
+            alternatives: components["schemas"]["RecommendedAction"][];
+            /** Audit */
+            audit: string[];
+            /** Evaluated Population */
+            evaluated_population: number;
+            /** Evidence Revision */
+            evidence_revision: string;
+            /** Existing Goals */
+            existing_goals: components["schemas"]["StrategicSignal"][];
+            /** Generated At */
+            generated_at: string;
+            /** Goal Progress */
+            goal_progress: components["schemas"]["GoalProgress"][];
+            /** Period */
+            period: {
+                [key: string]: string;
+            };
+            /** Population */
+            population: number;
+            primary_action: components["schemas"]["RecommendedAction"] | null;
+            /** Project Progress */
+            project_progress: components["schemas"]["ProjectMilestoneProgress"][];
+            /** Signals */
+            signals: components["schemas"]["StrategicSignal"][];
+            /** Summary */
+            summary: string;
+            /** Uncertainties */
+            uncertainties: string[];
+            /** What Changed */
+            what_changed: string;
         };
         /** CarryOverIn */
         CarryOverIn: {
@@ -7389,6 +7605,152 @@ export interface components {
             results: components["schemas"]["MetadataResult"][];
             /** Warnings */
             warnings: components["schemas"]["MetadataSearchWarning"][];
+        };
+        /** GoalIn */
+        GoalIn: {
+            /** Description */
+            description?: string | null;
+            /**
+             * Horizon
+             * @default quarter
+             * @enum {string}
+             */
+            horizon: "short_term" | "quarter" | "year" | "long_term";
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /** Source Memory Id */
+            source_memory_id?: string | null;
+            /** Target At */
+            target_at?: string | null;
+            /** Title */
+            title: string;
+        };
+        /** GoalMilestoneIn */
+        GoalMilestoneIn: {
+            /** Due At */
+            due_at?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /** Title */
+            title: string;
+        };
+        /** GoalMilestoneOut */
+        GoalMilestoneOut: {
+            /** Completed At */
+            completed_at: string | null;
+            /** Due At */
+            due_at: string | null;
+            /**
+             * Goal Id
+             * Format: uuid
+             */
+            goal_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /** Title */
+            title: string;
+        };
+        /** GoalMilestonePatch */
+        GoalMilestonePatch: {
+            /** Completed */
+            completed?: boolean | null;
+            /** Due At */
+            due_at?: string | null;
+            /** Position */
+            position?: number | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** GoalOut */
+        GoalOut: {
+            /** Completed Milestones */
+            completed_milestones: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Description */
+            description: string | null;
+            /**
+             * Horizon
+             * @enum {string}
+             */
+            horizon: "short_term" | "quarter" | "year" | "long_term";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Milestone Count */
+            milestone_count: number;
+            /** Milestones */
+            milestones: components["schemas"]["GoalMilestoneOut"][];
+            /** Position */
+            position: number;
+            /** Progress Percent */
+            progress_percent: number | null;
+            /** Source Memory Id */
+            source_memory_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "paused" | "completed" | "retired";
+            /** Target At */
+            target_at: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** GoalPatch */
+        GoalPatch: {
+            /** Description */
+            description?: string | null;
+            /** Horizon */
+            horizon?: ("short_term" | "quarter" | "year" | "long_term") | null;
+            /** Position */
+            position?: number | null;
+            /** Status */
+            status?: ("active" | "paused" | "completed" | "retired") | null;
+            /** Target At */
+            target_at?: string | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** GoalProgress */
+        GoalProgress: {
+            /** Changed Since Last Review */
+            changed_since_last_review?: string | null;
+            /** Completed Milestones */
+            completed_milestones: number;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Goal Id */
+            goal_id: string;
+            /** Milestone Count */
+            milestone_count: number;
+            /** Progress Percent */
+            progress_percent: number | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -9786,6 +10148,21 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /** ProjectMilestoneProgress */
+        ProjectMilestoneProgress: {
+            /** Completed Milestones */
+            completed_milestones: number;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Milestone Count */
+            milestone_count: number;
+            /** Progress Percent */
+            progress_percent: number | null;
+            /** Project Id */
+            project_id: string;
+            /** Title */
+            title: string;
+        };
         /** ProjectPatch */
         ProjectPatch: {
             /** Github Repo */
@@ -9802,6 +10179,58 @@ export interface components {
             title?: string | null;
             /** Url */
             url?: string | null;
+        };
+        /** ProposalOut */
+        ProposalOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Decided At */
+            decided_at: string | null;
+            /** Estimated Scope */
+            estimated_scope: string | null;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Fingerprint */
+            fingerprint: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Materialization Status
+             * @enum {string}
+             */
+            materialization_status: "pending" | "materialized" | "unsupported_target" | "failed" | "stale";
+            /** Rationale */
+            rationale: string;
+            /** Related Goal Id */
+            related_goal_id: string | null;
+            /** Sample Size */
+            sample_size: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "proposed" | "approved" | "rejected" | "materialized" | "expired";
+            /** Strategy Revision */
+            strategy_revision: string;
+            /** Target Id */
+            target_id: string | null;
+            /** Target Type */
+            target_type: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "goal" | "milestone" | "learning" | "project" | "todo";
+            /** Warnings */
+            warnings?: string[];
         };
         /**
          * PrunePreviewOut
@@ -9843,6 +10272,15 @@ export interface components {
             protected: number;
             /** Pruned */
             pruned: number;
+        };
+        /** RecommendedAction */
+        RecommendedAction: {
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Title */
+            title: string;
+            /** Why */
+            why: string;
         };
         /** RecurringIn */
         RecurringIn: {
@@ -10212,6 +10650,10 @@ export interface components {
         ReviewStats: {
             applications: components["schemas"]["ApplicationReviewStats"];
             capture: components["schemas"]["CaptureReviewStats"];
+            /** Career Goals */
+            career_goals?: components["schemas"]["CareerGoalReviewProgress"][];
+            /** Career Proposals Pending */
+            career_proposals_pending?: number;
             flashcards: components["schemas"]["FlashcardReviewStats"];
             focus: components["schemas"]["FocusReviewStats"];
             github: components["schemas"]["GithubReviewStats"];
@@ -10994,6 +11436,29 @@ export interface components {
             story_id: string;
             /** Why Relevant */
             why_relevant: string;
+        };
+        /** StrategicSignal */
+        StrategicSignal: {
+            /** Caveat */
+            caveat: string;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "medium" | "high";
+            /** Evidence Refs */
+            evidence_refs?: string[];
+            /**
+             * Evidence Type
+             * @enum {string}
+             */
+            evidence_type: "observed_fact" | "explicit_feedback" | "descriptive_pattern" | "model_interpretation" | "user_statement";
+            /** Sample Size */
+            sample_size: number;
+            /** Title */
+            title: string;
+            /** Topic */
+            topic?: string | null;
         };
         /** StreakOut */
         StreakOut: {
@@ -14082,6 +14547,140 @@ export interface operations {
             };
         };
     };
+    career_strategy_api_career_strategy_get: {
+        parameters: {
+            query?: {
+                days?: number;
+                minimum?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CareerStrategySnapshot"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    career_strategy_proposals_api_career_strategy_proposals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"][];
+                };
+            };
+        };
+    };
+    refresh_career_strategy_proposals_api_career_strategy_proposals_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"][];
+                };
+            };
+        };
+    };
+    approve_career_strategy_proposal_api_career_strategy_proposals__proposal_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_career_strategy_proposal_api_career_strategy_proposals__proposal_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     courses_api_courses_get: {
         parameters: {
             query?: {
@@ -15496,6 +16095,195 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_milestone_api_goal_milestones__milestone_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                milestone_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalMilestonePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalMilestoneOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    goals_api_goals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalOut"][];
+                };
+            };
+        };
+    };
+    create_goal_api_goals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    goal_api_goals__goal_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_goal_api_goals__goal_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_milestone_api_goals__goal_id__milestones_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalMilestoneIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalMilestoneOut"];
                 };
             };
             /** @description Validation Error */

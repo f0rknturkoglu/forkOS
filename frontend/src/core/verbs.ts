@@ -84,6 +84,16 @@ export const VERB_LABELS: Record<string, string> = {
   // Değerlendirme
   "review.completed": "Değerlendirme tamamlandı",
   "review.note_updated": "Değerlendirme notu güncellendi",
+  "goal.created": "Hedef oluşturuldu",
+  "goal.updated": "Hedef güncellendi",
+  "goal.milestone_added": "Hedef kilometre taşı eklendi",
+  "goal.milestone_updated": "Hedef kilometre taşı güncellendi",
+  "career_proposal.created": "Kariyer önerisi hazırlandı",
+  "career_proposal.approved": "Kariyer önerisi onaylandı",
+  "career_proposal.rejected": "Kariyer önerisi reddedildi",
+  "career_proposal.materialized": "Kariyer önerisi kayda dönüştürüldü",
+  "career_proposal.unsupported": "Kariyer önerisi uygulanamadı",
+  "career_proposal.expired": "Kariyer önerisinin süresi doldu",
   // Çalışma, kurs ve öğrenme kaynakları
   "study.area_created": "Çalışma alanı oluşturuldu",
   "study.area_archived": "Çalışma alanı arşivlendi",

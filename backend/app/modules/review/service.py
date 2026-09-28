@@ -12,7 +12,9 @@ from app.core.events import log_event
 from app.core.models import Entity, Event
 from app.core.time import local_datetime, local_day_bounds, local_zone
 from app.modules.flashcard.models import FlashcardDeck
+from app.modules.goal import service as goal_service
 from app.modules.learning.models import StudyArea, StudyTopic
+from app.modules.opportunity.career_strategy_models import CareerActionProposal
 from app.modules.pomodoro.models import PomodoroSession
 from app.modules.review.models import Review
 from app.modules.review.schemas import CompletedTodo, ReviewIn, ReviewOut, ReviewPreview
@@ -29,7 +31,11 @@ def period_bounds(kind: str, start: date) -> tuple[date, date]:
         return monday, monday + timedelta(days=7)
     if kind == "monthly":
         month = start.replace(day=1)
-        return month, (month.replace(year=month.year + 1, month=1) if month.month == 12 else month.replace(month=month.month + 1))
+        return month, (
+            month.replace(year=month.year + 1, month=1)
+            if month.month == 12
+            else month.replace(month=month.month + 1)
+        )
     if kind == "yearly":
         year = start.replace(month=1, day=1)
         return year, year.replace(year=year.year + 1)
@@ -279,6 +285,20 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
             .order_by(Todo.priority.desc(), Todo.due_at.asc().nullslast())
         )
     ).all()
+    canonical_goals = [
+        goal
+        for goal in await goal_service.list_goals(session)
+        if goal.status in {"active", "paused"}
+    ]
+    pending_proposals = int(
+        (
+            await session.execute(
+                select(func.count())
+                .select_from(CareerActionProposal)
+                .where(CareerActionProposal.status == "proposed")
+            )
+        ).scalar_one()
+    )
     stats = {
         "todos": {
             "completed": await _event_count(session, "todo.completed", start_dt, end_dt),
@@ -321,14 +341,24 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
         "flashcards": {
             "reviewed": sum(int(count) for _, count in flashcard_rows),
             "decks": {
-                deck_titles.get(deck_id, "Deste"): int(count)
-                for deck_id, count in flashcard_rows
+                deck_titles.get(deck_id, "Deste"): int(count) for deck_id, count in flashcard_rows
             },
         },
         "github": {
             "commits": sum(int(count) for _, count in github_rows),
             "repos": {repo: int(count) for repo, count in github_rows if repo},
         },
+        "career_goals": [
+            {
+                "goal_id": goal.id,
+                "title": goal.title,
+                "completed_milestones": goal.completed_milestones,
+                "milestone_count": goal.milestone_count,
+                "progress_percent": goal.progress_percent,
+            }
+            for goal in canonical_goals[:20]
+        ],
+        "career_proposals_pending": pending_proposals,
     }
     unfinished = [
         {
@@ -459,13 +489,20 @@ async def list_reviews(session: AsyncSession, kind: str | None, limit: int) -> l
     return [_out(item) for item in (await session.execute(stmt)).scalars()]
 
 
-async def update_note(session: AsyncSession, review_id: uuid.UUID, note: str | None) -> ReviewOut | None:
+async def update_note(
+    session: AsyncSession, review_id: uuid.UUID, note: str | None
+) -> ReviewOut | None:
     review = await session.get(Review, review_id)
     if review is None:
         return None
     review.note = note
     await touch_entity(session, review_id, search_text=note or "")
-    await log_event(session, verb="review.note_updated", entity_id=review_id,
-                    entity_type="review", payload={"kind": review.kind})
+    await log_event(
+        session,
+        verb="review.note_updated",
+        entity_id=review_id,
+        entity_type="review",
+        payload={"kind": review.kind},
+    )
     await session.commit()
     return _out(review)

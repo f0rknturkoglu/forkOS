@@ -32,6 +32,10 @@ MODULE = ModuleSpec(
             # Firsat baglantisi kurum tokenlarindan dinamik uretilir; genel link degildir.
             linkable=False,
         ),
+        EntityTypeSpec(
+            "career_action_proposal", "Kariyer önerisi", "Kariyer önerileri",
+            "/opportunities?tab=career", "Lightbulb", linkable=False,
+        ),
     ],
     event_verbs=[
         "opportunity.created",
@@ -62,6 +66,12 @@ MODULE = ModuleSpec(
         "career_story.updated",
         "career_story.archived",
         "career_connections.imported",
+        "career_proposal.created",
+        "career_proposal.approved",
+        "career_proposal.rejected",
+        "career_proposal.materialized",
+        "career_proposal.unsupported",
+        "career_proposal.expired",
     ],
     deadline_provider=opportunity_deadlines,
 )

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReviewPreview } from "@/core/types";
-import { reviewChangeRows, reviewMetricRows } from "./reviewMetrics";
+import { careerGoalReviewRows, careerReviewRows, reviewChangeRows, reviewMetricRows } from "./reviewMetrics";
 
 const stats = {
   todos: { completed: 4, created: 6, dropped: 1, overdue_now: 1 },
@@ -73,5 +73,40 @@ describe("önceki döneme göre değişim", () => {
       ["Aktif gün", "değişmedi"],
       ["Kart tekrarı", "değişmedi"],
     ]);
+  });
+});
+
+describe("kariyer haftası", () => {
+  it("eksik eski snapshot'ı sıfır saymaz, yalnız gözlenen sayıları verir", () => {
+    expect(careerReviewRows(stats, { applications: { applied: 2 } })).toEqual([
+      ["Keşfedilen", 0, null],
+      ["Başvurulan", 0, "-2 önceki haftaya göre"],
+      ["Görüşme", 0, null],
+      ["Teklif", 0, null],
+    ]);
+  });
+
+  it("hedef ilerlemesini yalnız aynı payda ile karşılaştırır", () => {
+    const withGoal = {
+      ...stats,
+      career_goals: [
+        { goal_id: "g1", title: "EU backend", completed_milestones: 1, milestone_count: 3, progress_percent: 33 },
+      ],
+    };
+    expect(
+      careerGoalReviewRows(withGoal, {
+        career_goals: [{ goal_id: "g1", completed_milestones: 0, milestone_count: 3 }],
+      })[0],
+    ).toEqual({
+      id: "g1",
+      title: "EU backend",
+      progress: "1/3 · %33",
+      change: "+1 kilometre taşı",
+    });
+    expect(
+      careerGoalReviewRows(withGoal, {
+        career_goals: [{ goal_id: "g1", completed_milestones: 0, milestone_count: 2 }],
+      })[0]?.change,
+    ).toBeNull();
   });
 });
