@@ -103,4 +103,35 @@ describe("SourceHealthAccordion", () => {
 
     expect(screen.getByText("Kayıt yok.")).toBeTruthy();
   });
+
+  it("renders structured scrape telemetry when present", () => {
+    const runsWithTelemetry: SourceHealth[] = [
+      {
+        source: "forkjob_core:linkedin",
+        status: "ok",
+        items_found: 15,
+        items_seen: 20,
+        circuit_open: false,
+        consecutive_failures: 0,
+        error: null,
+        started_at: "2026-08-25T08:00:00.000Z",
+        finished_at: "2026-08-25T08:00:05.000Z",
+        telemetry: {
+          pages_fetched: 3,
+          page_limit: 5,
+          items_seen: 20,
+          cap_hit: true,
+          stop_reason: "profile_limit_reached",
+        },
+      },
+    ];
+
+    render(<SourceHealthAccordion sources={runsWithTelemetry} open onOpenChange={vi.fn()} />);
+    const telemetryElement = screen.getByTestId("source-telemetry");
+    expect(telemetryElement).toBeTruthy();
+    expect(telemetryElement.textContent).toContain("sayfa: 3/5");
+    expect(telemetryElement.textContent).toContain("görülen: 20");
+    expect(telemetryElement.textContent).toContain("limit doldu");
+    expect(telemetryElement.textContent).toContain("profile_limit_reached");
+  });
 });

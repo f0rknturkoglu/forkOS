@@ -56,6 +56,15 @@ export function SourceHealthAccordion({
                   <div className="min-w-0">
                     <p className="truncate text-body text-primary">{source.source}</p>
                     {source.error && <p className="truncate text-meta text-danger">{source.error}</p>}
+                    {source.telemetry && (
+                      <p className="truncate text-meta text-muted" data-testid="source-telemetry">
+                        {source.telemetry.pages_fetched != null && `sayfa: ${String(source.telemetry.pages_fetched)}${source.telemetry.page_limit ? `/${String(source.telemetry.page_limit)}` : ""}`}
+                        {source.telemetry.pages_fetched != null && source.telemetry.items_seen != null ? " · " : ""}
+                        {source.telemetry.items_seen != null && `görülen: ${String(source.telemetry.items_seen)}`}
+                        {Boolean(source.telemetry.cap_hit) && " · limit doldu"}
+                        {Boolean(source.telemetry.stop_reason) && ` (${String(source.telemetry.stop_reason)})`}
+                      </p>
+                    )}
                   </div>
                   <Chip tone={view.tone}>{view.label}</Chip>
                   <span className="text-meta text-muted">

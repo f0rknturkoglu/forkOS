@@ -208,11 +208,14 @@ async def finish_run(
     status: str, items_found: int = 0, items_seen: int | None = None,
     error: str | None = None,
     error_kind: str | None = None,
+    telemetry: dict[str, Any] | None = None,
 ) -> None:
     run.status = status
     run.items_found = items_found
     if items_seen is not None:
         run.items_seen = items_seen
+    if telemetry is not None:
+        run.telemetry = telemetry
     message = sanitize_error(error)
     kind = error_kind or (classify_error(message) if message else None)
     # `error_kind` kolonu modelde varsa ayri tasinir; yoksa metnin onekine
@@ -511,6 +514,7 @@ async def health(
          # Devre kapaliyken null; acikken aga tekrar cikilacagi an. Ek sorgu
          # YOK: `circuit_states` bu degeri zaten hesapliyor.
          "retry_at": states.get(r.source, {}).get("retry_at"),
-         "started_at": r.started_at, "finished_at": r.finished_at}
+         "started_at": r.started_at, "finished_at": r.finished_at,
+         "telemetry": r.telemetry}
         for r in rows
     ]

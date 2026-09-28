@@ -512,3 +512,48 @@ def test_worker_lease_catalog_includes_career_ops(monkeypatch: pytest.MonkeyPatc
     assert "careerops:greenhouse" in lease_map
     assert lease_map["careerops:greenhouse"] >= timedelta(seconds=300)
     assert {"careerops:boards", "careerops:companies"} <= set(lease_map)
+
+
+@pytest.mark.asyncio
+async def test_refresh_avoids_source_uniq_collision_when_careerops_claims_forkjob(
+    db_session: AsyncSession,
+):
+    """Case K: When career-ops refreshes an existing forkjob record whose external_id is already
+    registered under career-ops on another row, opportunity_source_uniq is preserved without crash."""
+    ext_id = "https://example.com/jobs/risk-analyst"
+    # Row 1: forkjob record with url variant 1
+    item_fj = RawItem(
+        external_id=ext_id,
+        title="Risk Analyst",
+        url="https://example.com/jobs/risk-analyst-variant",
+        extra={"organization": "Kalshi", "location": "Remote"},
+    )
+    await service.ingest_jobs(db_session, [NativeJob(item_fj)], "forkjob_core:customfeeds")
+    await db_session.commit()
+
+    # Row 2: career-ops record with url variant 2 and same ext_id
+    item_co = RawItem(
+        external_id=ext_id,
+        title="Risk Analyst",
+        url="https://example.com/jobs/risk-analyst",
+        extra={"organization": "Kalshi", "location": "Remote"},
+    )
+    await service.ingest_jobs(db_session, [NativeJob(item_co)], "careerops:boards")
+    await db_session.commit()
+
+    # Ingesting variant 1 under careerops:boards matches Row 1 via URL.
+    # It must NOT try to mutate Row 1's source to careerops:boards because that would collide with Row 2.
+    item_update = RawItem(
+        external_id="https://example.com/jobs/risk-analyst-variant",
+        title="Risk Analyst",
+        url="https://example.com/jobs/risk-analyst-variant",
+        extra={"organization": "Kalshi", "location": "Remote"},
+    )
+    await service.ingest_jobs(db_session, [NativeJob(item_update)], "careerops:boards")
+    await db_session.commit()
+
+    opps = (await db_session.execute(select(Opportunity))).scalars().all()
+    assert len(opps) == 2
+    sources = {o.source for o in opps}
+    assert "forkjob_core:customfeeds" in sources
+    assert "careerops:boards" in sources

@@ -86,17 +86,48 @@ class TecnoempleoScraper(ScraperBase):
         xml = await client.get_html(SITEMAP_URL)
         entries = offer_entries(xml, max_age_days=self.max_age_days)
         if not entries:
+            self.record_telemetry(
+                items_seen=0,
+                items_returned=0,
+                pages_fetched=1,
+                page_limit=None,
+                result_limit=self.max_offers,
+                cap_hit=False,
+                stop_reason="empty_sitemap",
+            )
             raise ScraperPermanentError(f"{self.source}: sitemap held no live offer URLs")
 
+        total_entries = len(entries)
+        target_entries = entries[: self.max_offers]
+        cap_hit = total_entries > self.max_offers
+        pages_fetched = 1  # sitemap
+
         jobs: list[Job] = []
-        for url, _lastmod in entries[: self.max_offers]:
+        for url, _lastmod in target_entries:
             try:
                 page = await client.get_html(url)
+                pages_fetched += 1
             except ScraperPermanentError:
                 continue  # one dead offer must not end the run
             job = self.parse_offer(page, url)
             if job is not None:
                 jobs.append(job)
+
+        stop_reason = "max_offers_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=total_entries,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=None,
+            result_limit=self.max_offers,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason=(
+                f"max_offers_reached: {len(target_entries)} of {total_entries} sitemap URLs fetched"
+                if cap_hit
+                else None
+            ),
+        )
         return jobs
 
     def parse(self, html: str) -> list[Job]:

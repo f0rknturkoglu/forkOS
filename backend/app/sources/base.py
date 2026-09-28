@@ -38,9 +38,11 @@ class ScrapeTelemetry:
     result_limit: int | None = None
     cap_hit: bool | None = None
     partial_reason: str | None = None
+    stop_reason: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "items_seen": self.items_seen,
             "items_returned": self.items_returned,
             "pages_fetched": self.pages_fetched,
@@ -48,7 +50,11 @@ class ScrapeTelemetry:
             "result_limit": self.result_limit,
             "cap_hit": self.cap_hit,
             "partial_reason": self.partial_reason,
+            "stop_reason": self.stop_reason,
         }
+        if self.metadata:
+            data["metadata"] = self.metadata
+        return data
 
 
 @dataclass

@@ -164,6 +164,7 @@ class SourceRun(Base):
     batch_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("source_sync_batch.id", ondelete="SET NULL")
     )
+    telemetry: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
 
 class SourceSyncBatch(Base):

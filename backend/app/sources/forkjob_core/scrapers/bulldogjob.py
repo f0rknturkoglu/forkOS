@@ -64,6 +64,9 @@ class BulldogjobScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
         seen: set[str] = set()
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
         total: int | None = None
         for page in range(1, self.max_pages + 1):
             payload = await client.post_json(
@@ -78,13 +81,29 @@ class BulldogjobScraper(ScraperBase):
                 message = first.get("message") if isinstance(first, dict) else str(first)
                 raise ScraperPermanentError(f"{self.source}: GraphQL: {message}")
             result = payload.get("data", {}).get("searchJobs") or {}
+            pages_fetched += 1
             page_jobs = self.parse(result)
+            items_seen += len(page_jobs)
             if not page_jobs:
                 break
             jobs.extend(self.dedup_seen(seen, page_jobs))
             total = result.get("totalCount")
+            if page == self.max_pages and isinstance(total, int) and page * PAGE_SIZE < total:
+                cap_hit = True
             if isinstance(total, int) and page * PAGE_SIZE >= total:
                 break
+
+        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=self.max_pages,
+            result_limit=None,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason="max_pages_reached" if cap_hit else None,
+        )
         return jobs
 
     def parse(self, result: Any) -> list[Job]:

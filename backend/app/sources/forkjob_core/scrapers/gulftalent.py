@@ -78,24 +78,32 @@ class GulfTalentScraper(ScraperBase):
         jobs: list[Job] = []
         seen: set[str] = set()
         cutoff = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
 
         for keyword in self.keywords:
             cards = await self._fetch_listing(client, keyword)
+            pages_fetched += 1
+            items_seen += len(cards)
             for card in cards:
                 if card.job_id in seen:
                     continue
                 if len(jobs) >= self.max_offers:
+                    cap_hit = True
                     break
                 seen.add(card.job_id)
 
                 try:
                     html = await client.get_html(card.url)
+                    pages_fetched += 1
                 except ScraperPermanentError:
                     continue  # One dead detail page must not sink the whole run.
 
                 for job in self._parse_detail(html, card.url, cutoff):
                     jobs.append(job)
                     if len(jobs) >= self.max_offers:
+                        cap_hit = True
                         break
 
                 # Be polite between detail pages — robots.txt has no Crawl-delay,
@@ -103,8 +111,20 @@ class GulfTalentScraper(ScraperBase):
                 await asyncio.sleep(1.0)
 
             if len(jobs) >= self.max_offers:
+                cap_hit = True
                 break
 
+        stop_reason = "max_offers_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=None,
+            result_limit=self.max_offers,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason="max_offers_reached" if cap_hit else None,
+        )
         return jobs
 
     # -- listing ---------------------------------------------------------------

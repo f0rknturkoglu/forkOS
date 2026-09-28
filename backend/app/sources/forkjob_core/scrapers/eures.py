@@ -279,6 +279,10 @@ class EuresScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
         seen: set[str] = set()
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
+        page_limit = sum(search.max_pages * len(search.countries) for search in self.searches)
 
         for search in self.searches:
             for country in search.countries:
@@ -292,16 +296,33 @@ class EuresScraper(ScraperBase):
                     if data is None:
                         break  # one slice failing must not sink the rest
 
+                    pages_fetched += 1
                     page_jobs = self.parse(data)
+                    items_seen += len(page_jobs)
                     # The searches overlap by design — an entry-level posting
                     # may also carry the EURES flag — so dedup across them.
                     jobs.extend(self.dedup_seen(seen, page_jobs))
 
                     total = data.get("numberRecords") if isinstance(data, dict) else None
+                    if page == search.max_pages and isinstance(total, int) and page * self.results_per_page < total:
+                        cap_hit = True
+
                     if not page_jobs or (
                         isinstance(total, int) and page * self.results_per_page >= total
                     ):
                         break
+
+        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=page_limit,
+            result_limit=None,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason="max_pages_reached" if cap_hit else None,
+        )
         return jobs
 
     # -- pure parsing -------------------------------------------------------

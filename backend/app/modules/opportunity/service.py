@@ -923,7 +923,20 @@ async def _refresh_opportunity(
     # User state and richer fields stay put, but when the same discovered job
     # arrives from both engines the visible primary source is career-ops.
     if source_label.startswith("careerops:") and opportunity.source.startswith("forkjob_core:"):
-        opportunity.source = source_label
+        if opportunity.external_id:
+            collision = (
+                await session.execute(
+                    select(Opportunity.id).where(
+                        Opportunity.source == source_label,
+                        Opportunity.external_id == opportunity.external_id,
+                        Opportunity.id != opportunity.id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if not collision:
+                opportunity.source = source_label
+        else:
+            opportunity.source = source_label
 
     opportunity.last_seen_at = now
     opportunity.source_status = "active"

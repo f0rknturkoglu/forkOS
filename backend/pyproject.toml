@@ -46,6 +46,7 @@ markers = [
   "a5_context_live: needs a ready local jevmlx daemon; skipped unless A5_CONTEXT_LIVE=1",
   "a5_memory_live: needs the optional local NLI image/model and isolated test DB",
   "a5_answer_live: needs the optional local NLI image/model and isolated test DB",
+  "live_network: tests that make live external network calls",
 ]
 
 [tool.ruff]

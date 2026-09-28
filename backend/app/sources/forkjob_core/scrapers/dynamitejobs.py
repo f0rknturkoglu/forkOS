@@ -48,20 +48,60 @@ class DynamiteJobsScraper(ScraperBase):
         try:
             xml = await client.get_html(SITEMAP_URL)
         except ScraperPermanentError:
+            self.record_telemetry(
+                items_seen=0,
+                items_returned=0,
+                pages_fetched=1,
+                page_limit=None,
+                result_limit=self.max_offers,
+                cap_hit=False,
+                stop_reason="sitemap_failed",
+            )
             return []
         urls = _posting_urls(xml)
         if not urls:
+            self.record_telemetry(
+                items_seen=0,
+                items_returned=0,
+                pages_fetched=1,
+                page_limit=None,
+                result_limit=self.max_offers,
+                cap_hit=False,
+                stop_reason="empty_sitemap",
+            )
             raise ScraperPermanentError("dynamitejobs: sitemap held no posting URLs")
 
+        total_urls = len(urls)
+        target_urls = urls[: self.max_offers]
+        cap_hit = total_urls > self.max_offers
+        pages_fetched = 1  # sitemap
+
         jobs: list[Job] = []
-        for url in urls[: self.max_offers]:
+        for url in target_urls:
             try:
                 html = await client.get_html(url)
+                pages_fetched += 1
             except ScraperPermanentError:
                 continue
             job = self.parse_offer(html, url)
             if job is not None:
                 jobs.append(job)
+
+        stop_reason = "max_offers_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=total_urls,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=None,
+            result_limit=self.max_offers,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason=(
+                f"max_offers_reached: {len(target_urls)} of {total_urls} sitemap URLs fetched"
+                if cap_hit
+                else None
+            ),
+        )
         return jobs
 
     def parse_offer(self, html: str, url: str) -> Job | None:

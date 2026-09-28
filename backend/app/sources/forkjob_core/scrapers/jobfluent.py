@@ -83,28 +83,51 @@ class JobFluentScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
         seen: set[str] = set()
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
 
         for region in self.regions:
             if len(jobs) >= self.max_offers:
+                cap_hit = True
                 break
             try:
                 xml = await client.get_html(SITEMAP_URL.format(region=region))
+                pages_fetched += 1
             except ScraperPermanentError:
                 continue  # one region missing must not sink the rest
 
             for url in parse_offer_sitemap(xml):
+                items_seen += 1
                 if len(jobs) >= self.max_offers:
+                    cap_hit = True
                     break
                 if url in seen:
                     continue
                 seen.add(url)
                 try:
                     page = await client.get_html(url)
+                    pages_fetched += 1
                 except ScraperPermanentError:
                     continue
                 job = self.parse_offer(page, url, remote_hint=region == "remote")
                 if job is not None:
                     jobs.append(job)
+
+        if len(jobs) >= self.max_offers:
+            cap_hit = True
+
+        stop_reason = "max_offers_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=None,
+            result_limit=self.max_offers,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason="max_offers_reached" if cap_hit else None,
+        )
         return jobs
 
     # -- pure parsing -------------------------------------------------------

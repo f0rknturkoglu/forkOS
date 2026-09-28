@@ -613,6 +613,8 @@ class ScraperBase(ABC):
         result_limit: int | None = None,
         cap_hit: bool | None = None,
         partial_reason: str | None = None,
+        stop_reason: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ScrapeTelemetry:
         self.telemetry = ScrapeTelemetry(
             items_seen=items_seen,
@@ -622,6 +624,8 @@ class ScraperBase(ABC):
             result_limit=result_limit,
             cap_hit=cap_hit,
             partial_reason=partial_reason,
+            stop_reason=stop_reason,
+            metadata=metadata or {},
         )
         return self.telemetry
 
@@ -685,6 +689,7 @@ class ScraperBase(ABC):
                 items_returned=len(result),
                 pages_fetched=1,
                 cap_hit=False,
+                stop_reason="feed_exhausted",
             )
         return result
 

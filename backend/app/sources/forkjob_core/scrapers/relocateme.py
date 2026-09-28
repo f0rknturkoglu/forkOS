@@ -46,13 +46,19 @@ class RelocateMeScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
         seen: set[str] = set()
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
+
         for page in range(1, self.max_pages + 1):
             url = f"{SEARCH_URL}?page={page}" if page > 1 else SEARCH_URL
             try:
                 html = await client.get_html(url)
             except ScraperPermanentError:
                 break
+            pages_fetched += 1
             page_jobs = self.parse(html)
+            items_seen += len(page_jobs)
             if not page_jobs:
                 break
             fresh = self.dedup_seen(seen, page_jobs)
@@ -61,6 +67,20 @@ class RelocateMeScraper(ScraperBase):
             # one, so a page that adds nothing new is the real stop condition.
             if not fresh:
                 break
+            if page == self.max_pages:
+                cap_hit = True
+
+        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=self.max_pages,
+            result_limit=None,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason="max_pages_reached" if cap_hit else None,
+        )
         return jobs
 
     def parse(self, html: str) -> list[Job]:

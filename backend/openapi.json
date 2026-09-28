@@ -17051,6 +17051,18 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "telemetry": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telemetry"
           }
         },
         "required": [

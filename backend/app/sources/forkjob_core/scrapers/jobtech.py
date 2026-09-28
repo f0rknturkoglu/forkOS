@@ -70,6 +70,10 @@ class JobTechScraper(ScraperBase):
 
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: dict[str, Job] = {}
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
+
         for term in self.searches:
             for page in range(self.max_pages):
                 url = (
@@ -80,13 +84,30 @@ class JobTechScraper(ScraperBase):
                     payload = await client.get_json(url)
                 except ScraperPermanentError:
                     break
+                pages_fetched += 1
                 page_jobs = self.parse(payload)
+                items_seen += len(page_jobs)
                 if not page_jobs:
                     break
                 # The searches overlap heavily — "software developer" and
                 # "software engineer" return much of the same set.
                 for job in page_jobs:
                     jobs.setdefault(job.url, job)
+                total = payload.get("total", {}).get("value") if isinstance(payload, dict) else None
+                if page == self.max_pages - 1 and isinstance(total, int) and (page + 1) * PAGE_SIZE < total:
+                    cap_hit = True
+
+        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=len(self.searches) * self.max_pages,
+            result_limit=None,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason="max_pages_reached" if cap_hit else None,
+        )
         return list(jobs.values())
 
     def parse(self, payload: Any) -> list[Job]:

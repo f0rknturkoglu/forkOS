@@ -276,6 +276,7 @@ async def _poll_source_locked(source, *, batch_id, limit: float) -> int:
                 items_seen=items_seen,
                 error=detail or None,
                 error_kind="partial" if partial and detail else None,
+                telemetry=telemetry.as_dict() if telemetry else None,
             )
             if batch_id is not None:
                 await sync_service.finish_batch_source(

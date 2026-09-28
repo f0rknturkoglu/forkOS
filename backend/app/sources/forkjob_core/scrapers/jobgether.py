@@ -112,25 +112,46 @@ class JobgetherScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
         seen: set[str] = set()
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
+        keywords = self.keywords or ("",)
+        page_limit = len(keywords) * self.max_pages
 
-        for keyword in self.keywords or ("",):
+        for keyword in keywords:
             for page in range(1, self.max_pages + 1):
                 try:
                     payload = await client.get_json(self.query_url(keyword, page))
                 except ScraperPermanentError:
                     break  # a rejected filter must not sink the rest
 
+                pages_fetched += 1
                 page_jobs = self.parse(payload)
+                items_seen += len(page_jobs)
                 fresh = [j for j in page_jobs if (j.external_id or j.url) not in seen]
                 seen.update((j.external_id or j.url) for j in fresh)
                 jobs.extend(fresh)
 
                 # `pagination.hasMore` is authoritative — the docs say so.
                 pagination = payload.get("pagination") if isinstance(payload, dict) else None
-                if not page_jobs or not (
-                    isinstance(pagination, dict) and pagination.get("hasMore")
-                ):
+                has_more = isinstance(pagination, dict) and bool(pagination.get("hasMore"))
+                if page == self.max_pages and has_more:
+                    cap_hit = True
+
+                if not page_jobs or not has_more:
                     break
+
+        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=page_limit,
+            result_limit=None,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason="max_pages_reached" if cap_hit else None,
+        )
         return jobs
 
     # -- pure parsing -------------------------------------------------------

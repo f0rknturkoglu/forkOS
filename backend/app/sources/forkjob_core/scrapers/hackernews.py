@@ -69,12 +69,39 @@ class HackerNewsScraper(ScraperBase):
         try:
             index = await client.get_json(STORY_URL)
         except ScraperPermanentError:
+            self.record_telemetry(
+                items_seen=0,
+                items_returned=0,
+                pages_fetched=1,
+                cap_hit=False,
+                stop_reason="story_index_failed",
+            )
             return []
 
         stories = self._hiring_stories(index)[: self.max_threads]
         jobs: list[Job] = []
+        pages_fetched = 1
+        items_seen = 0
+        cap_hit = False
         for story in stories:
-            jobs.extend(await self._thread(client, story))
+            t_jobs, t_seen, t_pages, t_cap = await self._thread(client, story)
+            jobs.extend(t_jobs)
+            items_seen += t_seen
+            pages_fetched += t_pages
+            if t_cap:
+                cap_hit = True
+
+        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=1 + len(stories) * self.max_pages,
+            result_limit=None,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason="max_pages_reached" if cap_hit else None,
+        )
         return jobs
 
     @staticmethod
@@ -93,29 +120,36 @@ class HackerNewsScraper(ScraperBase):
             stories.append(hit)
         return stories
 
-    async def _thread(self, client: ScraperHttpClient, story: dict[str, Any]) -> list[Job]:
+    async def _thread(self, client: ScraperHttpClient, story: dict[str, Any]) -> tuple[list[Job], int, int, bool]:
         story_id = str(story.get("objectID") or "")
         if not story_id:
-            return []
+            return [], 0, 0, False
         base = COMMENTS_URL.format(story_id=story_id)
 
         jobs: list[Job] = []
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
         for page in range(self.max_pages):
             try:
                 payload = await client.get_json(f"{base}&hitsPerPage=100&page={page}")
             except ScraperPermanentError:
                 break
+            pages_fetched += 1
             hits = payload.get("hits") if isinstance(payload, dict) else None
             if not isinstance(hits, list) or not hits:
                 break
+            items_seen += len(hits)
             for hit in hits:
                 job = self._parse_comment(hit, story_id)
                 if job is not None:
                     jobs.append(job)
             pages = payload.get("nbPages")
+            if page == self.max_pages - 1 and isinstance(pages, int) and page + 1 < pages:
+                cap_hit = True
             if isinstance(pages, int) and page + 1 >= pages:
                 break
-        return jobs
+        return jobs, items_seen, pages_fetched, cap_hit
 
     def _parse_comment(self, hit: Any, story_id: str) -> Job | None:
         if not isinstance(hit, dict):

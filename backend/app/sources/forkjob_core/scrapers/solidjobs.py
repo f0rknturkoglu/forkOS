@@ -51,6 +51,10 @@ class SolidJobsScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
         seen: set[str] = set()
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
+
         for page in range(1, self.max_pages + 1):
             try:
                 payload = await client.get_json(
@@ -60,7 +64,9 @@ class SolidJobsScraper(ScraperBase):
                 break
             if not isinstance(payload, dict):
                 break
+            pages_fetched += 1
             page_jobs = self.parse(payload)
+            items_seen += len(page_jobs)
             if not page_jobs:
                 break
             fresh = [j for j in page_jobs if j.external_id not in seen]
@@ -68,8 +74,22 @@ class SolidJobsScraper(ScraperBase):
             jobs.extend(fresh)
             # Stop when we have seen everything the API reports.
             total = payload.get("totalCount")
+            if page == self.max_pages and isinstance(total, int) and page * PAGE_SIZE < total:
+                cap_hit = True
             if isinstance(total, int) and page * PAGE_SIZE >= total:
                 break
+
+        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=self.max_pages,
+            result_limit=None,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason="max_pages_reached" if cap_hit else None,
+        )
         return jobs
 
     def parse(self, payload: Any) -> list[Job]:

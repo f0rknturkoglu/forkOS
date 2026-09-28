@@ -204,6 +204,7 @@ async def source_runs(session: AsyncSession = Depends(get_session)):
             "batch_id": run.batch_id,
             "started_at": run.started_at,
             "finished_at": run.finished_at,
+            "telemetry": run.telemetry,
         }
         for run in rows
     ]

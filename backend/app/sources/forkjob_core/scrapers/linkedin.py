@@ -110,11 +110,27 @@ class LinkedInScraper(ScraperBase):
         del client  # JobSpy owns its HTTP clients, proxy rotation, and TLS setup.
         attempted = len(self.searches)
         if not attempted:
+            telemetry = self.record_telemetry(
+                items_seen=0,
+                items_returned=0,
+                pages_fetched=None,
+                page_limit=None,
+                result_limit=0,
+                cap_hit=False,
+                partial_reason=None,
+                stop_reason="no_profiles",
+                metadata={
+                    "profiles_attempted": 0,
+                    "profiles_succeeded": 0,
+                    "profiles_failed": 0,
+                },
+            )
             return ScrapeBatch(
                 jobs=[],
                 errors=["LinkedIn has no configured search profiles"],
                 attempted=0,
                 succeeded=0,
+                telemetry=telemetry,
             )
         # Report the actionable configuration failure before importing JobSpy.
         # A disabled source with no profiles must not be labelled a proxy error.
@@ -123,11 +139,18 @@ class LinkedInScraper(ScraperBase):
             _import_jobspy_runner()  # dependency check before the first child process
         runner = self._runner
 
+        total_results_wanted = sum(
+            int(profile.get("results_wanted") or 20) for profile in self.searches
+        )
+        profile_cap_hit = False
+
         jobs: list[Job] = []
         errors: list[str] = []
         succeeded = 0
         for index, profile in enumerate(self.searches, start=1):
             name = _text(profile.get("name")) or f"profile-{index}"
+            results_wanted = int(profile.get("results_wanted") or 20)
+            jobs_before = len(jobs)
             try:
                 kwargs = self._runner_kwargs(profile, proxies)
                 if runner is None:
@@ -143,17 +166,51 @@ class LinkedInScraper(ScraperBase):
                         if job is not None:
                             jobs.append(job)
                 succeeded += 1
+                if len(jobs) - jobs_before >= results_wanted:
+                    profile_cap_hit = True
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 detail = redact_proxy_secrets(f"{type(exc).__name__}: {exc}", proxies)
                 errors.append(f"{name}: {detail}")
 
+        deduped = _deduplicate(jobs)
+        cap_hit = profile_cap_hit or (total_results_wanted > 0 and len(deduped) >= total_results_wanted)
+        partial_reason = None
+        if errors and succeeded > 0:
+            stop_reason = "some_profiles_failed"
+            partial_reason = f"some_profiles_failed: {len(errors)} of {attempted} profiles failed"
+        elif cap_hit:
+            stop_reason = "profile_limit_reached"
+            partial_reason = "profile_limit_reached: results_wanted reached"
+        elif errors and succeeded == 0:
+            stop_reason = "profile_errors"
+            partial_reason = "all_profiles_failed"
+        else:
+            stop_reason = "exhausted"
+
+        telemetry = self.record_telemetry(
+            items_seen=len(jobs),
+            items_returned=len(deduped),
+            pages_fetched=None,
+            page_limit=None,
+            result_limit=total_results_wanted,
+            cap_hit=cap_hit,
+            partial_reason=partial_reason,
+            stop_reason=stop_reason,
+            metadata={
+                "profiles_attempted": attempted,
+                "profiles_succeeded": succeeded,
+                "profiles_failed": len(errors),
+            },
+        )
+
         return ScrapeBatch(
-            jobs=_deduplicate(jobs),
+            jobs=deduped,
             errors=errors,
             attempted=attempted,
             succeeded=succeeded,
+            telemetry=telemetry,
         )
 
     def _runner_kwargs(self, profile: Mapping[str, Any], proxies: list[str]) -> dict[str, Any]:

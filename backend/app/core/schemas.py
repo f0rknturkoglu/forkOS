@@ -95,6 +95,7 @@ class SourceRunOut(BaseModel):
     consecutive_failures: int = 0
     #: Yalnizca devre ACIKKEN dolu: aga tekrar cikilacagi an (ISO 8601).
     retry_at: datetime | None = None
+    telemetry: dict | None = None
 
 
 class NotificationOut(BaseModel):

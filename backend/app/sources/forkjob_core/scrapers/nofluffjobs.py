@@ -50,6 +50,11 @@ class NoFluffJobsScraper(ScraperBase):
 
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
+        total_pages: int | None = None
+
         for page in range(1, self.max_pages + 1):
             try:
                 payload = await client.post_json(
@@ -58,15 +63,31 @@ class NoFluffJobsScraper(ScraperBase):
                 )
             except ScraperPermanentError:
                 break
+            pages_fetched += 1
             page_jobs = self.parse(payload)
+            items_seen += len(page_jobs)
             if not page_jobs:
                 break
             jobs.extend(page_jobs)
             # The response knows how long the result set is; asking for page 8
             # of 7 returns an empty list, so stop before spending the request.
             total_pages = payload.get("totalPages") if isinstance(payload, dict) else None
+            if page == self.max_pages and isinstance(total_pages, int) and page < total_pages:
+                cap_hit = True
             if isinstance(total_pages, int) and page >= total_pages:
                 break
+
+        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=self.max_pages,
+            result_limit=None,
+            cap_hit=cap_hit,
+            stop_reason=stop_reason,
+            partial_reason="max_pages_reached" if cap_hit else None,
+        )
         return jobs
 
     def parse(self, payload: Any) -> list[Job]:

@@ -1,3 +1,4 @@
+import os
 import time
 from pathlib import Path
 import pytest
@@ -10,8 +11,12 @@ from app.integrations.career_ops.models import (
 
 
 @pytest.mark.no_database
+@pytest.mark.live_network
 @pytest.mark.asyncio
 async def test_live_career_ops_bounded_provider_scan():
+    if not os.environ.get("FORKOS_RUN_LIVE_CAREER_TESTS"):
+        pytest.skip("SKIPPED — live network test not enabled (set FORKOS_RUN_LIVE_CAREER_TESTS=1)")
+
     repo_root = Path(__file__).resolve().parent.parent.parent
     vendor_dir = repo_root / ".vendor" / "career-ops"
 
@@ -80,8 +85,12 @@ async def test_live_career_ops_bounded_provider_scan():
 
 
 @pytest.mark.no_database
+@pytest.mark.live_network
 @pytest.mark.asyncio
 async def test_live_reverse_ats_scan_bounds():
+    if not os.environ.get("FORKOS_RUN_LIVE_CAREER_TESTS"):
+        pytest.skip("SKIPPED — live network test not enabled (set FORKOS_RUN_LIVE_CAREER_TESTS=1)")
+
     repo_root = Path(__file__).resolve().parent.parent.parent
     vendor_dir = repo_root / ".vendor" / "career-ops"
 

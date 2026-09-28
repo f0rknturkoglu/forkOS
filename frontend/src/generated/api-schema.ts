@@ -11316,6 +11316,10 @@ export interface components {
             started_at: string;
             /** Status */
             status: string;
+            /** Telemetry */
+            telemetry?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** SourceSyncBatchOut */
         SourceSyncBatchOut: {
