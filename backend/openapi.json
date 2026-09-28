@@ -5843,6 +5843,35 @@
         "title": "FollowupOut",
         "type": "object"
       },
+      "ForkjobCoreEnvOut": {
+        "properties": {
+          "linkedin_allow_direct": {
+            "title": "Linkedin Allow Direct",
+            "type": "boolean"
+          },
+          "linkein_allow_direct": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linkein Allow Direct"
+          },
+          "proxies_file": {
+            "title": "Proxies File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "linkedin_allow_direct",
+          "proxies_file"
+        ],
+        "title": "ForkjobCoreEnvOut",
+        "type": "object"
+      },
       "FunnelBreakdownRow": {
         "description": "Kirilim satiri. Payda ve paylar UI'da acikca yazilir.",
         "properties": {
@@ -11711,6 +11740,17 @@
             ],
             "title": "Compensation"
           },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
           "deadline_at": {
             "anyOf": [
               {
@@ -11767,6 +11807,34 @@
             "minimum": 1.0,
             "title": "Priority",
             "type": "integer"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "raw": {
+            "additionalProperties": true,
+            "title": "Raw",
+            "type": "object"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
           },
           "remote": {
             "anyOf": [
@@ -12628,6 +12696,28 @@
       },
       "OpportunityPatch": {
         "properties": {
+          "compensation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compensation"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
           "deadline_at": {
             "anyOf": [
               {
@@ -12652,6 +12742,17 @@
             ],
             "title": "Follow Up At"
           },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
           "notes": {
             "anyOf": [
               {
@@ -12662,6 +12763,17 @@
               }
             ],
             "title": "Notes"
+          },
+          "organization": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization"
           },
           "priority": {
             "anyOf": [
@@ -12676,6 +12788,41 @@
             ],
             "title": "Priority"
           },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "raw": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
           "rejection_reason": {
             "anyOf": [
               {
@@ -12686,6 +12833,17 @@
               }
             ],
             "title": "Rejection Reason"
+          },
+          "remote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remote"
           },
           "status": {
             "anyOf": [
@@ -16862,6 +17020,11 @@
           },
           "items_found": {
             "title": "Items Found",
+            "type": "integer"
+          },
+          "items_seen": {
+            "default": 0,
+            "title": "Items Seen",
             "type": "integer"
           },
           "retry_at": {
@@ -33475,13 +33638,15 @@
     },
     "/api/sources/forkjob-core/env": {
       "get": {
-        "description": "LinkedIn direct/proxy ayarlarinin gercek durumu.\n\n`allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca\nacarsa true olur (bkz. `env_flag`). Yanlis yazilmis `linkein_allow_direct`\nalani eski istemciler icin ayni degerle korunur.",
+        "description": "LinkedIn direct/proxy ayarlarinin gercek durumu.\n\n`allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca\nacarsa true olur (bkz. `env_flag`). `linkedin_allow_direct` kanonik\nalandir; yanlis yazilmis `linkein_allow_direct` alani eski istemciler\nicin gecici uyumluluk takma adi olarak korunur.",
         "operationId": "forkjob_core_env_api_sources_forkjob_core_env_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ForkjobCoreEnvOut"
+                }
               }
             },
             "description": "Successful Response"

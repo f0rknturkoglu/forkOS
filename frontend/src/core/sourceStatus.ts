@@ -114,6 +114,7 @@ const ERROR_KIND_LABELS: Record<string, string> = {
   parser: "ayrıştırma",
   partial: "kısmi",
   circuit_open: "devre açık",
+  unconfigured: "yapılandırılmamış",
   unknown: "bilinmiyor",
 };
 
@@ -125,6 +126,7 @@ export function errorKindLabel(kind: string | null | undefined): string | null {
 /** Hata sınıfı tonu: "yine denenebilir" sınıflar amber, kalıcı olanlar kırmızı. */
 export function errorKindTone(kind: string | null | undefined): StatusTone {
   if (!kind) return "neutral";
+  if (kind === "unconfigured") return "neutral";
   if (kind === "http_429" || kind === "http_5xx" || kind === "timeout" || kind === "dns" || kind === "tls") {
     return "warn";
   }

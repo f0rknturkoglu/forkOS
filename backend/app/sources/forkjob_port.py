@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.sources.base import FetchOutcome, RawItem
+from app.sources.base import FetchOutcome, RawItem, ScrapeTelemetry
 from app.sources.forkjob_core.config import load_config
 from app.sources.forkjob_core.models import Job
 from app.sources.forkjob_core.registry import Registry
@@ -79,12 +79,20 @@ class AtsBoardSource:
     def id(self) -> str:
         return f"forkjob_core:{self.company.source}"
 
-    async def fetch(self) -> list[RawItem]:
+    async def fetch(self) -> FetchOutcome:
         adapter = build_adapter(self.company)
         if adapter is None:
             raise RuntimeError(f"ATS adapter missing: {self.company.ats}")
         async with HttpClient() as client:
-            return [job_to_raw(job) for job in await adapter.collect(client)]
+            jobs = await adapter.collect(client)
+            raw_items = [job_to_raw(job) for job in jobs]
+            telemetry = ScrapeTelemetry(
+                items_seen=len(jobs),
+                items_returned=len(raw_items),
+                pages_fetched=1,
+                cap_hit=False,
+            )
+            return FetchOutcome(items=raw_items, partial=False, telemetry=telemetry)
 
 
 @dataclass
@@ -110,8 +118,18 @@ class PortalSource:
         if scraper is None:
             raise RuntimeError(unavailable_reason(self.portal.key))
         result = await scraper.collect()
+        telemetry = getattr(scraper, "telemetry", None)
         if not isinstance(result, ScrapeBatch):
-            return FetchOutcome(items=[job_to_raw(job) for job in result])
+            partial = bool(telemetry and telemetry.cap_hit)
+            detail = telemetry.partial_reason or "" if (telemetry and telemetry.cap_hit) else ""
+            return FetchOutcome(
+                items=[job_to_raw(job) for job in result],
+                partial=partial,
+                detail=detail,
+                telemetry=telemetry,
+            )
+        if result.telemetry is not None:
+            telemetry = result.telemetry
         if result.succeeded == 0 and result.errors:
             # Hicbir parca basarili degil: guvenilir sonuc yok, kosum hatadir.
             raise RuntimeError("; ".join(result.errors))
@@ -119,11 +137,17 @@ class PortalSource:
         # ingest edilir ama kosum `partial` olur ve kapanma taramasi yapilmaz.
         partial = bool(result.errors) or (
             result.attempted > 0 and result.succeeded < result.attempted
+        ) or bool(telemetry and telemetry.cap_hit)
+        detail = (
+            "; ".join(result.errors[:5])
+            if result.errors
+            else (telemetry.partial_reason or "" if (telemetry and telemetry.cap_hit) else "")
         )
         return FetchOutcome(
             items=[job_to_raw(job) for job in result.jobs],
             partial=partial,
-            detail="; ".join(result.errors[:5]) if partial else "",
+            detail=detail,
+            telemetry=telemetry,
         )
 
 

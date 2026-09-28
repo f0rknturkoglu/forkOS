@@ -30,7 +30,7 @@ Fırsatlar ekranında aynı ilan için üç ayrı ölçü vardır ve karıştır
 | **Profil uyumu** | `%0..%100`, boş = hesaplanmadı | Becerilerinin ilan metniyle örtüşme oranı | Satırdaki ikincil "Uyum" chip'i ve ilan detayı |
 | **Tavsiye skoru** | `0..100` | CV ile iki aşamalı değerlendirmenin önerisi (başvur / düşün / geç) | İkincil "Tavsiye" chip'i ve "Uyum" sekmesi |
 
-"Skor hesaplanmadı" ile "0 puan" aynı şey değildir: hesaplanmamış kayıtlar ayrı filtrelenebilir. İlan metni veya profil değiştiğinde kayıtlı değerlendirme **bayat** işaretlenir ve yeniden hesaplanana kadar güncel gibi sunulmaz.
+"Skor hesaplanmadı" ile "0 puan" aynı şey değildir: hesaplanmamış kayıtlar ayrı filtrelenebilir. İlan metni veya profil değiştiğinde kayıtlı değerlendirme **bayat** işaretlenir ve yeniden hesaplanana kadar güncel gibi sunulmaz. Ayrıntılar: [Career Acquisition & Ranking v2.1](docs/career/career-acquisition-ranking-v2.1-closure.md).
 
 Sistemdeki aranabilir kayıtlar ortak `entity` omurgasını kullanır. Görev, proje, fırsat, belge ve medya kayıtları `link` ilişkileriyle birbirine bağlanır; anlamlı değişiklikler append-only `event` günlüğüne yazılır. Legacy Notlar bu omurgada arşivdir: `searchable=False` / `linkable=False` olduğu için arama ve ilişki panellerinde görünmez.
 
@@ -199,9 +199,9 @@ servisine bağlanır; bağlanmasalardı container yeniden oluşturulunca kaybolu
 | `backend/data/attachments/` | legacy not ekleri (binary, sha256 adıyla; dondurulmuş arşiv) |
 | `backend/data/media/` | medya görsel önbelleği (yeniden üretilebilir) |
 | `backend/data/cache/` | scraper önbelleği (yeniden üretilebilir) |
-| `backend/data/config.yaml` | jobhunter uyum profili |
+| `backend/data/config.yaml` | Forkjob Core uyum profili |
 | `backend/backups/` | JSON yedekleri ve felaket kurtarma dump'ları |
-| `backend/app/sources/forkjob_core/data/*.user` | jobhunter akışları ve LinkedIn profilleri |
+| `backend/app/sources/forkjob_core/data/*.user` | forkjob_core akışları ve LinkedIn profilleri |
 | `forkos_pgdata` (volume) | PostgreSQL verisi |
 | `OBSIDIAN_VAULT_HOST_PATH` (host) | f0rknbrain Obsidian Vault kökü — **bilgi burada yaşar**, forkOS yedeğine girmez |
 

@@ -341,7 +341,11 @@ export function SourcesWorkspace({
               <Chip tone={careerOps.data?.core_ready ? "ok" : "danger"}>
                 {careerOps.data?.core_ready ? "çalışıyor" : "çalışmıyor"}
               </Chip>
-              <span>{careerOps.data?.provider_count ?? 0} sağlayıcı yüklendi</span>
+              <span>
+                {careerOps.data?.provider_count ?? 0} sağlayıcı yüklendi (
+                {(careerOps.data as { providers_publicly_enumerable?: number })?.providers_publicly_enumerable ?? 22} genel pano ·{" "}
+                {(careerOps.data as { providers_target_based?: number })?.providers_target_based ?? 62} ATS/şirket hedefli)
+              </span>
               <span>{careerOps.data?.configured_boards ?? 0} pano hedefi</span>
               <span>{careerOps.data?.configured_companies ?? 0} şirket hedefi</span>
               <span>{careerOps.data?.plugins_unconfigured ?? 0} eklenti yapılandırılmamış</span>
@@ -369,23 +373,38 @@ export function SourcesWorkspace({
             {(careerOps.data?.providers?.length ?? 0) > 0 && (
               <Disclosure summary={`Yüklü sağlayıcıları göster (${careerOps.data?.providers?.length})`}>
                 <ul className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {careerOps.data?.providers?.map((provider) => (
-                    <li
-                      key={provider.id}
-                      className="flex items-center justify-between gap-2 rounded-control border border-line px-2 py-1.5 text-meta"
-                    >
-                      <span className="min-w-0 truncate" title={provider.id}>
-                        {provider.id}
-                      </span>
-                      <Chip tone={provider.configured_targets || provider.reverse_scan ? "ok" : "neutral"}>
-                        {provider.configured_targets
-                          ? `${provider.configured_targets} hedef`
-                          : provider.reverse_scan
-                            ? "ters ATS"
-                            : "hedef yok"}
-                      </Chip>
-                    </li>
-                  ))}
+                  {careerOps.data?.providers?.map((provider) => {
+                    const row = provider as {
+                      id: string;
+                      configured_targets: number;
+                      reverse_scan: boolean;
+                      category?: string;
+                      category_label?: string;
+                    };
+                    const isBoard = row.category === "A";
+                    return (
+                      <li
+                        key={row.id}
+                        className="flex items-center justify-between gap-2 rounded-control border border-line px-2 py-1.5 text-meta"
+                      >
+                        <span className="min-w-0 truncate" title={`${row.id}${row.category_label ? ` · ${row.category_label}` : ""}`}>
+                          {row.id}
+                        </span>
+                        <Chip
+                          tone={row.configured_targets > 0 || isBoard || row.reverse_scan ? "ok" : "neutral"}
+                          title={row.category_label}
+                        >
+                          {row.configured_targets > 0
+                            ? `${row.configured_targets} hedef`
+                            : isBoard
+                              ? "genel pano"
+                              : row.reverse_scan
+                                ? "ters ATS"
+                                : "hedef yok"}
+                        </Chip>
+                      </li>
+                    );
+                  })}
                 </ul>
               </Disclosure>
             )}
@@ -712,6 +731,11 @@ export function SourcesWorkspace({
                     </span>
                     <span className="tabular-nums text-secondary">
                       {run.items_found > 0 ? `+${run.items_found}` : "0"} kayıt
+                      {typeof (run as { items_seen?: number }).items_seen === "number" &&
+                      (run as { items_seen?: number }).items_seen! > 0 &&
+                      (run as { items_seen?: number }).items_seen !== run.items_found
+                        ? ` (${(run as { items_seen?: number }).items_seen} görüldü)`
+                        : ""}
                     </span>
                     {run.error && (
                       <span className="min-w-0 basis-full truncate text-danger sm:basis-auto" title={run.error}>

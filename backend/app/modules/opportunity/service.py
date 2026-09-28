@@ -50,8 +50,12 @@ from app.modules.opportunity.application import (  # noqa: F401 (re-export: rout
     upsert_application,
 )
 from app.modules.opportunity.candidate_context import build_candidate_career_context
-from app.modules.opportunity.candidate_fit import ALGORITHM as FAST_SCORE_ALGORITHM
-from app.modules.opportunity.candidate_fit import score_canonical_opportunity, scoring_revision
+from app.modules.opportunity.candidate_fit import (
+    ALGORITHM as FAST_SCORE_ALGORITHM,
+    canonical_description,
+    score_canonical_opportunity,
+    scoring_revision,
+)
 from app.modules.opportunity.candidate_match import ALGORITHM as CANDIDATE_MATCH_ALGORITHM
 from app.modules.opportunity.candidate_match import apply_candidate_match
 from app.modules.opportunity.identity import (
@@ -428,6 +432,7 @@ async def create(session: AsyncSession, data: OpportunityIn) -> OpportunityOut:
         ),
     )
     now = datetime.now(UTC)
+    raw = dict(data.raw or {})
     item = Opportunity(
         id=entity.id,
         kind=data.kind,
@@ -440,17 +445,21 @@ async def create(session: AsyncSession, data: OpportunityIn) -> OpportunityOut:
         status=lifecycle.coerce_discovery_status(data.kind, data.status),
         priority=data.priority,
         found_at=now,
-        published_at=None,
+        published_at=data.published_at,
         deadline_at=data.deadline_at,
         location=data.location,
         remote=data.remote,
         compensation=data.compensation,
         source="manual",
-        raw={},
+        raw=raw,
+        country=data.country,
+        region=data.region,
         notes=data.notes,
         last_seen_at=now,
     )
-    apply_candidate_match(item, data.title, await build_candidate_career_context(session))
+    if lifecycle.is_job_kind(item.kind):
+        score_canonical_opportunity(item, data.title, now=now)
+        apply_candidate_match(item, data.title, await build_candidate_career_context(session))
     session.add(item)
     await log_event(
         session,
@@ -476,6 +485,7 @@ async def patch(
     ).scalar_one()
     changes = data.model_dump(exclude_unset=True)
     title = changes.pop("title", None)
+    effective_title = title if title is not None else current_title
     old_status = item.status
     next_status = changes.pop("status", None)
     # Durum degisikligi her zaman akistan gecer: gecmis + event yazilir.
@@ -483,9 +493,41 @@ async def patch(
         lifecycle.validate_discovery_transition(item.kind, old_status, next_status)
         await _record_discovery_change(session, item, next_status)
         item.status = next_status
+
+    # Ranking ve candidate match acisindan kritik alan degisimlerini yakala
+    title_changed = title is not None and title != current_title
+    old_raw = dict(item.raw or {})
+    old_desc = canonical_description(old_raw)
+
+    ranking_fields = ("organization", "location", "remote", "compensation", "published_at", "country", "region")
+    field_ranking_changed = any(
+        key in changes and changes[key] != getattr(item, key, None)
+        for key in ranking_fields
+    )
+
+    raw_changed = False
+    if "raw" in changes and isinstance(changes["raw"], dict):
+        new_raw = {**old_raw, **changes["raw"]}
+        changes["raw"] = new_raw
+        raw_changed = new_raw != old_raw
+
     for key, value in changes.items():
         setattr(item, key, value)
-    apply_candidate_match(item, title or current_title, await build_candidate_career_context(session))
+
+    new_raw = dict(item.raw or {})
+    new_desc = canonical_description(new_raw)
+    desc_changed = new_desc != old_desc
+
+    ranking_relevant_changed = title_changed or field_ranking_changed or raw_changed or desc_changed
+    candidate_evidence_changed = title_changed or desc_changed
+
+    now = datetime.now(UTC)
+    if lifecycle.is_job_kind(item.kind):
+        if ranking_relevant_changed:
+            score_canonical_opportunity(item, effective_title, now=now)
+        if candidate_evidence_changed:
+            apply_candidate_match(item, effective_title, await build_candidate_career_context(session))
+
     for key in ("deadline_at", "follow_up_at"):
         if isinstance(changes.get(key), datetime):
             changes[key] = changes[key].isoformat()

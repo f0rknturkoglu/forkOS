@@ -227,16 +227,18 @@ ve işlem sonunda silinir. Sağlayıcı taraması CV'ye göre başlık/konum fil
 uygulamaz; istek/sayfa/kayıt sınırına çarparsa kısmi koşum bildirir. Kayıtlar
 forkOS'un mevcut kanonik `Opportunity` ve `source_run` akışına girer.
 
-Career Acquisition & Ranking v2 değişiklikleri ve sınır denetimi için
-[`career-acquisition-ranking-v2.md`](../career/career-acquisition-ranking-v2.md)
-dosyasına bakın. Bu belge aşağıdaki eski fazların tarihsel kararlarını da
+Career Acquisition & Ranking v2 / v2.1 değişiklikleri, sağlayıcı taksonomisi ve sınır denetimi için
+[`career-acquisition-ranking-v2.md`](../career/career-acquisition-ranking-v2.md),
+[`career-ops-provider-capability-audit.md`](../career/career-ops-provider-capability-audit.md) ve
+[`career-acquisition-ranking-v2.1-closure.md`](../career/career-acquisition-ranking-v2.1-closure.md)
+dosyalarına bakın. Bu belge aşağıdaki eski fazların tarihsel kararlarını da
 içerir; C2.1'in gevşek `cluster_key` birleştirmesi artık güçlü ilan kimliği
 olmadan uygulanmaz.
 
 Compose API/worker ortamına `CAREER_OPS_*` değişkenlerini aktarır, Node 22 ve
 Git sağlar, checkout'u salt okunur `/career-ops` yoluna bağlar. `make career-ops-setup`
 sonrası `/api/system/career-ops/doctor` gerçek pin ve Node
-durumunu; `/api/sources/career-ops/providers` ise kayıt defteri, yapılandırılmış
+durumunu; `/api/sources/career-ops/providers` ise kayıt defteri (89 sağlayıcı modülü: 22 açık pano, 62 hedef-tabanlı ATS, 1 anahtar gerektiren, 2 tarayıcı bloklu, 2 eklenti), yapılandırılmış
 hedef ve kanonik katkı sayılarını gösterir. Genel yenileme açık panoları içerir;
 “Tam tarama” şirketleri ve ters-ATS kaynaklarını da içerir.
 

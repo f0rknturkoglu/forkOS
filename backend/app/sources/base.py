@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import Any, Protocol
 
 
 @dataclass
@@ -21,6 +21,34 @@ class RawItem:
     summary: str | None = None
     published_at: datetime | None = None
     extra: dict = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class ScrapeTelemetry:
+    """Boundedness and pagination metrics for a scrape run.
+
+    Fields are None when the source cannot truthfully report them (e.g. single feeds
+    do not have pages_fetched; scrapers without page counts do not invent them).
+    """
+
+    items_seen: int | None = None
+    items_returned: int | None = None
+    pages_fetched: int | None = None
+    page_limit: int | None = None
+    result_limit: int | None = None
+    cap_hit: bool | None = None
+    partial_reason: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "items_seen": self.items_seen,
+            "items_returned": self.items_returned,
+            "pages_fetched": self.pages_fetched,
+            "page_limit": self.page_limit,
+            "result_limit": self.result_limit,
+            "cap_hit": self.cap_hit,
+            "partial_reason": self.partial_reason,
+        }
 
 
 @dataclass
@@ -40,6 +68,7 @@ class FetchOutcome:
     items: list[RawItem] = field(default_factory=list)
     partial: bool = False
     detail: str = ""
+    telemetry: ScrapeTelemetry | None = None
 
 
 def normalize_fetch(raw: list[RawItem] | FetchOutcome | None) -> FetchOutcome:

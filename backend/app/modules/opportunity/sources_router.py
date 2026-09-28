@@ -17,6 +17,7 @@ from app.core.models import SourceRun
 from app.db import get_session
 from app.modules.opportunity import sync as sync_service
 from app.modules.opportunity.schemas import (
+    ForkjobCoreEnvOut,
     SourceRefreshOut,
     SourceSyncBatchOut,
     SourceSyncStatusOut,
@@ -100,14 +101,23 @@ async def career_ops_providers(session: AsyncSession = Depends(get_session)):
         provider = target.get("provider")
         if isinstance(provider, str):
             configured_counts[provider] = configured_counts.get(provider, 0) + 1
-    provider_rows = [
-        {
-            **provider,
-            "configured_targets": configured_counts.get(provider["id"], 0),
-            "reverse_scan": provider["id"] in REVERSE_ATS_PROVIDERS,
-        }
-        for provider in (inventory["providers"] if inventory else [])
-    ]
+
+    from app.integrations.career_ops.targeting import classify_careerops_provider
+
+    cat_counts = {"A": 0, "B": 0, "C": 0, "D": 0, "E": 0}
+    provider_rows = []
+    for provider in (inventory["providers"] if inventory else []):
+        cat, label = classify_careerops_provider(provider["id"])
+        cat_counts[cat] = cat_counts.get(cat, 0) + 1
+        provider_rows.append(
+            {
+                **provider,
+                "category": cat,
+                "category_label": label,
+                "configured_targets": configured_counts.get(provider["id"], 0),
+                "reverse_scan": provider["id"] in REVERSE_ATS_PROVIDERS,
+            }
+        )
     grouped = (
         select(
             OpportunitySourceObservation.opportunity_id,
@@ -151,6 +161,14 @@ async def career_ops_providers(session: AsyncSession = Depends(get_session)):
         "actual_commit": doctor.actual_identity.commit if doctor.actual_identity else None,
         "providers": provider_rows,
         "provider_count": len(provider_rows),
+        "providers_installed": len(provider_rows),
+        "providers_publicly_enumerable": cat_counts["A"],
+        "providers_target_based": cat_counts["B"],
+        "providers_auth_required": cat_counts["C"],
+        "providers_tools": cat_counts["D"],
+        "providers_blocked": cat_counts["E"],
+        "providers_configured": sum(1 for p in provider_rows if p["configured_targets"] > 0),
+        "providers_unconfigured": sum(1 for p in provider_rows if p["configured_targets"] == 0),
         "plugins": inventory["plugins"] if inventory else [],
         "plugins_unconfigured": len(inventory["plugins"]) if inventory else 0,
         "configured_boards": len(targets["job_boards"]),
@@ -684,13 +702,14 @@ async def forkjob_core_linkedin_profiles_save(body: list = Body(...)):
     return {"saved": len(parsed)}
 
 
-@router.get("/sources/forkjob-core/env")
-async def forkjob_core_env():
+@router.get("/sources/forkjob-core/env", response_model=ForkjobCoreEnvOut)
+async def forkjob_core_env() -> ForkjobCoreEnvOut:
     """LinkedIn direct/proxy ayarlarinin gercek durumu.
 
     `allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca
-    acarsa true olur (bkz. `env_flag`). Yanlis yazilmis `linkein_allow_direct`
-    alani eski istemciler icin ayni degerle korunur.
+    acarsa true olur (bkz. `env_flag`). `linkedin_allow_direct` kanonik
+    alandir; yanlis yazilmis `linkein_allow_direct` alani eski istemciler
+    icin gecici uyumluluk takma adi olarak korunur.
     """
     allow_direct = env_flag(
         next(
@@ -711,10 +730,8 @@ async def forkjob_core_env():
         ),
         "",
     )
-    return {
-        "linkedin_allow_direct": allow_direct,
-        "proxies_file": proxies_file,
-        #: Kullanimdan kalkti; yazim hatasiyla uretilen alan geriye uyumluluk
-        #: icin ayni degeri tasir. Yeni kod `linkedin_allow_direct` okumali.
-        "linkein_allow_direct": allow_direct,
-    }
+    return ForkjobCoreEnvOut(
+        linkedin_allow_direct=allow_direct,
+        proxies_file=proxies_file,
+        linkein_allow_direct=allow_direct,
+    )

@@ -239,6 +239,16 @@ async def _poll_source_locked(source, *, batch_id, limit: float) -> int:
     payloads = [NativeJob(raw) for raw in result.items]
     detail = result.detail
     partial = result.partial
+    telemetry = getattr(result, "telemetry", None)
+    if telemetry and telemetry.cap_hit:
+        partial = True
+        if telemetry.partial_reason and not detail:
+            detail = telemetry.partial_reason
+    items_seen = (
+        telemetry.items_seen
+        if (telemetry and telemetry.items_seen is not None)
+        else len(payloads)
+    )
     added = 0
     try:
         async with SessionLocal() as session:
@@ -247,15 +257,15 @@ async def _poll_source_locked(source, *, batch_id, limit: float) -> int:
                 return 0
             if payloads and not partial:
                 baseline = await _scope_shrank(
-                    session, source_id, run_id=run_id, seen=len(payloads)
+                    session, source_id, run_id=run_id, seen=items_seen
                 )
                 if baseline is not None:
                     partial = True
                     detail = (
-                        f"kapsam daralmasi: {len(payloads)} kayit goruldu, "
+                        f"kapsam daralmasi: {items_seen} kayit goruldu, "
                         f"onceki tam kosu {baseline} kayit gordu"
                     )
-            status = _outcome_status(partial=partial, seen=len(payloads))
+            status = _outcome_status(partial=partial, seen=items_seen)
             if payloads:
                 added = await service.ingest_jobs(session, payloads, source_id)
             await runs.finish_run(
@@ -263,7 +273,7 @@ async def _poll_source_locked(source, *, batch_id, limit: float) -> int:
                 run,
                 status=status,
                 items_found=added,
-                items_seen=len(payloads),
+                items_seen=items_seen,
                 error=detail or None,
                 error_kind="partial" if partial and detail else None,
             )
@@ -286,7 +296,7 @@ async def _poll_source_locked(source, *, batch_id, limit: float) -> int:
     should_sweep = not getattr(source, "skip_closure_sweep", False) and not getattr(source, "id", "").startswith("careerops:")
     if payloads and not partial and should_sweep:
         await _sweep_missing(source, payloads)
-    await _run_health_check(source, status=_outcome_status(partial=partial, seen=len(payloads)))
+    await _run_health_check(source, status=_outcome_status(partial=partial, seen=items_seen))
     return added
 
 

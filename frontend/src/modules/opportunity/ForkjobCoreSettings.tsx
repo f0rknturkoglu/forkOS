@@ -141,7 +141,10 @@ export function ForkjobCoreSettings({ onClose }: { onClose?: () => void }) {
   });
   const { data: env } = useQuery({
     queryKey: ["forkjob-core-env"],
-    queryFn: () => api.get<{ linkein_allow_direct: string; proxies_file: string }>("/sources/forkjob-core/env"),
+    queryFn: () =>
+      api.get<{ linkedin_allow_direct: boolean; proxies_file: string; linkein_allow_direct?: boolean }>(
+        "/sources/forkjob-core/env",
+      ),
   });
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -471,12 +474,34 @@ export function ForkjobCoreSettings({ onClose }: { onClose?: () => void }) {
           <div className="space-y-1.5 text-meta">
             <div className="flex items-center justify-between">
               <span className="text-muted">LINKEDIN_ALLOW_DIRECT</span>
-              <Chip>{env?.linkein_allow_direct ? "açık" : "kapalı"}</Chip>
+              <Chip tone={(env?.linkedin_allow_direct ?? env?.linkein_allow_direct) ? "ok" : "neutral"}>
+                {(env?.linkedin_allow_direct ?? env?.linkein_allow_direct) ? "açık" : "kapalı"}
+              </Chip>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted">FORKJOB_LINKEDIN_PROXIES_FILE</span>
-              <Chip>{env?.proxies_file || "tanımsız"}</Chip>
+              <Chip tone={env?.proxies_file ? "ok" : "neutral"}>
+                {env?.proxies_file ? "tanımlı" : "tanımsız"}
+              </Chip>
             </div>
+            <div className="flex items-center justify-between pt-2 border-t border-subtle">
+              <span className="text-muted">LinkedIn erişim durumu</span>
+              <Chip tone={(env?.proxies_file || (env?.linkedin_allow_direct ?? env?.linkein_allow_direct)) ? "ok" : "warn"}>
+                {(env?.proxies_file || (env?.linkedin_allow_direct ?? env?.linkein_allow_direct))
+                  ? "Erişim yapılandırıldı"
+                  : "Yapılandırılmamış (proxy veya doğrudan erişim gerekli)"}
+              </Chip>
+            </div>
+            {(env?.linkedin_allow_direct ?? env?.linkein_allow_direct) && (
+              <p role="alert" className="mt-2 text-meta text-warn">
+                Uyarı: Doğrudan scraping (LINKEDIN_ALLOW_DIRECT) etkindir. Proxy olmaksızın LinkedIn istekleri IP veya hesap kısıtlamasına yol açabilir.
+              </p>
+            )}
+            {!(env?.proxies_file || (env?.linkedin_allow_direct ?? env?.linkein_allow_direct)) && (
+              <p className="mt-2 text-meta text-secondary">
+                LinkedIn kaynağı proxy dosyası veya doğrudan erişim izni olmadan çalıştırılamaz (fail-closed koruması devrededir).
+              </p>
+            )}
           </div>
           <p className="mt-3 text-meta text-muted">
             Bu değerler container başlarken okunur — değiştirmek için compose.yaml env bölümünü düzenle, sonra make down

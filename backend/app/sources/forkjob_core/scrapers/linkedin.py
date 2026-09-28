@@ -245,7 +245,9 @@ def load_proxies(config: LinkedInConfig, environ: Mapping[str, str]) -> list[str
     if not configured_path:
         if config.allow_direct:
             return []
-        raise ScraperPermanentError(f"LinkedIn proxy file is required; set {config.proxy_file_env}")
+        raise ScraperPermanentError(
+            f"LinkedIn proxy file is required when direct scraping is disabled; set {config.proxy_file_env}"
+        )
 
     path = Path(configured_path).expanduser()
     if not path.is_file():

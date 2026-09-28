@@ -25,6 +25,7 @@ function run(overrides: Partial<SourceHealth>): SourceHealth {
     source: "osym",
     status: "ok",
     items_found: 3,
+    items_seen: 3,
     error: null,
     started_at: "2026-09-20T10:00:00.000Z",
     finished_at: "2026-09-20T10:00:02.000Z",

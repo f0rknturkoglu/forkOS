@@ -70,20 +70,50 @@ class ManfredScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         entries = parse_sitemap(await client.get_html(SITEMAP_URL))
         if not entries:
+            self.record_telemetry(
+                items_seen=0,
+                items_returned=0,
+                pages_fetched=1,
+                page_limit=None,
+                result_limit=self.max_offers,
+                cap_hit=False,
+                partial_reason=None,
+            )
             raise ScraperPermanentError(f"{self.source}: sitemap held no offer URLs")
 
         # Newest first, so a capped run still sees what changed.
         entries.sort(key=lambda e: e[1] or "", reverse=True)
 
+        total_sitemap_urls = len(entries)
+        target_entries = entries[: self.max_offers]
+        cap_hit = total_sitemap_urls > self.max_offers
+        partial_reason = (
+            f"max_offers_reached: {len(target_entries)} of {total_sitemap_urls} sitemap URLs fetched"
+            if cap_hit
+            else None
+        )
+
         jobs: list[Job] = []
-        for url, _lastmod in entries[: self.max_offers]:
+        fetched_pages = 1  # 1 for sitemap
+        for url, _lastmod in target_entries:
             try:
                 html = await client.get_html(url)
+                fetched_pages += 1
             except ScraperPermanentError:
                 continue  # one dead offer must not end the run
             job = self.parse_offer(html, url)
             if job is not None:
                 jobs.append(job)
+
+        self.record_telemetry(
+            items_seen=total_sitemap_urls,
+            items_returned=len(jobs),
+            pages_fetched=fetched_pages,
+            page_limit=None,
+            result_limit=self.max_offers,
+            cap_hit=cap_hit,
+            partial_reason=partial_reason,
+        )
         return jobs
 
     def parse_offer(self, html: str, url: str) -> Job | None:

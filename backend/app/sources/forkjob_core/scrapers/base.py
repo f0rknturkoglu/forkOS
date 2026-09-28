@@ -33,7 +33,7 @@ from urllib.robotparser import RobotFileParser
 import httpx
 from selectolax.parser import HTMLParser
 
-from app.sources.base import retry_after_seconds
+from app.sources.base import ScrapeTelemetry, retry_after_seconds
 
 from ..models import Job
 
@@ -552,10 +552,11 @@ class ScrapeBatch:
     errors: list[str]
     attempted: int
     succeeded: int
+    telemetry: ScrapeTelemetry | None = None
 
     @classmethod
-    def ok(cls, jobs: list[Job]) -> ScrapeBatch:
-        return cls(jobs=jobs, errors=[], attempted=1, succeeded=1)
+    def ok(cls, jobs: list[Job], telemetry: ScrapeTelemetry | None = None) -> ScrapeBatch:
+        return cls(jobs=jobs, errors=[], attempted=1, succeeded=1, telemetry=telemetry)
 
 
 class ScraperBase(ABC):
@@ -600,6 +601,29 @@ class ScraperBase(ABC):
         #: Permanent failures recorded by `isolate`, one entry per dead slice.
         #: Read by the caller when a run returns fewer jobs than expected.
         self.errors: list[str] = []
+        self.telemetry: ScrapeTelemetry | None = None
+
+    def record_telemetry(
+        self,
+        *,
+        items_seen: int | None = None,
+        items_returned: int | None = None,
+        pages_fetched: int | None = None,
+        page_limit: int | None = None,
+        result_limit: int | None = None,
+        cap_hit: bool | None = None,
+        partial_reason: str | None = None,
+    ) -> ScrapeTelemetry:
+        self.telemetry = ScrapeTelemetry(
+            items_seen=items_seen,
+            items_returned=items_returned,
+            pages_fetched=pages_fetched,
+            page_limit=page_limit,
+            result_limit=result_limit,
+            cap_hit=cap_hit,
+            partial_reason=partial_reason,
+        )
+        return self.telemetry
 
     @property
     def source(self) -> str:
@@ -645,9 +669,24 @@ class ScraperBase(ABC):
     async def collect(self, client: ScraperHttpClient | None = None) -> list[Job] | ScrapeBatch:
         """Convenience wrapper that creates a client if one is not provided."""
         if client is not None:
-            return await self.scrape(client)
-        async with ScraperHttpClient(self.config) as c:
-            return await self.scrape(c)
+            result = await self.scrape(client)
+        else:
+            async with ScraperHttpClient(self.config) as c:
+                result = await self.scrape(c)
+
+        if isinstance(result, ScrapeBatch):
+            if result.telemetry is not None:
+                self.telemetry = result.telemetry
+            elif self.telemetry is not None:
+                object.__setattr__(result, "telemetry", self.telemetry)
+        elif self.telemetry is None:
+            self.record_telemetry(
+                items_seen=len(result),
+                items_returned=len(result),
+                pages_fetched=1,
+                cap_hit=False,
+            )
+        return result
 
     def __repr__(self) -> str:
         return f"<{type(self).__name__} {self.source}>"

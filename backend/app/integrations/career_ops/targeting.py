@@ -37,3 +37,30 @@ class CareerOpsDiscoveryConfigBuilder:
         target = runtime_dir / "portals.yml"
         target.write_text(cls.build_portals_yaml(config_path=config_path), encoding="utf-8")
         return target
+
+
+CAREEROPS_CATEGORY_A_BOARDS = frozenset({
+    "4dayweek", "a16z-speedrun-talent", "agentic-jobs", "arbeitnow", "cryptocurrencyjobs",
+    "echojobs", "generalist-world", "getonbrd", "hackernews", "himalayas", "jobicy",
+    "jobspresso", "larajobs", "manfred", "nodesk", "nofluffjobs", "pythonorg",
+    "remoteok", "remotive", "weworkremotely", "workingnomads", "yourator"
+})
+
+CAREEROPS_CATEGORY_C_AUTH = frozenset({"wttj"})
+
+CAREEROPS_CATEGORY_D_TOOLS = frozenset({"local-parser", "telegram-channel"})
+
+CAREEROPS_CATEGORY_E_BLOCKED = frozenset({"landingjobs", "justjoin"})
+
+
+def classify_careerops_provider(provider_id: str) -> tuple[str, str]:
+    """Classify a CareerOps provider into Category A, B, C, D, or E."""
+    if provider_id in CAREEROPS_CATEGORY_A_BOARDS:
+        return "A", "Genel Pano (Hedefsiz)"
+    if provider_id in CAREEROPS_CATEGORY_C_AUTH:
+        return "C", "Kimlik / API Anahtarı Gerekli"
+    if provider_id in CAREEROPS_CATEGORY_D_TOOLS:
+        return "D", "Araç / Entegrasyon"
+    if provider_id in CAREEROPS_CATEGORY_E_BLOCKED:
+        return "E", "Başsız HTTP Desteklenmiyor (Cloudflare)"
+    return "B", "Hedefe Dayalı ATS / Şirket Portalı"

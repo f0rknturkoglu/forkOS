@@ -51,23 +51,66 @@ class ArbeitnowScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
         seen: set[str] = set()
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
+        partial_reason = None
         for page in range(1, self.max_pages + 1):
             try:
                 payload = await client.get_json(f"{API_URL}?page={page}")
             except ScraperPermanentError as exc:
                 if page == 1:
-                    # The source itself refused the first page — a failed run,
-                    # not an empty one.
+                    self.record_telemetry(
+                        items_seen=0,
+                        items_returned=0,
+                        pages_fetched=0,
+                        page_limit=self.max_pages,
+                        result_limit=None,
+                        cap_hit=False,
+                        partial_reason=f"permanent_error: {exc}",
+                    )
                     raise
                 if not jobs:
+                    self.record_telemetry(
+                        items_seen=0,
+                        items_returned=0,
+                        pages_fetched=pages_fetched,
+                        page_limit=self.max_pages,
+                        result_limit=None,
+                        cap_hit=False,
+                        partial_reason=f"permanent_error: {exc}",
+                    )
                     raise ScraperPermanentError(
                         f"{self.source}: no jobs before page {page} failed: {exc}"
                     ) from exc
-                break  # partial success — keep what earlier pages gave
+                cap_hit = True
+                partial_reason = f"page_failed: page {page} error: {exc}"
+                break
+            pages_fetched += 1
+            data = payload.get("data") if isinstance(payload, dict) else None
+            if isinstance(data, list):
+                items_seen += len(data)
             page_jobs = self.parse(payload)
             if not page_jobs:
                 break
             jobs.extend(self.dedup_seen(seen, page_jobs))
+            links = payload.get("links") if isinstance(payload, dict) else None
+            has_next = bool(links.get("next")) if isinstance(links, dict) else False
+            if not has_next:
+                break
+            if page == self.max_pages and has_next:
+                cap_hit = True
+                partial_reason = f"page_limit_reached: {self.max_pages} pages fetched, has_next=True"
+
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=self.max_pages,
+            result_limit=None,
+            cap_hit=cap_hit,
+            partial_reason=partial_reason,
+        )
         return jobs
 
     def parse(self, payload: Any) -> list[Job]:

@@ -108,6 +108,10 @@ class KariyerNetScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
         seen: set[str] = set()
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
+        partial_reason = None
 
         for keyword in self.keywords:
             for page in range(1, self.max_pages + 1):
@@ -118,7 +122,9 @@ class KariyerNetScraper(ScraperBase):
                 if html is None:
                     break  # blocked or gone — drop this keyword, keep the rest
 
+                pages_fetched += 1
                 page_jobs = self.parse(html)
+                items_seen += len(page_jobs)
                 if not page_jobs:
                     break  # ran past the last page
 
@@ -129,6 +135,19 @@ class KariyerNetScraper(ScraperBase):
                 # terms; stop early once a page adds nothing new.
                 if not fresh:
                     break
+                if page == self.max_pages:
+                    cap_hit = True
+                    partial_reason = f"max_pages_reached for keyword '{keyword}': {self.max_pages} pages fetched"
+
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=len(self.keywords) * self.max_pages,
+            result_limit=None,
+            cap_hit=cap_hit,
+            partial_reason=partial_reason,
+        )
         return jobs
 
     def parse(self, html: str) -> list[Job]:

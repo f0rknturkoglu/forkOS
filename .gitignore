@@ -22,7 +22,7 @@ backend/data/documents/
 output/
 .worktrees/
 
-# kisisel jobhunter uyum profili (Ayarlar panelinden uretilir)
+# kisisel Forkjob Core uyum profili (Ayarlar panelinden uretilir)
 backend/config.yaml
 backend/data/config.yaml
 backend/data/attachments/

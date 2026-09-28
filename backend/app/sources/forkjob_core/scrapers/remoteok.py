@@ -44,7 +44,20 @@ class RemoteOkScraper(ScraperBase):
     base_url = BASE_URL
 
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
-        return self.parse(await client.get_json(API_URL))
+        payload = await client.get_json(API_URL)
+        raw_entries = (
+            [e for e in payload if isinstance(e, dict) and "legal" not in e]
+            if isinstance(payload, list)
+            else []
+        )
+        jobs = self.parse(payload)
+        self.record_telemetry(
+            items_seen=len(raw_entries),
+            items_returned=len(jobs),
+            pages_fetched=1,
+            cap_hit=False,
+        )
+        return jobs
 
     def parse(self, payload: Any) -> list[Job]:
         """Pure: API payload in, Jobs out."""

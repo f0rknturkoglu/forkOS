@@ -198,7 +198,8 @@ function mockGet(path: string): unknown {
   }
   if (path.startsWith("/sources/forkjob-core/config")) return { scoring: { base: 50 }, balance: {} };
   if (path.startsWith("/sources/forkjob-core/linkedin-profiles")) return [];
-  if (path.startsWith("/sources/forkjob-core/env")) return { linkein_allow_direct: "", proxies_file: "" };
+  if (path.startsWith("/sources/forkjob-core/env"))
+    return { linkedin_allow_direct: false, linkein_allow_direct: false, proxies_file: "" };
   if (path.startsWith("/settings")) return {};
   throw new Error(`unmocked GET ${path}`);
 }

@@ -44,6 +44,7 @@ ERROR_KINDS = (
     "parser",
     "partial",
     "circuit_open",
+    "unconfigured",
     "unknown",
 )
 
@@ -131,6 +132,8 @@ def classify_error(exc: BaseException | str | None) -> str:
         return "parser"
     if any(marker in low for marker in ("parse", "selector", "jsondecode", "html", "lxml", "selectolax")):
         return "parser"
+    if "proxy file is required" in low or "unconfigured" in low:
+        return "unconfigured"
     return "unknown"
 
 
@@ -501,6 +504,7 @@ async def health(
     states = await circuit_states(session, [r.source for r in rows])
     return [
         {"source": r.source, "status": r.status, "items_found": r.items_found,
+         "items_seen": r.items_seen,
          "error": error_message_of(r), "error_kind": error_kind_of(r),
          "circuit_open": states.get(r.source, {}).get("open", False),
          "consecutive_failures": states.get(r.source, {}).get("consecutive_failures", 0),

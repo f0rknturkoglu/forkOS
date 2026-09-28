@@ -83,6 +83,7 @@ class SourceRunOut(BaseModel):
     source: str
     status: str
     items_found: int
+    items_seen: int = 0
     error: str | None = None
     started_at: datetime
     finished_at: datetime | None = None

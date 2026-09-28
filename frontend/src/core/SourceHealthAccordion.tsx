@@ -59,7 +59,14 @@ export function SourceHealthAccordion({
                   </div>
                   <Chip tone={view.tone}>{view.label}</Chip>
                   <span className="text-meta text-muted">
-                    +{source.items_found} · {relativeTime(source.started_at)}
+                    +{source.items_found}
+                    {typeof (source as { items_seen?: number }).items_seen === "number" &&
+                    (source as { items_seen?: number }).items_seen! > 0 &&
+                    (source as { items_seen?: number }).items_seen !== source.items_found
+                      ? ` (${(source as { items_seen?: number }).items_seen} görüldü)`
+                      : ""}
+                    {" · "}
+                    {relativeTime(source.started_at)}
                   </span>
                 </li>
               );

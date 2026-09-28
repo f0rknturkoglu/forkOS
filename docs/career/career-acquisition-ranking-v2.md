@@ -60,3 +60,16 @@ Local validation: isolated PostgreSQL `make test CO='docker compose'` passed wit
 The live API, source catalog, source coverage, five-item opportunity browse and web root returned HTTP 200 after migration/backfill; API, database and web containers were healthy. The rebuilt Sources and Opportunities pages rendered in the browser at the normal width, and the opportunities layout at a 390px viewport had no document-level horizontal overflow. External limitations remain: LinkedIn needs an explicit local access/profile choice; individual provider pagination may cap upstream before forkOS sees an array, so a returned count below our limit is not proof of exhaustive provider coverage; blocked portals are not silently represented as live sources. Existing forkjob portal scraper page caps are configured per source, but do not yet all emit reliable pages-fetched/cap-hit metadata; their item totals alone should not be read as exhaustive coverage. No Jooble key was written to the repository or used for live requests.
 
 Follow-up ideas outside this phase: source-specific pages-fetched telemetry where each adapter can expose it honestly; optional live smoke checks under a manually enabled flag; a user-approved LinkedIn access configuration and direct provider credential onboarding.
+
+---
+
+## v2.1 Closure Sweep & Validation (Sealable Status)
+
+The v2.1 closure pass addressed all remaining gaps identified during post-implementation review:
+1. **Manual Opportunity Fast-Scoring & Matching:** Manual additions via `service.create()` immediately compute canonical fast scores and candidate requirements matching; `service.patch()` selectively refreshes scoring only on ranking-relevant field changes while preserving scores on workflow-only edits.
+2. **Native Scrape Telemetry:** Added `ScrapeTelemetry` (`items_seen`, `pages_fetched`, `cap_hit`, `partial_reason`) across `forkjob_core` scrapers and persisted in `source_run` and `/sources/health`.
+3. **89-Provider Capability Audit:** Documented the exact taxonomy of CareerOps provider modules (22 public, 62 target-based, 1 auth-required, 2 blocked, 2 plugins) in [`career-ops-provider-capability-audit.md`](career-ops-provider-capability-audit.md).
+4. **Evaluation Separation & Source Independence:** Verified bidirectional coexistence and independence of `candidate_evaluation` and `deep_evaluation` via `test_opportunity_evaluation_separation_e2e.py`.
+5. **LinkedIn Fail-Closed Security:** Classified unconfigured proxy states as `error_kind="unconfigured"`, surfaced UI warnings, and preserved fail-closed defaults.
+
+Full certification details are in [`career-acquisition-ranking-v2.1-closure.md`](career-acquisition-ranking-v2.1-closure.md).

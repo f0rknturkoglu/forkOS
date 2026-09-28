@@ -4542,8 +4542,9 @@ export interface paths {
          * @description LinkedIn direct/proxy ayarlarinin gercek durumu.
          *
          *     `allow_direct` bir guvenlik anahtaridir: yalnizca ortam degiskeni acikca
-         *     acarsa true olur (bkz. `env_flag`). Yanlis yazilmis `linkein_allow_direct`
-         *     alani eski istemciler icin ayni degerle korunur.
+         *     acarsa true olur (bkz. `env_flag`). `linkedin_allow_direct` kanonik
+         *     alandir; yanlis yazilmis `linkein_allow_direct` alani eski istemciler
+         *     icin gecici uyumluluk takma adi olarak korunur.
          */
         get: operations["forkjob_core_env_api_sources_forkjob_core_env_get"];
         put?: never;
@@ -7472,6 +7473,15 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** ForkjobCoreEnvOut */
+        ForkjobCoreEnvOut: {
+            /** Linkedin Allow Direct */
+            linkedin_allow_direct: boolean;
+            /** Linkein Allow Direct */
+            linkein_allow_direct?: boolean | null;
+            /** Proxies File */
+            proxies_file: string;
+        };
         /**
          * FunnelBreakdownRow
          * @description Kirilim satiri. Payda ve paylar UI'da acikca yazilir.
@@ -9495,6 +9505,8 @@ export interface components {
         OpportunityIn: {
             /** Compensation */
             compensation?: string | null;
+            /** Country */
+            country?: string | null;
             /** Deadline At */
             deadline_at?: string | null;
             /**
@@ -9513,6 +9525,14 @@ export interface components {
              * @default 2
              */
             priority: number;
+            /** Published At */
+            published_at?: string | null;
+            /** Raw */
+            raw?: {
+                [key: string]: unknown;
+            };
+            /** Region */
+            region?: string | null;
             /** Remote */
             remote?: string | null;
             /**
@@ -9729,16 +9749,34 @@ export interface components {
         };
         /** OpportunityPatch */
         OpportunityPatch: {
+            /** Compensation */
+            compensation?: string | null;
+            /** Country */
+            country?: string | null;
             /** Deadline At */
             deadline_at?: string | null;
             /** Follow Up At */
             follow_up_at?: string | null;
+            /** Location */
+            location?: string | null;
             /** Notes */
             notes?: string | null;
+            /** Organization */
+            organization?: string | null;
             /** Priority */
             priority?: number | null;
+            /** Published At */
+            published_at?: string | null;
+            /** Raw */
+            raw?: {
+                [key: string]: unknown;
+            } | null;
+            /** Region */
+            region?: string | null;
             /** Rejection Reason */
             rejection_reason?: string | null;
+            /** Remote */
+            remote?: string | null;
             /** Status */
             status?: string | null;
             /** Title */
@@ -11262,6 +11300,11 @@ export interface components {
             finished_at?: string | null;
             /** Items Found */
             items_found: number;
+            /**
+             * Items Seen
+             * @default 0
+             */
+            items_seen: number;
             /** Retry At */
             retry_at?: string | null;
             /** Source */
@@ -21516,7 +21559,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ForkjobCoreEnvOut"];
                 };
             };
         };

@@ -163,6 +163,10 @@ class OpportunityIn(BaseModel):
     remote: str | None = None
     compensation: str | None = None
     notes: str | None = None
+    published_at: datetime | None = None
+    country: str | None = None
+    region: str | None = None
+    raw: dict[str, Any] = Field(default_factory=dict)
 
 
 class OpportunityPatch(BaseModel):
@@ -173,6 +177,14 @@ class OpportunityPatch(BaseModel):
     notes: str | None = None
     follow_up_at: datetime | None = None
     rejection_reason: str | None = None
+    organization: str | None = None
+    location: str | None = None
+    remote: str | None = None
+    compensation: str | None = None
+    published_at: datetime | None = None
+    country: str | None = None
+    region: str | None = None
+    raw: dict[str, Any] | None = None
 
     @field_validator("status")
     @classmethod
@@ -180,6 +192,13 @@ class OpportunityPatch(BaseModel):
         if value == "trashed":
             raise ValueError("Çöp durumu için trash endpoint'ini kullanın")
         return value
+
+
+class ForkjobCoreEnvOut(BaseModel):
+    linkedin_allow_direct: bool
+    proxies_file: str
+    #: Geçici geriye uyumluluk takma adı; eski istemciler için aynı değeri taşır.
+    linkein_allow_direct: bool | None = None
 
 
 class OpportunityOut(BaseModel):

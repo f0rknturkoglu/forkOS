@@ -23,6 +23,7 @@ function run(source: string, status: string): SourceHealth {
     source,
     status,
     items_found: 0,
+    items_seen: 0,
     error: null,
     started_at: "2026-09-20T10:00:00.000Z",
     finished_at: null,

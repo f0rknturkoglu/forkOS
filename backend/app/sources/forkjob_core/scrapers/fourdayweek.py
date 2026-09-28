@@ -46,19 +46,39 @@ class FourDayWeekScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
         seen: set[str] = set()
+        pages_fetched = 0
+        items_seen = 0
+        cap_hit = False
+        partial_reason = None
         for page in range(1, self.max_pages + 1):
             url = f"{API_URL}?page={page}&limit={PAGE_SIZE}"
             payload = await self.isolate(url, lambda: client.get_json(url))
             if payload is None or not isinstance(payload, dict):
                 break
+            pages_fetched += 1
+            data = payload.get("data")
+            if isinstance(data, list):
+                items_seen += len(data)
             page_jobs = self.parse(payload)
             if not page_jobs:
                 break
             jobs.extend(self.dedup_seen(seen, page_jobs))
-            # The API says whether there is more; asking past the end would
-            # just burn a request.
-            if not payload.get("has_more"):
+            has_more = bool(payload.get("has_more"))
+            if not has_more:
                 break
+            if page == self.max_pages and has_more:
+                cap_hit = True
+                partial_reason = f"page_limit_reached: {self.max_pages} pages fetched, has_more=True"
+
+        self.record_telemetry(
+            items_seen=items_seen,
+            items_returned=len(jobs),
+            pages_fetched=pages_fetched,
+            page_limit=self.max_pages,
+            result_limit=None,
+            cap_hit=cap_hit,
+            partial_reason=partial_reason,
+        )
         return jobs
 
     def parse(self, payload: Any) -> list[Job]:
