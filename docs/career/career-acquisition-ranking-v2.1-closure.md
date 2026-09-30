@@ -1,5 +1,7 @@
 # Career Acquisition & Ranking v2.1 — Final Closure, Telemetry & Real Dogfood Audit Report
 
+> Current status (2026-10-01, Batch 2): LinkedIn is disabled. Current robots policy denies forkjob crawling and `/jobs-guest/`; retained JobSpy also refuses that denial. Native Guest V2 is not implemented/live verified. Earlier activation and dogfood results below are historical. See [current source audit](forkjob-core-source-coverage-audit.md#6-acquisition-expansion--batch-2-2026-10-01) for verified current transports, disabled terms blockers and limits.
+
 ## 1. Executive Verdict
 
 **Verdict: FULLY SEALED & VERIFIED IN PRODUCTION (LOCAL-ONLY OPERATION)**

@@ -860,11 +860,18 @@ async def _refresh_opportunity(
 
     # Non-destructive raw merge (Finding 16-18)
     merged_raw = dict(opportunity.raw or {})
+    incoming_meta = raw.get("source_authority") == "meta"
+    existing_meta = merged_raw.get("source_authority") == "meta"
+    preserve_authority = incoming_meta and not existing_meta
+    upgrade_authority = existing_meta and not incoming_meta
     if "forkjob" in raw and isinstance(raw["forkjob"], dict):
         merged_fk = dict(merged_raw.get("forkjob") or {})
         for k, v in raw["forkjob"].items():
             if v is not None and v != "":
-                merged_fk[k] = merge_descriptions(merged_fk.get(k), v) if k == "description" else v
+                if k == "description":
+                    merged_fk[k] = merge_descriptions(merged_fk.get(k), v, prefer_existing=preserve_authority, prefer_incoming=upgrade_authority)
+                elif not preserve_authority or merged_fk.get(k) in (None, "", "unknown", "UNKNOWN"):
+                    merged_fk[k] = v
         merged_raw["forkjob"] = merged_fk
     if "career_ops" in raw and isinstance(raw["career_ops"], dict):
         merged_raw["career_ops"] = raw["career_ops"]
@@ -874,9 +881,11 @@ async def _refresh_opportunity(
         merged_raw.setdefault("apply_url", raw["apply_url"])
     if raw.get("description"):
         merged_raw["description"] = merge_descriptions(
-            canonical_description(merged_raw), str(raw["description"])
+            canonical_description(merged_raw), str(raw["description"]), prefer_existing=preserve_authority, prefer_incoming=upgrade_authority
         )
 
+    if raw.get("source_authority") and (not merged_raw.get("source_authority") or upgrade_authority):
+        merged_raw["source_authority"] = raw["source_authority"]
     existing_sources = list(merged_raw.get("sources", [opportunity.source]))
     incoming_sources = raw.get("sources") or [source_label]
     for s in incoming_sources:
@@ -885,7 +894,7 @@ async def _refresh_opportunity(
     merged_raw["sources"] = existing_sources
     opportunity.raw = merged_raw
 
-    same_primary_source = opportunity.source == source_label and not source_label.startswith("careerops:")
+    same_primary_source = (opportunity.source == source_label and not source_label.startswith("careerops:")) or upgrade_authority
 
     # Field-aware non-destructive updates (Finding 16)
     if category is not None and (not opportunity.category or same_primary_source):

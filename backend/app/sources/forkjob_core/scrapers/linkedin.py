@@ -1,4 +1,4 @@
-"""Optional proxy-routed LinkedIn collection powered by python-jobspy."""
+"""Retained killable JobSpy fallback; live acquisition obeys LinkedIn robots."""
 
 from __future__ import annotations
 
@@ -107,7 +107,12 @@ class LinkedInScraper(ScraperBase):
         self._runner = runner
 
     async def scrape(self, client: ScraperHttpClient) -> ScrapeBatch:
-        del client  # JobSpy owns its HTTP clients, proxy rotation, and TLS setup.
+        # Batch 2 recon: guest endpoints and generic forkjob crawling are
+        # disallowed. A fallback must not turn that denial into a bypass.
+        if self._runner is None and client is not None:
+            await client._check_robots("www.linkedin.com", self.base_url)
+            if client._robots_cache.get("www.linkedin.com") is None:
+                raise ScraperPermanentError("LinkedIn robots policy could not be verified; fallback refused")
         attempted = len(self.searches)
         if not attempted:
             telemetry = self.record_telemetry(

@@ -1,5 +1,7 @@
 # Career Acquisition & Ranking v2 — implementation record
 
+> Current status (2026-10-01, Batch 2): LinkedIn is disabled. Current robots policy denies forkjob crawling and `/jobs-guest/`; retained JobSpy also refuses that denial. Native Guest V2 is not implemented/live verified. Earlier activation and dogfood results below are historical. See [current source audit](forkjob-core-source-coverage-audit.md#6-acquisition-expansion--batch-2-2026-10-01) for verified current transports, disabled terms blockers and limits.
+
 ## Verdict
 
 The canonical acquisition, deduplication, fast-score and evaluation-storage paths are implemented. This record must not be read as proof that every optional external source is operational: LinkedIn currently has no configured proxy or explicit direct-access permission in the local runtime. No live LinkedIn or Jooble requests were made during this change. Personal data was not used as test data; all migration tests ran on an isolated `forkos_test` database.

@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 from .config import ExperienceBand, ScoringConfig, SeniorityTier
 from .models import Job, norm_text
-from .rich_text import scoring_tags
+from .rich_text import authoritative_evidence, scoring_evidence, scoring_tags
 
 
 @dataclass(slots=True)
@@ -58,7 +58,7 @@ def detect(job: Job, sc: ScoringConfig) -> Signals:
     """Run every rule over one posting."""
     title = (job.title or "").lower()
     title_norm = norm_text(job.title)
-    description = job.description or ""
+    description = scoring_evidence(job.description or "")
     desc_lower = description.lower()
     # Skills and level words cluster near the top, and scanning further mostly
     # picks up boilerplate about the company's other roles.
@@ -78,7 +78,9 @@ def detect(job: Job, sc: ScoringConfig) -> Signals:
     signals.skills = _find_skills(title, desc_head, sc)
     signals.level_word, signals.level_in_title = _find_level(title_norm, desc_head, sc)
     signals.seniority, signals.seniority_word = _find_seniority(title_norm, desc_head, sc)
-    signals.visa, signals.visa_phrase = _find_visa(desc_full)
+    signals.visa, signals.visa_phrase = _find_visa(authoritative_evidence(description).lower())
+    if not signals.visa:
+        signals.visa, signals.visa_phrase = _find_visa(desc_full)
     signals.spanish_required = bool(_SPANISH_REQUIRED_RE.search(desc_full))
     signals.english_working = bool(_ENGLISH_WORKING_RE.search(desc_full))
     signals.years_required = _find_years(desc_full)

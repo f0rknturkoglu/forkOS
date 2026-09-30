@@ -27,7 +27,7 @@ from enum import StrEnum
 from hashlib import sha1
 from pathlib import Path
 from typing import Any, ClassVar
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 from urllib.robotparser import RobotFileParser
 
 import httpx
@@ -89,6 +89,8 @@ class ScraperConfig:
     timeout: float = 30.0
     #: Optional decoded response bound; zero preserves existing source behavior.
     max_response_bytes: int = 0
+    #: Optional fixed public hosts; redirects are checked before following.
+    allowed_hosts: tuple[str, ...] = ()
     #: Max retries on transient failures.
     max_retries: int = 3
     #: Exponential backoff base (seconds).
@@ -251,6 +253,33 @@ class ScraperHttpClient:
         raise last_error or ScraperTransientError("request failed")
 
     async def _bounded_request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+        if self.config.allowed_hosts:
+            kwargs = {**kwargs, "follow_redirects": False}
+            for redirect_index in range(6):
+                parsed = urlsplit(url)
+                if (parsed.scheme not in {"http", "https"}
+                    or parsed.hostname not in self.config.allowed_hosts
+                    or parsed.username or parsed.password or parsed.port not in {None, 80, 443}):
+                    raise ScraperPermanentError("source URL is outside fixed public host scope")
+                if redirect_index:
+                    if self.config.robots is RobotsPolicy.RESPECT and parsed.path != "/robots.txt":
+                        await self._check_robots(parsed.netloc, url)
+                    await self._rate_limit(parsed.netloc)
+                response = await self._read_bounded_response(method, url, **kwargs)
+                if response.status_code not in {301, 302, 303, 307, 308}:
+                    return response
+                location = response.headers.get("location")
+                if not location:
+                    raise ScraperPermanentError("redirect without Location")
+                url = urljoin(url, location)
+                if response.status_code == 303:
+                    method = "GET"
+                # New source endpoints are read-only GETs. A redirect is never
+                # allowed to turn a board into an arbitrary network target.
+            raise ScraperPermanentError("source redirect limit reached")
+        return await self._read_bounded_response(method, url, **kwargs)
+
+    async def _read_bounded_response(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         if self.config.max_response_bytes <= 0:
             return await self._client.request(method, url, **kwargs)
         async with self._client.stream(method, url, **kwargs) as response:
@@ -292,7 +321,7 @@ class ScraperHttpClient:
         robots_url = f"https://{host}/robots.txt"
         await self._rate_limit(host)
         try:
-            resp = await self._client.get(robots_url, timeout=10.0)
+            resp = await self._bounded_request("GET", robots_url, timeout=10.0) if self.config.allowed_hosts else await self._client.get(robots_url, timeout=10.0)
             if resp.status_code == 200:
                 rp = RobotFileParser()
                 rp.parse(resp.text.splitlines())

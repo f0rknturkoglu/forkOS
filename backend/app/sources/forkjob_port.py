@@ -67,6 +67,7 @@ def job_to_raw(job: Job) -> RawItem:
             "department": job.department,
             "language": job.language,
             "forkjob": row,
+            "source_authority": source_fact(job.description, "Source authority") or "native",
             "apply_url": source_fact(job.description, "Application URL"),
         },
     )

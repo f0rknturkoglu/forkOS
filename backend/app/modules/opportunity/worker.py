@@ -268,6 +268,13 @@ async def _poll_source_locked(source, *, batch_id, limit: float) -> int:
             status = _outcome_status(partial=partial, seen=items_seen)
             if payloads:
                 added = await service.ingest_jobs(session, payloads, source_id)
+                if telemetry and "freehire_seen" in telemetry.metadata:
+                    # Existing canonical run counts; no external analytics state.
+                    telemetry.metadata.update(
+                        freehire_new_canonical=added,
+                        freehire_overlap=max(0, len(payloads) - added),
+                        freehire_existing_strengthened=max(0, len(payloads) - added),
+                    )
             await runs.finish_run(
                 session,
                 run,

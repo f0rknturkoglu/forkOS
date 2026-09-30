@@ -1,6 +1,6 @@
 # forkOS — Forkjob Core Native Source Coverage & Telemetry Audit
 
-This document retains the original 37-source audit below and adds the live-verified native Batch 1 extension. On 2026-10-01 the Layer B registry contains 52 entries, 42 enabled. LinkedIn configuration is outside this batch.
+This document retains the historical 37-source and Batch 1 audits below. Current Batch 2 state on 2026-10-01: 62 Layer B entries, 49 enabled. Eight new sources are enabled; Workcamino and Relocantly are disabled by explicit site terms, and LinkedIn remains disabled by robots policy. The current audit in section 6 supersedes historical activation claims.
 Every scraper conforms to the canonical `ScrapeTelemetry` contract defined in `backend/app/sources/base.py`.
 
 ---
@@ -150,3 +150,58 @@ Richness counts: DE salary/language/country/visa/experience/employment 477 each,
 Examples: GermanTechJobs PAGNOS Cloud AI Engineer; SwissDevJobs Intelliact SRE; Remote.com Tru7 Plant Hire Controller (explicit restricted geography); Berlin Solarize Senior NodeJS and withyou Product Engineer; EU-Startups Ethos Software Engineer with explicit $150/hour. Senior/nontechnical/non-EU examples remain ingested because acquisition is coverage-first.
 
 Validation: final relevant offline suite **196 passed, 8 skipped, 1 deselected**; gated live **5 passed, 1 xfailed** (documented DevITJobs 403). Broader backend validation before the final small parser/scoring refinements: **2,557 passed, 22 skipped, 1 deselected**. The deselected preexisting LinkedIn opt-in test contradicts the user's already-enabled local LinkedIn configuration; Batch 1 does not change it. Isolated receipt replay verifies acquisition→canonical score persistence and idempotent replay. Ruff on changed Python files and `git diff --check` pass. No CI workflow changed.
+
+
+## 6. Acquisition Expansion — Batch 2 (2026-10-01)
+
+### Verified access and limits
+
+Recon used the honest `forkjob/0.1` user agent and public pages, robots, terms and documented public APIs. No login, challenge solving, identity spoofing, private API, credential, FreeHire CLI, account cookie or personal data was used. All new transports use fixed public host scope, redirect checks, an 8 MiB decoded response bound, normal shared retry/Retry-After handling, and at least two seconds between requests to a host. Read-only acquisition uses the existing SourceAdapter → worker → canonical ingestion → observations → scoring → source_run pipeline. No Job/schema/migration, scoring-weight or CI changes.
+
+| Source | Access / identity and dates | Rich evidence / practical limit |
+|---|---|---|
+| Arbeidsplassen | Official public SSR Flight; UUID; employer publish/expiry dates. [NAV API terms](https://arbeidsplassen.nav.no/vilkar-api), [official feed contract](https://github.com/navikt/pam-public-feed/blob/master/README.md) | Public SSR fallback because official feed requires JWT. Full employer description, languages, workload, contract, remote options, expiry and apply URL on detail. 3×25 listings, 10 details. Never infer visa/English from Norway. |
+| Workindenmark | Official Jobnet BFF public search; jobAdId UUID; ISO employer publication. [Official portal guide](https://www.workindenmark.dk/getting-started/finding-vacancies-in-denmark/use-our-job-portal) | Current public JS uses static `x-csrf: 1`; works without cookie/account/token. Full descriptions in 3×50 search batches, country/deadline/work hours; external employer apply URL or verified internal Jobnet route. Board orientation is not an English/visa requirement. |
+| DEVjobs.at | SSR search cards + JSON-LD JobPosting; 32-hex detail ID and employer dates. [Terms](https://devjobs.at/page/agb) | Technologies, salary, contract, experience level, work model, full JD. Robots disallows query pagination and API: first 15 cards only, 10 details; always partial public window. |
+| developerjobs.ch | Public paged SSR /en/ + JSON-LD, UUID, employer dates; RSS also verified | Separate from SwissDevJobs. Technologies, CHF annual salary, workload, employment, city/canton, apply link and full JD. TELECOMMUTE means remote possible, not worldwide eligibility. 3×50 cards + 10 details. |
+| englishjobs.de | Public 16-state SSR listings; stable 16-hex card ID independent of signed clickout URL. [Public llms contract](https://englishjobs.de/llms.txt), [Terms](https://englishjobs.de/terms) | Company, location, preview, original board, preserved clickout URL. Date lacks year → discovered provenance. 2 pages per state (≤32), ≤640 jobs; disallowed clickout/detail routes never fetched. No invented full JD or sponsorship. |
+| WorkationBase | Public SSR card state + JSON-LD; source slug, employer detail publish dates. [Private use notice](https://workationbase.com/impressum) | Explicit scope, timezone, salary, async flag, board visa bool and language tag; full detail/JD and apply link. 3×24 cards + 10 details. Board false flag is not employer visa refusal; posting language is not working-language requirement. |
+| jumpinto.eu | Public root SSR `initialJobs` (128 full records); UUID; createdAt is board update, not employer publication | Full JD, technologies, experience tag, salary currency (period unknown), apply URL. Generic board visa/English benefits are attributed claims, excluded from employer-promise scoring. One root, ≤500, no prohibited API/filter queries. |
+| FreeHire | Documented anonymous REST agent batch; public_slug/upstream ID with URL fallback; upstream posted_at vs created/updated provenance. [OpenAPI](https://freehire.me/openapi.yaml), [API docs](https://freehire.me/docs/api), [Terms](https://freehire.me/terms) | Full JD, technologies, seniority, remote geography, employment, explicit tri-state sponsorship, language, salary and original publisher/URL. Lower-authority meta evidence. Recent 7-day EU/UK/TR/NO/CH slice + global remote slice, 3×50 each, ≤300; depth offset+limit≤10000. No N+1 detail. |
+| Workcamino | Public SSR shape was observed, but [terms](https://workcamino.com/en/legal/terms) explicitly prohibit scraping/bulk export | Disabled and runtime refusal before network. 50 recon records were discarded, not ingested. Original publisher/URL, copied JD and inferred labels were observable but are not active acquisition. |
+| Relocantly | Public HTML/JSON-LD shape was observed, but [terms](https://relocantly.com/terms) explicitly prohibit automated scraping | Disabled and runtime refusal before network. 60 recon records were discarded, not ingested. Original LinkedIn apply URL observed without fetching it; inferred English/visa labels remain board evidence. |
+
+Missing fields stay unknown. Source fact blocks preserve provenance without a new storage schema. Canonical native fields/descriptions are protected from conflicting lower-authority meta fields; a later native record upgrades meta-first canonical evidence. Contradictory aggregator visa labels cannot override native visa evidence. Different locations/application identities are not merged solely by similar title/company.
+
+### Actual bounded default dogfood and canonical contribution
+
+This table records the latest default run, not the 5-record smoke. Fetch receipts were passed once through the normal worker; no second network scrape was needed for ingestion. Request counts include detail requests but exclude robots and transient retries; runtime is measured wall time including pacing.
+
+| Source | Enabled | Acquired | New canonical | Existing/in-run overlap | Pages/requests | Seconds | Outcome |
+|---|---|---:|---:|---:|---:|---:|---|
+| arbeidsplassen | yes | 75 | 75 | 0 | 13 | 30.52 | result_limit_reached; detail_budget_reached |
+| workindenmark | yes | 150 | 150 | 0 | 3 | 6.75 | result_limit_reached |
+| devjobsat | yes | 15 | 15 | 0 | 11 | 23.54 | robots_limited_listing_window; detail_budget_reached |
+| developerjobsch | yes | 150 | 148 | 2 | 13 | 26.39 | result_limit_reached; detail_budget_reached |
+| englishjobsde | yes | 619 | 619 | 0 | 31 | 62.64 | page_limit_reached |
+| workationbase | yes | 70 | 70 | 0 | 13 | 49.23 | page_limit_reached; detail_budget_reached |
+| jumpintoeu | yes | 128 | 85 | 43 | 1 | 4.67 | complete / exhausted |
+| freehire | yes | 284 | 282 | 2 | 6 | 12.68 | page_limit_reached |
+| workcamino | no (terms) | 0 (recon discarded) | 0 | 0 | 1 | 2.78 | robots_limited_listing_window; recon only |
+| relocantly | no (terms) | 0 (recon discarded) | 0 | 0 | 13 | 26.43 | page_limit_reached; detail_budget_reached; recon only |
+
+Active-source totals: **1,491 acquired, 1,444 new canonical, 47 existing/in-run merges**. JumpIntoEU resolves 43 strong pre-existing canonicals with careerops and/or forkjob_core observations; FreeHire resolves one pre-existing forkjob canonical and two total merges after the earlier Batch 2 sources were ingested. Developerjobs.ch has two in-run canonical collapses. No existing LinkedIn overlap was confirmed in the active receipts; this is not a claim of no overlap across the complete databases. Strong URL/application and compatible identity matching was checked; title/company similarity alone is not proof. Source observation records preserve each contributor and all final jobs use existing fast/candidate scoring. Seven partial runs persist truthful limits and cannot close unseen jobs; JumpIntoEU alone exhausted its complete public root. `/api/sources/health` confirms 7 partial + 1 ok.
+
+### FreeHire accounting
+
+Six agent-search requests, 300 rows seen, 284 unique transport identities, 282 new canonical and 2 canonical merges/strengthened observations. Persisted source_run metadata records `freehire_seen`, `freehire_unique`, `freehire_new_canonical`, `freehire_overlap`, `freehire_existing_strengthened`. Overlap/strengthened mean payloads resolving an existing canonical during this run (includes a possible within-run collapse), not a separately estimated external analytics counter. Last public rate headers were limit 300, remaining 299, reset 1; exact values retained without guessing reset timestamp semantics. Low remaining quota stops rather than bypasses. Recent total counts were 49,679 EU/UK/country slice and 21,595 remote slice, so cap is partial. Optional API key was unnecessary and never read or transmitted; no CLI dependency.
+
+### LinkedIn Guest V2: blocked, not delivered as an active engine
+
+[Current LinkedIn robots](https://www.linkedin.com/robots.txt) disallows all generic crawler access; specialized crawler rules also disallow `/jobs-guest/`. Actual robots body is frozen in the offline fixtures. No guest search, geo typeahead, detail or pagination endpoint was probed after this denial. No native V2 parser/fixtures were fabricated. **Native V2 is not implemented or live verified** under this batch's mandatory verified-public-transport rule. Registry disabled; current public policy denial also prevents launching retained JobSpy fallback. Existing profile schema and killable JobSpy subprocess/cancellation tests remain compatible.
+
+Native usage 0, fallback network usage 0, geo resolution/pagination/detail enrichment not attempted, soft blocks/429s not observed (0 endpoint requests), one policy blocker. Direct/proxy environment flags cannot bypass robots. Robots retrieval failure fails closed for LinkedIn. Existing activation sections in the v2/v2.1 documents are historical and superseded. Future public permission/transport change would require separate recon before native V2 work.
+
+### Tests, privacy and closure
+
+Frozen fixtures contain reduced actual public listing/detail/state/API shapes, optional/malformed records, exact robots, provenance and limits. Offline tests cover all ten source parsers, both terms blockers, registry discovery, salary/visa/language truth, detail budgets, later-page/detail failure preservation, API bounds/rate headers/no credentials, native-vs-meta conflict protection, strong canonical overlap and distinct identity separation. Redirect tests reject foreign/private hosts, userinfo and non-public ports before follow; gzip decoded-body bounds are tested. Broader backend suite: **2,612 passed, 33 skipped** against isolated PostgreSQL, with live tests gated. Final focused source/LinkedIn/canonical/security tests: **66 passed**. Explicit gated live suite: **8 passed, 3 xfailed** (LinkedIn robots, Workcamino terms, Relocantly terms). Replaying all eight actual public receipts twice against the isolated test DB passed: second ingestion added zero canonical rows. The final pagination repeat guard is covered by the focused suite. No personal DB was reset or used for fixtures/tests. Public live acquisitions were additive normal ingestion only. No new package, model/migration, frontend, API contract, hosted service, telemetry or CI change. Existing unrelated UI/doctor changes remain outside the Batch 2 commit.

@@ -71,8 +71,9 @@ sources:
     url: https://www.linkedin.com/jobs
     enabled: false
     status: >-
-      Powered by python-jobspy 1.1.82. Direct VPN connection allowed.
-      Disabled in default bulk sync; explicit --source linkedin may run it.
+      Batch 2 audit 2026-10-01: robots.txt denies all forkjob crawling,
+      explicitly including /jobs-guest/. Native guest and JobSpy network
+      acquisition disabled; fallback implementation retained, no bypass.
     config:
       proxy_file_env: FORKJOB_LINKEDIN_PROXIES_FILE
       # Direct (proxy'siz) erisim YALNIZCA FORKJOB_LINKEDIN_ALLOW_DIRECT ile
@@ -873,5 +874,156 @@ sources:
       max_pages: 3
       max_offers: 150
       detail_budget: 20
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: arbeidsplassen
+    label: NAV Arbeidsplassen
+    category: government
+    url: https://arbeidsplassen.nav.no/stillinger
+    enabled: true
+    status: >-
+      Batch 2 public surface verified 2026-10-01; bounded acquisition,
+      source-attributed evidence, truthful partial runs.
+    config:
+      max_pages: 3
+      max_offers: 75
+      detail_budget: 10
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: workindenmark
+    label: Workindenmark
+    category: government
+    url: https://workindenmark.jobnet.dk/find-job
+    enabled: true
+    status: >-
+      Batch 2 public surface verified 2026-10-01; bounded acquisition,
+      source-attributed evidence, truthful partial runs.
+    config:
+      max_pages: 3
+      max_offers: 150
+      detail_budget: 0
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: devjobsat
+    label: DEVjobs.at
+    category: regional
+    url: https://devjobs.at/jobs/search
+    enabled: true
+    status: >-
+      Batch 2 public surface verified 2026-10-01; bounded acquisition,
+      source-attributed evidence, truthful partial runs.
+    config:
+      max_pages: 1
+      max_offers: 50
+      detail_budget: 10
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: developerjobsch
+    label: developerjobs.ch
+    category: regional
+    url: https://developerjobs.ch/en/
+    enabled: true
+    status: >-
+      Batch 2 public surface verified 2026-10-01; bounded acquisition,
+      source-attributed evidence, truthful partial runs.
+    config:
+      max_pages: 3
+      max_offers: 150
+      detail_budget: 10
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: englishjobsde
+    label: English Jobs Germany
+    category: regional
+    url: https://englishjobs.de
+    enabled: true
+    status: >-
+      Batch 2 public surface verified 2026-10-01; bounded acquisition,
+      source-attributed evidence, truthful partial runs.
+    config:
+      max_pages: 2
+      max_offers: 640
+      detail_budget: 0
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: workationbase
+    label: WorkationBase
+    category: remote
+    url: https://workationbase.com/jobs
+    enabled: true
+    status: >-
+      Batch 2 public surface verified 2026-10-01; bounded acquisition,
+      source-attributed evidence, truthful partial runs.
+    config:
+      max_pages: 3
+      max_offers: 72
+      detail_budget: 10
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: jumpintoeu
+    label: JumpInto.eu
+    category: relocation
+    url: https://jumpinto.eu/
+    enabled: true
+    status: >-
+      Batch 2 public surface verified 2026-10-01; bounded acquisition,
+      source-attributed evidence, truthful partial runs.
+    config:
+      max_pages: 1
+      max_offers: 500
+      detail_budget: 0
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: freehire
+    label: FreeHire
+    category: aggregator
+    url: https://freehire.me
+    enabled: true
+    status: >-
+      Batch 2 public surface verified 2026-10-01; bounded acquisition,
+      source-attributed evidence, truthful partial runs.
+    config:
+      max_pages: 3
+      max_offers: 300
+      page_size: 50
+      recent_days: 7
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: workcamino
+    label: Workcamino
+    category: aggregator
+    url: https://workcamino.com/en/jobs
+    enabled: false
+    status: >-
+      Blocked 2026-10-01: public terms prohibit automated scraping.
+      No acquisition or fallback bypass is permitted.
+    config:
+      max_pages: 1
+      max_offers: 100
+      detail_budget: 0
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: relocantly
+    label: Relocantly
+    category: aggregator
+    url: https://relocantly.com/jobs
+    enabled: false
+    status: >-
+      Blocked 2026-10-01: public terms prohibit automated scraping.
+      No acquisition or fallback bypass is permitted.
+    config:
+      max_pages: 3
+      max_offers: 150
+      detail_budget: 10
       min_interval: 2.0
       max_response_bytes: 8388608
