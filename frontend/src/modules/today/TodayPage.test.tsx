@@ -12,6 +12,22 @@ function view(id: string, core?: TodayPlacement, placement?: TodayPlacement): To
 const page = (views: TodayWidgetView[]) => renderToStaticMarkup(<HomeGrid views={views} />);
 
 describe("Today çalışma sırası", () => {
+  it("bağlamı bağımsız anlamsal sütunlarda birer kez çizer; tanımsız yüzeyi ana sütunda tutar", () => {
+    const views = ["today.career", "today.feed-stream", "learning.widget", "activity.heatmap", "optional"].map((id) => {
+      const item = view(id, "context");
+      if (id !== "optional")
+        item.widget.contextLane = id === "today.feed-stream" || id === "activity.heatmap" ? "secondary" : "main";
+      return item;
+    });
+    const html = page(views);
+    const main = html.split('data-today-context-lane="main"')[1].split('data-today-context-lane="secondary"')[0];
+    const secondary = html.split('data-today-context-lane="secondary"')[1];
+    for (const id of ["today.career", "learning.widget", "optional"])
+      expect(main).toContain(`data-today-widget="${id}"`);
+    for (const id of ["today.feed-stream", "activity.heatmap"])
+      expect(secondary).toContain(`data-today-widget="${id}"`);
+    for (const item of views) expect(html.split(`data-today-widget="${item.id}"`)).toHaveLength(2);
+  });
   it("girdideki modül sırası değişse de şimdi, iş, dikkat, bağlam DOM sırasını korur", () => {
     const html = page([
       view("akis", "context"),

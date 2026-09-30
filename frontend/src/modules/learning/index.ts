@@ -20,6 +20,7 @@ registerModule({
     {
       // Öğrenme çekirdek kalır; günlük planla aynı ağırlıkta yarışmaz.
       id: "learning.widget",
+      contextLane: "main",
       title: "Öğrenme",
       component: LearningWidget,
       core: "context",

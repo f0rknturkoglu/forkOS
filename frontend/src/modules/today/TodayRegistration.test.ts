@@ -30,4 +30,16 @@ describe("Today module registrations", () => {
   it("does not expose Habit as a separate frontend module", () => {
     expect(harness.specs.map((spec) => spec.id)).not.toContain("habit");
   });
+
+  it("çekirdek bağlam yüzeyleri sütunlarını kendi kayıtlarında bildirir", () => {
+    const widgets = harness.specs.flatMap((spec) => spec.todayWidgets ?? []);
+    for (const [id, lane] of [
+      ["today.career", "main"],
+      ["learning.widget", "main"],
+      ["today.feed-stream", "secondary"],
+      ["activity.heatmap", "secondary"],
+    ]) {
+      expect(widgets.find((widget) => widget.id === id)?.contextLane).toBe(lane);
+    }
+  });
 });

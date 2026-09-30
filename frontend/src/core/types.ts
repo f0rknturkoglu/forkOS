@@ -1144,6 +1144,8 @@ export interface TodayWidget {
   core?: TodayPlacement;
   /** İsteğe bağlı widget'ın yeri; görünürlük tercihini değiştirmez. */
   placement?: TodayPlacement;
+  /** Bağlam sütunu; belirtilmeyen yüzeyler ana sütunda akar. */
+  contextLane?: "main" | "secondary";
   /**
    * Cekirdek iskeletteki sira; kucuk once. ZORUNLU: verilmezse cakisma
    * uretir (eski varsayilan 50 kaldirildi).

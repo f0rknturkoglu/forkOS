@@ -56,6 +56,7 @@ registerModule({
       // P2 §24: takipler + kariyer bildirimleri + firsat son tarihleri.
       // Genel bildirimler ust seritteki panelde kalir.
       id: "today.career",
+      contextLane: "main",
       title: "Kariyer",
       component: CareerWidget,
       core: "context",
@@ -64,6 +65,7 @@ registerModule({
     {
       // P2 §15: okuma akisi Home'un cekirdek yuzeyi (orta kolon).
       id: "today.feed-stream",
+      contextLane: "secondary",
       title: "Akış",
       component: FeedStreamWidget,
       core: "context",

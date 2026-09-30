@@ -84,7 +84,13 @@ export function HomeGrid({ views }: { views: TodayWidgetView[] }) {
         <section aria-label="Bağlam" className="border-t border-subtle pt-5">
           <h2 className="mb-4 text-meta font-medium text-secondary">Bağlam</h2>
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)]">
-            {context.map(widget)}
+            {/* Tek ağaç: dar ekranda ana sütun, ardından ikincil sütun okunur.
+                Her sütunun yüksekliği yalnız kendi widget'larını etkiler. */}
+            {(["main", "secondary"] as const).map((lane) => (
+              <div key={lane} data-today-context-lane={lane} className="min-w-0 space-y-6 empty:hidden">
+                {context.filter((view) => (view.widget.contextLane ?? "main") === lane).map(widget)}
+              </div>
+            ))}
           </div>
         </section>
       )}
