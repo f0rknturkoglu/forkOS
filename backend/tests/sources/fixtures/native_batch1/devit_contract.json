@@ -1,0 +1,19 @@
+[
+  {
+    "_id": "synthetic-nl-1",
+    "name": "Junior Frontend Developer",
+    "jobUrl": "Synthetic-Junior-Frontend-Developer",
+    "company": "Synthetic NL",
+    "actualCity": "Amsterdam",
+    "workplace": "hybrid",
+    "language": "Dutch",
+    "hasVisaSponsorship": "No",
+    "technologies": [
+      "React"
+    ],
+    "expLevel": "Junior",
+    "jobType": "Full-Time",
+    "annualSalaryFrom": 45000,
+    "annualSalaryTo": 55000
+  }
+]

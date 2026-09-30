@@ -87,6 +87,8 @@ class ScraperConfig:
     min_interval: float = 2.0
     #: Request timeout in seconds.
     timeout: float = 30.0
+    #: Optional decoded response bound; zero preserves existing source behavior.
+    max_response_bytes: int = 0
     #: Max retries on transient failures.
     max_retries: int = 3
     #: Exponential backoff base (seconds).
@@ -219,7 +221,7 @@ class ScraperHttpClient:
         for attempt in range(self.config.max_retries):
             await self._rate_limit(host)
             try:
-                response = await self._client.request(method, url, **request_kwargs)
+                response = await self._bounded_request(method, url, **request_kwargs)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_error = ScraperTransientError(f"{type(exc).__name__}: {exc}")
                 response = None
@@ -247,6 +249,26 @@ class ScraperHttpClient:
                 await asyncio.sleep(delay)
 
         raise last_error or ScraperTransientError("request failed")
+
+    async def _bounded_request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+        if self.config.max_response_bytes <= 0:
+            return await self._client.request(method, url, **kwargs)
+        async with self._client.stream(method, url, **kwargs) as response:
+            chunks: list[bytes] = []
+            size = 0
+            async for chunk in response.aiter_bytes():
+                size += len(chunk)
+                if size > self.config.max_response_bytes:
+                    raise ScraperPermanentError(
+                        f"response exceeds {self.config.max_response_bytes} decoded bytes: {url}"
+                    )
+                chunks.append(chunk)
+            # aiter_bytes has already decompressed the transport body.
+            headers = dict(response.headers)
+            headers.pop("content-encoding", None)
+            headers.pop("content-length", None)
+            return httpx.Response(response.status_code, headers=headers,
+                                  content=b"".join(chunks), request=response.request)
 
     async def _rate_limit(self, host: str) -> None:
         lock = self._host_locks.setdefault(host, asyncio.Lock())

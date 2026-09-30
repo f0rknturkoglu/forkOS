@@ -64,7 +64,9 @@ def score_canonical_opportunity(opportunity: Any, title: str, *, now: datetime) 
         salary=opportunity.compensation,
         language=raw.get("language") or forkjob.get("language"),
         posted_at=posted_at,
-        date_source=DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED,
+        date_source=(DateSource(forkjob["date_source"])
+                     if forkjob.get("date_source") in DateSource._value2member_map_
+                     else DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED),
         first_seen=opportunity.found_at or now,
     )
     score_job(scored, forkjob_port.SCORING)

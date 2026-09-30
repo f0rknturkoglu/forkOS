@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 from .config import ExperienceBand, ScoringConfig, SeniorityTier
 from .models import Job, norm_text
+from .rich_text import scoring_tags
 
 
 @dataclass(slots=True)
@@ -61,7 +62,7 @@ def detect(job: Job, sc: ScoringConfig) -> Signals:
     desc_lower = description.lower()
     # Skills and level words cluster near the top, and scanning further mostly
     # picks up boilerplate about the company's other roles.
-    desc_head = desc_lower[:6000]
+    desc_head = desc_lower[:6000] + "\n" + scoring_tags(description).lower()
     # Visa, language and experience are scanned in full instead. They are the
     # decisive signals and they turn up last: Manfred prints its relocation FAQ
     # at the very bottom, 6962 characters into one real posting — the head-only
@@ -199,6 +200,7 @@ def _find_seniority(
 #: Checked first: "no visa sponsorship" contains "visa sponsorship".
 _VISA_NEGATIVE_RE = re.compile(
     r"\bno\s+visa\s+sponsor\w*"
+    r"|\bvisa\s+sponsorship\s*:\s*no\b"
     r"|\b(?:cannot|can't|do(?:es)?\s+not|will\s+not|unable\s+to)\s+sponsor"
     r"|\bwithout\s+(?:the\s+)?need\s+for\s+sponsor\w*"
     r"|\bnot\s+(?:able\s+to\s+)?(?:offer|provide)\s+(?:visa\s+)?sponsor\w*"
@@ -262,6 +264,7 @@ _SPANISH_REQUIRED_RE = re.compile(
 
 _ENGLISH_WORKING_RE = re.compile(
     r"\benglish\s+is\s+(?:our|the)\s+(?:working|official|company)\s+language\b"
+    r"|\blanguage\s*:\s*english\b"
     r"|\b(?:working|company|official)\s+language\s+is\s+english\b"
     r"|\bwe\s+work\s+(?:fully\s+)?in\s+english\b"
     r"|\benglish[- ]speaking\s+(?:environment|company|team|workplace)\b"
@@ -369,6 +372,7 @@ _TRANSFER_RE = re.compile(
 #: nothing, and "remote (US)" is the commonest posting on every board here.
 _OPEN_REMOTE_RE = re.compile(
     r"\bwork\s+(?:remotely\s+)?from\s+anywhere\b|\banywhere\s+in\s+the\s+world\b"
+    r"|\bremote\s+scope\s*:\s*anywhere\b"
     # Boards state this as a policy rather than a place, e.g. Cryptocurrency
     # Jobs writes "100% remote with no geographical restrictions".
     r"|\bno\s+geo(?:graphic(?:al)?)?\s+restrictions?\b"
@@ -391,6 +395,7 @@ _OPEN_REMOTE_RE = re.compile(
 #: this is about where the work may be *done*, not about sponsorship.
 _GEO_LOCKED_RE = re.compile(
     r"\b(?:us|u\.s\.|usa|uk|canada|australia)[-\s]only\b"
+    r"|\bremote\s+scope\s*:\s*[^\n]{1,120}\bonly\b"
     r"|\bonly\s+(?:in|within)\s+the\s+(?:us|uk|usa|united\s+states)\b"
     r"|\bmust\s+(?:reside|be\s+located|be\s+based|live)\s+in\b"
     r"|\bresidents?\s+of\s+the\s+(?:us|uk|united\s+states)\s+only\b"

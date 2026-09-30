@@ -395,18 +395,20 @@ sources:
       min_interval: 1.0
 
   - key: devitjobs
-    label: DevITjobs
+    label: DevITJobs Netherlands
     category: regional
-    url: https://germantechjobs.de
+    url: https://devitjobs.nl
     enabled: false
     status: >-
-      Dead, re-checked 2026-08-09. robots allows /api/jobs, but the endpoint
-      answers with the plain text "ENDPOINT Deprecated - contact
-      hello@swissdevjobs.ch" instead of JSON. Retired by the provider; the
-      scraper only fails on the JSON decode. Nothing to fix on our side.
+      Revalidated 2026-10-01: current site exists, but local ordinary HTTP
+      to robots, listing, RSS, sitemap and /api/jobsLight returns 403.
+      Shared current TechJobs parser registered; disabled until public
+      transport succeeds. Legacy /api/jobs retirement is not source death.
     config:
-      min_interval: 1.0
-      countries: [de, ch, uk]
+      max_offers: 1000
+      detail_budget: 20
+      min_interval: 2.0
+      max_response_bytes: 8388608
 
   - key: workingnomads
     label: Working Nomads
@@ -794,3 +796,82 @@ sources:
       client-rendered (Supabase fetch) with no verified public listing API;
       detail pages are SSR JSON-LD but carry no stable id (URL slug only).
       Sitemap-jobs exists. Revisit if a public listing endpoint appears.
+
+  # -- Native rich EU / remote batch 1 (2026-10-01) -----------------------
+  - key: germantechjobs
+    label: GermanTechJobs
+    category: regional
+    url: https://germantechjobs.de
+    enabled: true
+    status: >-
+      Verified 2026-10-01: public /api/jobsLight and /api/jobWithUrl/<slug>.
+      Salary, explicit visa Yes/No, language, technologies and experience.
+      activeFrom is activation/republication, conservatively date_source updated.
+      Full listing plus RSS prose and bounded missing-detail enrichment; caps are partial.
+    config:
+      max_offers: 1000
+      detail_budget: 20
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: swissdevjobs
+    label: SwissDevJobs
+    category: regional
+    url: https://swissdevjobs.ch
+    enabled: true
+    status: >-
+      Verified 2026-10-01: same public TechJobs JSON contract as DE.
+      CHF salary, explicit visa/language/experience/tags, RSS prose plus bounded missing details.
+    config:
+      max_offers: 1000
+      detail_budget: 20
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: remotecom
+    label: Remote.com Jobs
+    category: remote
+    url: https://remote.com/jobs/all
+    enabled: true
+    status: >-
+      Verified 2026-10-01: public SSR Flight jobsData, page totals and detail
+      state. Global/location/timezone hiring scopes retained. Salary minor
+      units verified against UI; publishedAt employer date. No private API.
+    config:
+      max_pages: 5
+      max_offers: 100
+      detail_budget: 20
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: berlinstartupjobs
+    label: Berlin Startup Jobs
+    category: startup
+    url: https://berlinstartupjobs.com
+    enabled: true
+    status: >-
+      Verified 2026-10-01: all 12 public category listings, deduplicated URLs,
+      skills/topics and previews; bounded detail JSON-LD adds date/employment
+      and actual location. Not limited to remote category.
+    config:
+      max_pages: 2
+      max_offers: 500
+      detail_budget: 20
+      min_interval: 2.0
+      max_response_bytes: 8388608
+
+  - key: eustartups
+    label: EU-Startups Jobs
+    category: startup
+    url: https://www.eu-startups.com/startup-jobs/
+    enabled: true
+    status: >-
+      Verified 2026-10-01: WPJobBoard listing pagination and detail JobPosting.
+      Actual posting location/country, employment, date, description; domain
+      is not evidence of EU geography. Bounded details and pages are partial.
+    config:
+      max_pages: 3
+      max_offers: 150
+      detail_budget: 20
+      min_interval: 2.0
+      max_response_bytes: 8388608

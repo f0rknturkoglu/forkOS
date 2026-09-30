@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlsplit
 
 from app.sources.forkjob_core.models import canonical_url
 
@@ -107,6 +108,12 @@ def same_real_world_posting(left: ListingIdentity, right: ListingIdentity) -> bo
     same_company = bool(_text(left.company)) and _text(left.company) == _text(right.company)
     if not same_company:
         return False
+    if _text(left.title) and _text(left.title) == _text(right.title):
+        # A public board may point directly to the employer's specific ATS job.
+        # Never treat a generic company application/board URL as this evidence.
+        for application, posting in ((left.apply_url, right.url), (right.apply_url, left.url)):
+            if specific_application_url(application) and _url(application) == _url(posting):
+                return True
     if left.requisition_id and right.requisition_id:
         if left.requisition_id != right.requisition_id:
             return False
@@ -138,3 +145,23 @@ def same_real_world_posting(left: ListingIdentity, right: ListingIdentity) -> bo
         and second_date
         and abs(first_date - second_date) <= timedelta(days=14)
     )
+
+
+def specific_application_url(value: str | None) -> str | None:
+    if not isinstance(value, str):
+        return None
+    parsed = urlsplit(value)
+    host, path = parsed.hostname or "", parsed.path.rstrip("/")
+    patterns = {
+        "greenhouse.io": r"/[^/]+/jobs/\d+$",
+        "jobs.lever.co": r"/[^/]+/[0-9a-f-]{32,36}(?:/apply)?$",
+        "jobs.ashbyhq.com": r"/[^/]+/[0-9a-f-]{32,36}$",
+        "jobs.smartrecruiters.com": r"/[^/]+/\d+[^/]*$",
+        "apply.workable.com": r"/[^/]+/j/[A-Za-z0-9]+(?:/apply)?$",
+    }
+    if parsed.scheme not in ("http", "https"):
+        return None
+    if any((host == domain or host.endswith("." + domain)) and re.fullmatch(pattern, path, re.I)
+           for domain, pattern in patterns.items()):
+        return canonical_url(value)
+    return None

@@ -34,7 +34,8 @@ Disabled portal audit:
 | Remote Rocketship, CryptoJobsList, Ruby on Remote | Honest access challenged/403 | Keep disabled; no bot-evasion path. |
 | JustJoin.it, Nodesk | Current forkjob scraper route blocked or unverified; separate CareerOps public-board targets exist | Keep old adapters disabled; use the configured CareerOps targets, monitor their run receipts. |
 | Landing.jobs | Current forkjob API route disallowed by robots | Keep adapter disabled; CareerOps target coverage must be judged by its own receipts. |
-| DevITjobs, Honeypot | Deprecated endpoint or unreachable host | Keep disabled. |
+| DevITJobs Netherlands | Revalidated 2026-10-01: current board exists; local public HTTP returns 403. Legacy API retirement does not establish source death. | Shared native parser registered; keep disabled while blocked. See Batch 1 coverage audit. |
+| Honeypot | Unreachable host in the historical audit | Keep disabled pending independent revalidation. |
 | OfferZen | Login/reverse marketplace; no public posting feed | Keep disabled. |
 | Consider a16z | Old Consider board contract removed | Keep disabled; the distinct a16z-speedrun CareerOps provider is not a drop-in replacement. |
 

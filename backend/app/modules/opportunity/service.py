@@ -52,6 +52,8 @@ from app.modules.opportunity.application import (  # noqa: F401 (re-export: rout
 from app.modules.opportunity.candidate_context import build_candidate_career_context
 from app.modules.opportunity.candidate_fit import (
     ALGORITHM as FAST_SCORE_ALGORITHM,
+)
+from app.modules.opportunity.candidate_fit import (
     canonical_description,
     score_canonical_opportunity,
     scoring_revision,
@@ -62,6 +64,7 @@ from app.modules.opportunity.identity import (
     identity_from_incoming,
     identity_from_stored,
     same_real_world_posting,
+    specific_application_url,
 )
 from app.modules.opportunity.models import (
     Application,
@@ -80,6 +83,7 @@ from app.modules.opportunity.schemas import (
 )
 from app.modules.opportunity.taxonomy import classify_job
 from app.sources.forkjob_core.models import canonical_url
+from app.sources.forkjob_core.rich_text import merge_descriptions
 
 
 def _calculate_skill_match(
@@ -860,14 +864,18 @@ async def _refresh_opportunity(
         merged_fk = dict(merged_raw.get("forkjob") or {})
         for k, v in raw["forkjob"].items():
             if v is not None and v != "":
-                merged_fk[k] = v
+                merged_fk[k] = merge_descriptions(merged_fk.get(k), v) if k == "description" else v
         merged_raw["forkjob"] = merged_fk
     if "career_ops" in raw and isinstance(raw["career_ops"], dict):
         merged_raw["career_ops"] = raw["career_ops"]
     if "cluster_key" in raw and raw["cluster_key"]:
         merged_raw.setdefault("cluster_key", raw["cluster_key"])
-    if raw.get("description") and len(str(raw["description"])) > len(str(merged_raw.get("description") or "")):
-        merged_raw["description"] = raw["description"]
+    if raw.get("apply_url"):
+        merged_raw.setdefault("apply_url", raw["apply_url"])
+    if raw.get("description"):
+        merged_raw["description"] = merge_descriptions(
+            canonical_description(merged_raw), str(raw["description"])
+        )
 
     existing_sources = list(merged_raw.get("sources", [opportunity.source]))
     incoming_sources = raw.get("sources") or [source_label]
@@ -1036,15 +1044,22 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
     canonical_urls = [canonical_url(url) for url in urls if isinstance(url, str) and url.strip()]
     existing_by_url: dict[str, Opportunity] = {}
     existing_by_canonical_url: dict[str, Opportunity] = {}
-    lookups = list(dict.fromkeys([*urls, *canonical_urls]))
+    apply_urls = [url for _job, raw, _fk in rows_by_job if (url := specific_application_url(raw.get("apply_url")))]
+    lookups = list(dict.fromkeys([*urls, *canonical_urls, *apply_urls]))
+    existing_by_apply_url: dict[str, list[Opportunity]] = {}
     if lookups:
         for row in (
-            await session.execute(select(Opportunity).where(Opportunity.url.in_(lookups)))
+            await session.execute(select(Opportunity).where(or_(
+                Opportunity.url.in_(lookups),
+                Opportunity.raw["apply_url"].astext.in_(lookups),
+            )))
         ).scalars():
             if not row.url:
                 continue
             existing_by_url.setdefault(row.url, row)
             existing_by_canonical_url.setdefault(canonical_url(row.url), row)
+            if application := specific_application_url((row.raw or {}).get("apply_url")):
+                existing_by_apply_url.setdefault(application, []).append(row)
 
     # cluster_key lookup'i kayit basina degil, tek sorguda (eski N+1 buradaydi).
     existing_by_cluster: dict[str, list[Opportunity]] = {}
@@ -1125,6 +1140,18 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             existing = existing_by_url.get(job.url) or existing_by_canonical_url.get(
                 canonical_url(job.url)
             )
+        if existing is None:
+            application = specific_application_url(raw.get("apply_url"))
+            candidates = list(existing_by_apply_url.get(canonical_url(job.url), [])) if job.url else []
+            if application:
+                if linked := existing_by_canonical_url.get(application):
+                    candidates.append(linked)
+                candidates.extend(existing_by_apply_url.get(application, []))
+            matches = {row.id: row for row in candidates if same_real_world_posting(
+                identity_from_stored(row), identity_from_incoming(job, raw, source_label)
+            )}
+            if len(matches) == 1:
+                existing = next(iter(matches.values()))
         if existing is not None:
             if existing.source != source_label and job.url and existing_by_url.get(job.url) is existing:
                 sources = list((existing.raw or {}).get("sources", [existing.source]))

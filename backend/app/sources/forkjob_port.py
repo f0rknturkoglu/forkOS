@@ -16,6 +16,7 @@ from app.sources.base import FetchOutcome, RawItem, ScrapeTelemetry
 from app.sources.forkjob_core.config import load_config
 from app.sources.forkjob_core.models import Job
 from app.sources.forkjob_core.registry import Registry
+from app.sources.forkjob_core.rich_text import source_fact
 from app.sources.forkjob_core.scrapers.base import ScrapeBatch
 from app.sources.forkjob_core.scrapers.index import get_scraper, unavailable_reason
 from app.sources.forkjob_core.scrapers.registry import LayerBSource, load_registry_b
@@ -66,6 +67,7 @@ def job_to_raw(job: Job) -> RawItem:
             "department": job.department,
             "language": job.language,
             "forkjob": row,
+            "apply_url": source_fact(job.description, "Application URL"),
         },
     )
 
