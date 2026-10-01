@@ -13,7 +13,7 @@ from app.db import SessionLocal
 from app.main import app
 from app.modules.system import refresh
 from app.modules.system.models import Setting
-from app.sources.base import is_general_refresh_source
+from app.sources.base import is_general_refresh_source, is_runnable
 from app.sources.catalog import opportunity_sources
 
 
@@ -64,7 +64,7 @@ async def test_system_refresh_uses_canonical_catalog(scope, monkeypatch):
     expected = {
         source.id
         for source in catalog
-        if scope == "full" or is_general_refresh_source(source)
+        if is_runnable(source) and (scope == "full" or is_general_refresh_source(source))
     }
     async with SessionLocal() as session:
         _, started = await refresh.queue(session, scope=scope)
@@ -75,7 +75,7 @@ async def test_system_refresh_uses_canonical_catalog(scope, monkeypatch):
     assert set(status["active"]["source_ids"]) == expected
     assert "careerops:boards" in expected
     assert ("careerops:companies" in expected) == (scope == "full")
-    assert ("forkjob_core:linkedin" in expected) == (scope == "full")
+    assert "forkjob_core:linkedin" not in expected
 
 
 async def test_second_start_is_rejected_while_a_refresh_is_running():

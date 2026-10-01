@@ -4612,7 +4612,7 @@ export interface paths {
          *     source_ids verilirse yalnizca onlar (kullanici ne sectiyse, opt-in dahil);
          *     aksi halde `mode`: `critical` yalnizca resmi/hizli kaynaklari, `general`
          *     (varsayilan) opt-in/yavas kaynaklar haric tumunu, `full` ise katalogun
-         *     tamamini kosar. Her durumda critical -> normal -> slow_optin sirasi
+         *     calistirilabilir kaynaklarini kosar. Her durumda critical -> normal -> slow_optin sirasi
          *     korunur. API yalnizca kalici batch olusturur; cekimi API arka plan gorevi
          *     tuketir; worker acikken ayni kalici kuyrugu paylasir.
          */

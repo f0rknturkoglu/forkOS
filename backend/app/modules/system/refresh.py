@@ -66,6 +66,7 @@ async def queue(
     from app.sources.base import (
         SourceClass,
         is_general_refresh_source,
+        is_runnable,
         order_by_class,
         source_class,
         source_estimated_seconds,
@@ -80,7 +81,7 @@ async def queue(
         # Ayni yenilemenin cift baslatilmasi engellenir.
         return current, False
 
-    everything = opportunity_sources()
+    everything = [source for source in opportunity_sources() if is_runnable(source)]
     if scope == "critical":
         selected = [
             source for source in everything if source_class(source) is SourceClass.CRITICAL

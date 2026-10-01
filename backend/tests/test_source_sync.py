@@ -777,7 +777,7 @@ async def test_general_refresh_excludes_opt_in_sources(
     assert body["total_sources"] == len(queued)
 
 
-async def test_explicit_linkedin_selection_is_still_allowed(
+async def test_explicit_runnable_opt_in_selection_is_still_allowed(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):
     jobs = import_module("app.worker.jobs")
@@ -788,13 +788,13 @@ async def test_explicit_linkedin_selection_is_still_allowed(
     monkeypatch.setattr(jobs, "drain_source_sync_batches", fake_drain)
 
     response = await client.post(
-        "/api/sources/refresh", json={"source_ids": ["forkjob_core:linkedin"]}
+        "/api/sources/refresh", json={"source_ids": ["forkjob_core:eures"]}
     )
     assert response.status_code == 200
     assert response.json()["queued"] == 1
 
     status = (await client.get("/api/sources/sync")).json()
-    assert status["active"]["source_ids"] == ["forkjob_core:linkedin"]
+    assert status["active"]["source_ids"] == ["forkjob_core:eures"]
 
 
 async def test_full_mode_deliberately_includes_opt_in_sources(
@@ -812,5 +812,6 @@ async def test_full_mode_deliberately_includes_opt_in_sources(
     assert response.json()["mode"] == "full"
 
     status = (await client.get("/api/sources/sync")).json()
-    assert "forkjob_core:linkedin" in status["active"]["source_ids"]
+    assert "forkjob_core:linkedin" not in status["active"]["source_ids"]
+    assert "forkjob_core:eures" in status["active"]["source_ids"]
     assert status["active"]["total_sources"] > 77

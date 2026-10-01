@@ -216,7 +216,7 @@ class FreeHireScraper(ScraperBase):
                 "freehire_unique": len(jobs),
                 "freehire_overlap": None,
                 "freehire_new_canonical": None,
-                "freehire_existing_strengthened": None,
+                "freehire_not_new_canonical": None,
             },
         )
         return ScrapeBatch(jobs, errors, requests, success, telemetry)

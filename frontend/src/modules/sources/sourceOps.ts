@@ -49,6 +49,8 @@ export interface SourceCatalogEntry {
   estimated_seconds?: number | null;
   timeout_seconds?: number | null;
   opt_in?: boolean | null;
+  runnable?: boolean;
+  unavailable_reason?: string | null;
   circuit_open?: boolean | null;
   consecutive_failures?: number | null;
   /** Devre AÇIKken ağa tekrar çıkılacak an; kapalıyken null (backend alanı). */

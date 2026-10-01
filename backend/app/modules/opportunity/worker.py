@@ -17,6 +17,7 @@ from app.sources.base import (
     CLASS_ORDER,
     FetchOutcome,
     is_general_refresh_source,
+    is_runnable,
     normalize_fetch,
     source_class,
     source_timeout_seconds,
@@ -268,13 +269,15 @@ async def _poll_source_locked(source, *, batch_id, limit: float) -> int:
             status = _outcome_status(partial=partial, seen=items_seen)
             if payloads:
                 added = await service.ingest_jobs(session, payloads, source_id)
-                if telemetry and "freehire_seen" in telemetry.metadata:
-                    # Existing canonical run counts; no external analytics state.
-                    telemetry.metadata.update(
-                        freehire_new_canonical=added,
-                        freehire_overlap=max(0, len(payloads) - added),
-                        freehire_existing_strengthened=max(0, len(payloads) - added),
-                    )
+            if telemetry and "freehire_seen" in telemetry.metadata:
+                # Exactly payloads that did not create a new canonical row.
+                not_new = max(0, len(payloads) - added)
+                telemetry.metadata.pop("freehire_existing_strengthened", None)
+                telemetry.metadata.update(
+                    freehire_new_canonical=added,
+                    freehire_overlap=not_new,
+                    freehire_not_new_canonical=not_new,
+                )
             await runs.finish_run(
                 session,
                 run,
@@ -342,7 +345,10 @@ def critical_source_ids() -> list[str]:
     from app.sources.base import SourceClass, order_by_class
 
     ordered = order_by_class(opportunity_sources())
-    critical = [source for source in ordered if source_class(source) is SourceClass.CRITICAL]
+    critical = [
+        source for source in ordered
+        if is_runnable(source) and source_class(source) is SourceClass.CRITICAL
+    ]
     official = [
         source
         for source in critical

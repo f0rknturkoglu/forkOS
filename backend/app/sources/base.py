@@ -211,9 +211,14 @@ def order_by_class(sources: list) -> list:
     return sorted(sources, key=lambda source: CLASS_ORDER[source_class(source).value])
 
 
+def is_runnable(source: object) -> bool:
+    """Catalog visibility is independent of permission/configuration to run."""
+    return bool(getattr(source, "runnable", True))
+
+
 def is_general_refresh_source(source: object) -> bool:
     """Genel baslik yenilemesine giren kaynak mi (opt-in haric)?"""
-    return not is_opt_in(source)
+    return is_runnable(source) and not is_opt_in(source)
 
 
 # ---------------------------------------------------------------------------

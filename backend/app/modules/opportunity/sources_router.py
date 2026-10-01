@@ -29,6 +29,7 @@ from app.sources.base import (
     env_flag,
     is_general_refresh_source,
     is_opt_in,
+    is_runnable,
     order_by_class,
     source_class,
     source_estimated_seconds,
@@ -57,7 +58,7 @@ class SourceRefreshIn(BaseModel):
     source_ids: list[str] | None = None
     kind: Literal["job", "announcement"] | None = None
     #: critical = yalnizca resmi/hizli kaynaklar; general = opt-in/yavas
-    #: kaynaklar haric (varsayilan); full = katalogun tamami.
+    #: kaynaklar haric (varsayilan); full = calistirilabilir katalog.
     mode: Literal["critical", "general", "full"] = "general"
 
 
@@ -73,6 +74,16 @@ class CachePruneIn(BaseModel):
 
 class CacheClearIn(BaseModel):
     confirm: bool = False
+
+
+def _require_runnable(sources: list) -> None:
+    for source in sources:
+        if not is_runnable(source):
+            status = getattr(source, "unavailable_reason", None)
+            reason = " ".join(
+                str(status or "kaynak yapılandırması çalıştırmaya izin vermiyor").split()
+            )
+            raise HTTPException(409, f"{source.id} şu an kullanılamıyor: {reason[:300]}")
 
 
 def _catalog_sources() -> list:
@@ -228,6 +239,8 @@ async def source_catalog(session: AsyncSession = Depends(get_session)):
             "estimated_seconds": source_estimated_seconds(source),
             "timeout_seconds": source_timeout_seconds(source),
             "opt_in": is_opt_in(source),
+            "runnable": is_runnable(source),
+            "unavailable_reason": getattr(source, "unavailable_reason", None),
             "circuit_open": states.get(source.id, {}).get("open", False),
             "consecutive_failures": states.get(source.id, {}).get("consecutive_failures", 0),
             #: Devre ACIKSA aga tekrar cikilacagi an; kapaliyken null. Deger
@@ -398,7 +411,7 @@ async def refresh_sources(
     source_ids verilirse yalnizca onlar (kullanici ne sectiyse, opt-in dahil);
     aksi halde `mode`: `critical` yalnizca resmi/hizli kaynaklari, `general`
     (varsayilan) opt-in/yavas kaynaklar haric tumunu, `full` ise katalogun
-    tamamini kosar. Her durumda critical -> normal -> slow_optin sirasi
+    calistirilabilir kaynaklarini kosar. Her durumda critical -> normal -> slow_optin sirasi
     korunur. API yalnizca kalici batch olusturur; cekimi API arka plan gorevi
     tuketir; worker acikken ayni kalici kuyrugu paylasir.
     """
@@ -413,8 +426,9 @@ async def refresh_sources(
             raise HTTPException(404, f"kaynak bulunamadı: {', '.join(unknown[:5])}")
         # Secili kaynaklarda da sinif sirasi korunur: kritik kaynaklar once.
         selected = order_by_class([catalog[item] for item in dict.fromkeys(body.source_ids)])
+        _require_runnable(selected)
     else:
-        pool = list(catalog.values())
+        pool = [source for source in catalog.values() if is_runnable(source)]
         if body.kind:
             pool = [
                 source
@@ -464,9 +478,10 @@ async def refresh_source(
     from app.worker.jobs import drain_source_sync_batches, reclaim_stale_source_runs
 
     try:
-        catalog = {source.id for source in _catalog_sources()}
+        catalog = {source.id: source for source in _catalog_sources()}
         if source_id not in catalog:
             raise KeyError(source_id)
+        _require_runnable([catalog[source_id]])
         await reclaim_stale_source_runs(session)
         batch, newly_queued = await sync_service.create_or_extend_batch(session, [source_id])
         await session.commit()

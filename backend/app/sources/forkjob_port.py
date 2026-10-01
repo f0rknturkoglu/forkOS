@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.sources.base import FetchOutcome, RawItem, ScrapeTelemetry
+from app.sources.base import FetchOutcome, RawItem, ScrapeTelemetry, source_timeout_seconds
 from app.sources.forkjob_core.config import load_config
 from app.sources.forkjob_core.models import Job
 from app.sources.forkjob_core.registry import Registry
@@ -115,6 +115,23 @@ class PortalSource:
         same way the registry does.
         """
         return self.portal.category
+
+    @property
+    def runnable(self) -> bool:
+        return self.portal.enabled
+
+    @property
+    def unavailable_reason(self) -> str | None:
+        return None if self.runnable else self.portal.status
+
+    @property
+    def timeout_seconds(self) -> float:
+        # Classification hygiene must not shorten existing portal deadlines.
+        return source_timeout_seconds(self.id)
+
+    @property
+    def source_class(self) -> str:
+        return "critical" if self.category == "government" else "normal"
 
     async def fetch(self) -> FetchOutcome:
         scraper = get_scraper(self.portal)

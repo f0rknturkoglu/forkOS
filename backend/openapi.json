@@ -33780,7 +33780,7 @@
     },
     "/api/sources/refresh": {
       "post": {
-        "description": "Secmeli ya da toplu cekim.\n\nsource_ids verilirse yalnizca onlar (kullanici ne sectiyse, opt-in dahil);\naksi halde `mode`: `critical` yalnizca resmi/hizli kaynaklari, `general`\n(varsayilan) opt-in/yavas kaynaklar haric tumunu, `full` ise katalogun\ntamamini kosar. Her durumda critical -> normal -> slow_optin sirasi\nkorunur. API yalnizca kalici batch olusturur; cekimi API arka plan gorevi\ntuketir; worker acikken ayni kalici kuyrugu paylasir.",
+        "description": "Secmeli ya da toplu cekim.\n\nsource_ids verilirse yalnizca onlar (kullanici ne sectiyse, opt-in dahil);\naksi halde `mode`: `critical` yalnizca resmi/hizli kaynaklari, `general`\n(varsayilan) opt-in/yavas kaynaklar haric tumunu, `full` ise katalogun\ncalistirilabilir kaynaklarini kosar. Her durumda critical -> normal -> slow_optin sirasi\nkorunur. API yalnizca kalici batch olusturur; cekimi API arka plan gorevi\ntuketir; worker acikken ayni kalici kuyrugu paylasir.",
         "operationId": "refresh_sources_api_sources_refresh_post",
         "requestBody": {
           "content": {
