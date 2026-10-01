@@ -52,6 +52,7 @@ const RULE_LABELS: Record<string, string> = {
   deadline_staircase: "Son tarih basamakları",
   continuity_gap: "Sessizlik sonrası dönüş",
   project_stalled: "Durmuş projeler",
+  strategy_attention: "Stratejik dikkat (isteğe bağlı)",
 };
 
 /** Kural varsayilan saatleri (backend `service.RULE_DEFAULTS`). */

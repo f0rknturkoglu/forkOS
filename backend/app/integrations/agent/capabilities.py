@@ -136,11 +136,18 @@ FAMILIES: tuple[FamilySpec, ...] = (
         summary="Yerel görüşme hazırlığı, sınırlı prova, kullanıcı debrief'i ve salt-okunur sonuç analitiği.",
         tools=("forkos_career_interview", "forkos_career_insights"),
     ),
+    FamilySpec(
+        id="Strategy",
+        label="Hedefler ve strateji",
+        summary="Deterministik sonuç, rota, uyum, kanıt kalitesi ve geçmiş; salt okunur.",
+        tools=("forkos_strategy",),
+    ),
 )
 
 #: Talimat metninde her ailenin ROLÜ. `FAMILIES` ile birebir örtüşmek zorundadır:
 #: eksik bir aile `instructions()` çağrısını sessizce atlamaz, KeyError verir.
 _FAMILY_ROLE: dict[str, str] = {
+    "Strategy": "Strategy facts are observation only. forkOS owns structured truth; Hermes reasons. Never mutate plan/goal/KR from a recommendation. Use brain_read for a linked Vault narrative and H3 for supporting evidence.",
     "Career": "Career: evidence-bound interview artifacts require approval for writes; insights are deterministic associations without mutations, never employer motives or automatic actions.",
     "H0": (
         "H0 operational and knowledge context: day briefing, operational search, "

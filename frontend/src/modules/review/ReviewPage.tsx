@@ -218,6 +218,20 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                 ))}
               </Select>
             </div>
+            {stats.strategy_snapshot && (
+              <Section title="Stratejik snapshot">
+                <p className="text-meta text-muted">
+                  Kaydedildiği andaki sonuç, rota ve uyum kanıtı. Güncel duruma göre yeniden hesaplanmaz.
+                </p>
+                <details>
+                  <summary className="text-meta">Ölçümler ve tanımlar</summary>
+                  <pre className="whitespace-pre-wrap break-all text-meta">
+                    {JSON.stringify(stats.strategy_snapshot, null, 2)}
+                  </pre>
+                </details>
+              </Section>
+            )}
+
             <div className="space-y-3">
               <SectionHeader label="Dönem özeti" />
               <MetricStrip className="grid-cols-2 lg:grid-cols-4">
@@ -246,7 +260,7 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                 </p>
                 {(stats.career_goals ?? []).length > 0 && (
                   <div className="mt-3 space-y-1 border-t border-subtle pt-3">
-                    <p className="text-meta font-semibold text-primary">Onaylı hedefler</p>
+                    <p className="text-meta font-semibold text-primary">Hedef adımları (milestone)</p>
                     {careerGoalReviewRows(
                       stats,
                       previous?.period_start === adjacentPeriod("weekly", period, -1) ? previous.stats : null,

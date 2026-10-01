@@ -50,6 +50,7 @@ RULE_KINDS: tuple[str, ...] = (
     "deadline_staircase",
     "continuity_gap",
     "project_stalled",
+    "strategy_attention",
 )
 
 #: Kural semantigi degistiginde artar; kosu gecmisi eski surumle okunabilir kalir.

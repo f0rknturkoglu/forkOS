@@ -40,9 +40,9 @@ async def _tools() -> dict:
 
 async def test_h5_adds_exactly_one_mcp_tool() -> None:
     tools = await _tools()
-    assert len(tools) == 36
+    assert len(tools) == 37
     assert set(tools) & H5_TOOLS == H5_TOOLS
-    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS | A4_TOOLS | {"forkos_context_judge", "forkos_memory_judge", "forkos_answer_judge", "forkos_career_interview", "forkos_career_insights"}
+    assert set(tools) == H0_TOOLS | H1_TOOLS | H2_TOOLS | H3_TOOLS | H4_TOOLS | H5_TOOLS | H6_TOOLS | H7_TOOLS | A4_TOOLS | {"forkos_context_judge", "forkos_memory_judge", "forkos_answer_judge", "forkos_career_interview", "forkos_career_insights", "forkos_strategy"}
 
 
 async def test_h5_tool_is_read_only() -> None:

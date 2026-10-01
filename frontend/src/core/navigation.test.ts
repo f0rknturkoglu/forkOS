@@ -30,6 +30,7 @@ describe("ürün navigasyonu — rota → alan", () => {
 
   it.each([
     ["/", "home"],
+    ["/goals", "goals"],
     ["/todos", "plan"],
     ["/habits", "plan"],
     ["/planner", "plan"],

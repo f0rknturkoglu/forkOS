@@ -2000,6 +2000,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/goals/strategy/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Strategy History */
+        get: operations["strategy_history_api_goals_strategy_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/strategy/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Strategy Overview */
+        get: operations["strategy_overview_api_goals_strategy_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/strategy/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Plan Create */
+        post: operations["plan_create_api_goals_strategy_plans_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/strategy/plans/{plan_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Plan Update */
+        put: operations["plan_update_api_goals_strategy_plans__plan_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/strategy/plans/{plan_id}/pillars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pillar Create */
+        post: operations["pillar_create_api_goals_strategy_plans__plan_id__pillars_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/strategy/plans/{plan_id}/pillars/{pillar_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Pillar Update */
+        put: operations["pillar_update_api_goals_strategy_plans__plan_id__pillars__pillar_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/goals/{goal_id}": {
         parameters: {
             query?: never;
@@ -2016,6 +2118,40 @@ export interface paths {
         head?: never;
         /** Update Goal */
         patch: operations["update_goal_api_goals__goal_id__patch"];
+        trace?: never;
+    };
+    "/api/goals/{goal_id}/key-results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Kr Create */
+        post: operations["kr_create_api_goals__goal_id__key_results_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{goal_id}/key-results/{kr_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Kr Update */
+        put: operations["kr_update_api_goals__goal_id__key_results__kr_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/goals/{goal_id}/milestones": {
@@ -5500,6 +5636,78 @@ export interface components {
             brain: components["schemas"]["BrainStatusOut"];
             local_cognition: components["schemas"]["LocalCognitionOut"];
         };
+        /** Aggregate */
+        Aggregate: {
+            /** Active Objectives */
+            active_objectives: number;
+            /** Confidence */
+            confidence: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Measurable Objectives */
+            measurable_objectives: number;
+            /**
+             * Method
+             * @default weighted-active-objectives-pillar-weight-v1; minimum 80% measurable coverage
+             */
+            method: string;
+            /** Progress Percent */
+            progress_percent: number | null;
+        };
+        /** Alignment */
+        Alignment: {
+            /** Eligible Count */
+            eligible_count: number;
+            /**
+             * End At
+             * Format: date-time
+             */
+            end_at: string;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Linked Count */
+            linked_count: number;
+            /**
+             * Method
+             * @default meaningful-events-links-v1
+             */
+            method: string;
+            /** Objectives */
+            objectives: components["schemas"]["Allocation"][];
+            /** Percent */
+            percent: number | null;
+            /** Pillars */
+            pillars: components["schemas"]["Allocation"][];
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /** Unaligned Count */
+            unaligned_count: number;
+            /** Warnings */
+            warnings: components["schemas"]["Reason"][];
+            /**
+             * Window Days
+             * @enum {integer}
+             */
+            window_days: 7 | 30 | 90;
+        };
+        /** Allocation */
+        Allocation: {
+            /** Count */
+            count: string;
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Share Percent */
+            share_percent: number;
+        };
         /** AncestorOut */
         AncestorOut: {
             /**
@@ -7425,6 +7633,33 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /** Finding */
+        Finding: {
+            /** Code */
+            code: string;
+            /** Entity Refs */
+            entity_refs: string[];
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Observed Facts */
+            observed_facts: string;
+            /**
+             * Severity
+             * @default warning
+             * @enum {string}
+             */
+            severity: "info" | "warning";
+            /**
+             * Window End
+             * Format: date-time
+             */
+            window_end: string;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+        };
         /**
          * FlashcardReviewStats
          * @description Donemde tekrar edilen kart sayisi + deste kirilimi.
@@ -7646,17 +7881,39 @@ export interface components {
              * @enum {string}
              */
             horizon: "short_term" | "quarter" | "year" | "long_term";
+            /** Parent Goal Id */
+            parent_goal_id?: string | null;
+            /** Pillar Id */
+            pillar_id?: string | null;
             /**
              * Position
              * @default 0
              */
             position: number;
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
             /** Source Memory Id */
             source_memory_id?: string | null;
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "paused" | "completed" | "retired";
+            /** Strategic Plan Id */
+            strategic_plan_id?: string | null;
             /** Target At */
             target_at?: string | null;
             /** Title */
             title: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number | string;
         };
         /** GoalMilestoneIn */
         GoalMilestoneIn: {
@@ -7725,10 +7982,21 @@ export interface components {
             id: string;
             /** Milestone Count */
             milestone_count: number;
+            /** Milestone Progress Percent */
+            milestone_progress_percent?: number | null;
             /** Milestones */
             milestones: components["schemas"]["GoalMilestoneOut"][];
+            /** Parent Goal Id */
+            parent_goal_id?: string | null;
+            /** Pillar Id */
+            pillar_id?: string | null;
             /** Position */
             position: number;
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
             /** Progress Percent */
             progress_percent: number | null;
             /** Source Memory Id */
@@ -7738,6 +8006,8 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "paused" | "completed" | "retired";
+            /** Strategic Plan Id */
+            strategic_plan_id?: string | null;
             /** Target At */
             target_at: string | null;
             /** Title */
@@ -7747,6 +8017,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: string;
         };
         /** GoalPatch */
         GoalPatch: {
@@ -7754,14 +8029,30 @@ export interface components {
             description?: string | null;
             /** Horizon */
             horizon?: ("short_term" | "quarter" | "year" | "long_term") | null;
+            /** Parent Goal Id */
+            parent_goal_id?: string | null;
+            /** Pillar Id */
+            pillar_id?: string | null;
             /** Position */
             position?: number | null;
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
             /** Status */
             status?: ("active" | "paused" | "completed" | "retired") | null;
+            /** Strategic Plan Id */
+            strategic_plan_id?: string | null;
             /** Target At */
             target_at?: string | null;
             /** Title */
             title?: string | null;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number | string;
         };
         /** GoalProgress */
         GoalProgress: {
@@ -7786,6 +8077,30 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HistoryItem */
+        HistoryItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "plan_revision" | "review_snapshot";
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** State */
+            state: {
+                [key: string]: unknown;
+            };
+            /** Title */
+            title: string;
         };
         /** HistoryOut */
         HistoryOut: {
@@ -8207,6 +8522,139 @@ export interface components {
             /** Number */
             number: number;
         };
+        /** KeyResultIn */
+        KeyResultIn: {
+            /**
+             * Baseline Value
+             * @default 0
+             */
+            baseline_value: number | string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Direction
+             * @default increase
+             * @enum {string}
+             */
+            direction: "increase" | "decrease";
+            /** Manual Value */
+            manual_value?: number | string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            source_config?: components["schemas"]["MetricConfig"];
+            /**
+             * Source Key
+             * @default manual
+             * @enum {string}
+             */
+            source_key: "manual" | "applications_applied" | "applications_interview" | "applications_offer" | "goal_milestones" | "linked_completion";
+            /** Start At */
+            start_at?: string | null;
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "paused" | "completed" | "retired";
+            /** Target At */
+            target_at?: string | null;
+            /** Target Value */
+            target_value: number | string;
+            /** Title */
+            title: string;
+            /**
+             * Trajectory Model
+             * @default none
+             * @enum {string}
+             */
+            trajectory_model: "linear" | "deadline" | "none";
+            /**
+             * Unit
+             * @default adet
+             */
+            unit: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number | string;
+        };
+        /** KeyResultOut */
+        KeyResultOut: {
+            /**
+             * Baseline Value
+             * @default 0
+             */
+            baseline_value: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Direction
+             * @default increase
+             * @enum {string}
+             */
+            direction: "increase" | "decrease";
+            /**
+             * Goal Id
+             * Format: uuid
+             */
+            goal_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Manual Value */
+            manual_value?: string | null;
+            /** Measured At */
+            measured_at: string | null;
+            measurement: components["schemas"]["Measurement"];
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            source_config?: components["schemas"]["MetricConfig"];
+            /**
+             * Source Key
+             * @default manual
+             * @enum {string}
+             */
+            source_key: "manual" | "applications_applied" | "applications_interview" | "applications_offer" | "goal_milestones" | "linked_completion";
+            /** Start At */
+            start_at?: string | null;
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "paused" | "completed" | "retired";
+            /** Target At */
+            target_at?: string | null;
+            /** Target Value */
+            target_value: string;
+            /** Title */
+            title: string;
+            /**
+             * Trajectory Model
+             * @default none
+             * @enum {string}
+             */
+            trajectory_model: "linear" | "deadline" | "none";
+            /**
+             * Unit
+             * @default adet
+             */
+            unit: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: string;
+        };
         /** KnockoutAnswerOut */
         KnockoutAnswerOut: {
             /**
@@ -8394,6 +8842,31 @@ export interface components {
             started_at?: string | null;
             /** Status */
             status: string;
+        };
+        /** Measurement */
+        Measurement: {
+            /**
+             * Confidence
+             * @default low
+             * @enum {string}
+             */
+            confidence: "high" | "medium" | "low";
+            /** Current Value */
+            current_value: string | null;
+            /** Evidence Refs */
+            evidence_refs?: string[];
+            /** Expected Percent */
+            expected_percent?: number | null;
+            /** Progress Percent */
+            progress_percent: number | null;
+            /** Reasons */
+            reasons?: components["schemas"]["Reason"][];
+            /**
+             * Trajectory
+             * @default unknown
+             * @enum {string}
+             */
+            trajectory: "ahead" | "on_track" | "behind" | "not_applicable" | "unknown";
         };
         /** MediaArtworkPruneOut */
         MediaArtworkPruneOut: {
@@ -9250,6 +9723,13 @@ export interface components {
             /** Provider */
             provider: string;
         };
+        /** MetricConfig */
+        MetricConfig: {
+            /** Linked Entity Id */
+            linked_entity_id?: string | null;
+            /** Since */
+            since?: string | null;
+        };
         /** MilestoneIn */
         MilestoneIn: {
             /** Due At */
@@ -9318,6 +9798,35 @@ export interface components {
             read_at: string | null;
             /** Title */
             title: string;
+        };
+        /** ObjectiveState */
+        ObjectiveState: {
+            /** Active Kr Count */
+            active_kr_count: number;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "high" | "medium" | "low";
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Expected Percent */
+            expected_percent: number | null;
+            goal: components["schemas"]["GoalOut"];
+            /** Key Results */
+            key_results: components["schemas"]["KeyResultOut"][];
+            /** Linked Entity Ids */
+            linked_entity_ids: string[];
+            /** Measurable Count */
+            measurable_count: number;
+            /** Milestone Progress Percent */
+            milestone_progress_percent: number | null;
+            /** Reasons */
+            reasons: components["schemas"]["Reason"][];
+            /** Strategic Progress Percent */
+            strategic_progress_percent: number | null;
+            /** Trajectory */
+            trajectory: string;
         };
         /** ObservationLivenessOut */
         ObservationLivenessOut: {
@@ -9837,6 +10346,117 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** PillarIn */
+        PillarIn: {
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /** Title */
+            title: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number | string;
+        };
+        /** PillarOut */
+        PillarOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Plan Id
+             * Format: uuid
+             */
+            plan_id: string;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /** Title */
+            title: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: string;
+        };
+        /** PlanIn */
+        PlanIn: {
+            /** Change Reason */
+            change_reason?: string | null;
+            /**
+             * End At
+             * Format: date-time
+             */
+            end_at: string;
+            /** Narrative Path */
+            narrative_path?: string | null;
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "paused" | "archived" | "superseded";
+            /** Summary */
+            summary?: string | null;
+            /** Title */
+            title: string;
+        };
+        /** PlanOut */
+        PlanOut: {
+            /** Change Reason */
+            change_reason?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * End At
+             * Format: date-time
+             */
+            end_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Narrative Path */
+            narrative_path?: string | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "paused" | "archived" | "superseded";
+            /** Summary */
+            summary?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** PlanSlotIn */
         PlanSlotIn: {
             /**
@@ -10290,6 +10910,18 @@ export interface components {
             /** Warnings */
             warnings?: string[];
         };
+        /** ProviderMetadata */
+        ProviderMetadata: {
+            /** Description */
+            description: string;
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "manual" | "applications_applied" | "applications_interview" | "applications_offer" | "goal_milestones" | "linked_completion";
+            /** Label */
+            label: string;
+        };
         /**
          * PrunePreviewOut
          * @description Silme onizlemesi. Kullaniciya ikinci onaydan once gosterilir.
@@ -10330,6 +10962,13 @@ export interface components {
             protected: number;
             /** Pruned */
             pruned: number;
+        };
+        /** Reason */
+        Reason: {
+            /** Code */
+            code: string;
+            /** Explanation */
+            explanation: string;
         };
         /** RecommendedAction */
         RecommendedAction: {
@@ -10719,6 +11358,10 @@ export interface components {
             habits: {
                 [key: string]: number;
             };
+            /** Strategy Snapshot */
+            strategy_snapshot?: {
+                [key: string]: unknown;
+            } | null;
             study: components["schemas"]["StudyReviewStats"];
             todos: components["schemas"]["TodoReviewStats"];
             /** Topics */
@@ -11527,6 +12170,66 @@ export interface components {
             /** Topic */
             topic?: string | null;
         };
+        /** StrategyHistory */
+        StrategyHistory: {
+            /** Alignment Delta */
+            alignment_delta?: number | null;
+            /** Comparable */
+            comparable: boolean;
+            /** Comparison Reason */
+            comparison_reason: string;
+            /** Items */
+            items: components["schemas"]["HistoryItem"][];
+            /** Progress Deltas */
+            progress_deltas?: {
+                [key: string]: number;
+            };
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /** StrategyOverview */
+        StrategyOverview: {
+            alignment: components["schemas"]["Alignment"];
+            /**
+             * Calculated At
+             * Format: date-time
+             */
+            calculated_at: string;
+            /** Findings */
+            findings: components["schemas"]["Finding"][];
+            /**
+             * Method
+             * @default strategy-v1
+             */
+            method: string;
+            /** Objectives */
+            objectives: components["schemas"]["ObjectiveState"][];
+            /** Pillar Progress */
+            pillar_progress: components["schemas"]["Aggregate"][];
+            /** Pillars */
+            pillars: components["schemas"]["PillarOut"][];
+            /** Plan Progress */
+            plan_progress: components["schemas"]["Aggregate"][];
+            /** Plans */
+            plans: components["schemas"]["PlanOut"][];
+            /** Providers */
+            providers: components["schemas"]["ProviderMetadata"][];
+            /**
+             * Schema Version
+             * @default 1
+             */
+            schema_version: number;
+            /** Warnings */
+            warnings: components["schemas"]["Reason"][];
+        };
+        /**
+         * StrategyWindow
+         * @enum {integer}
+         */
+        StrategyWindow: 7 | 30 | 90;
         /** StreakOut */
         StreakOut: {
             /** Current */
@@ -16263,6 +16966,196 @@ export interface operations {
             };
         };
     };
+    strategy_history_api_goals_strategy_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrategyHistory"];
+                };
+            };
+        };
+    };
+    strategy_overview_api_goals_strategy_overview_get: {
+        parameters: {
+            query?: {
+                days?: components["schemas"]["StrategyWindow"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StrategyOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_create_api_goals_strategy_plans_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_update_api_goals_strategy_plans__plan_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pillar_create_api_goals_strategy_plans__plan_id__pillars_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PillarIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PillarOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pillar_update_api_goals_strategy_plans__plan_id__pillars__pillar_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plan_id: string;
+                pillar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PillarIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PillarOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     goal_api_goals__goal_id__get: {
         parameters: {
             query?: never;
@@ -16316,6 +17209,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GoalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    kr_create_api_goals__goal_id__key_results_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeyResultIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyResultOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    kr_update_api_goals__goal_id__key_results__kr_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+                kr_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KeyResultIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyResultOut"];
                 };
             };
             /** @description Validation Error */

@@ -389,6 +389,171 @@
         "title": "AgentStatusOut",
         "type": "object"
       },
+      "Aggregate": {
+        "properties": {
+          "active_objectives": {
+            "title": "Active Objectives",
+            "type": "integer"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "measurable_objectives": {
+            "title": "Measurable Objectives",
+            "type": "integer"
+          },
+          "method": {
+            "default": "weighted-active-objectives-pillar-weight-v1; minimum 80% measurable coverage",
+            "title": "Method",
+            "type": "string"
+          },
+          "progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Percent"
+          }
+        },
+        "required": [
+          "id",
+          "progress_percent",
+          "measurable_objectives",
+          "active_objectives",
+          "confidence"
+        ],
+        "title": "Aggregate",
+        "type": "object"
+      },
+      "Alignment": {
+        "properties": {
+          "eligible_count": {
+            "title": "Eligible Count",
+            "type": "integer"
+          },
+          "end_at": {
+            "format": "date-time",
+            "title": "End At",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "linked_count": {
+            "title": "Linked Count",
+            "type": "integer"
+          },
+          "method": {
+            "default": "meaningful-events-links-v1",
+            "title": "Method",
+            "type": "string"
+          },
+          "objectives": {
+            "items": {
+              "$ref": "#/components/schemas/Allocation"
+            },
+            "title": "Objectives",
+            "type": "array"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "pillars": {
+            "items": {
+              "$ref": "#/components/schemas/Allocation"
+            },
+            "title": "Pillars",
+            "type": "array"
+          },
+          "start_at": {
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          },
+          "unaligned_count": {
+            "title": "Unaligned Count",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/Reason"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "window_days": {
+            "enum": [
+              7,
+              30,
+              90
+            ],
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_days",
+          "start_at",
+          "end_at",
+          "eligible_count",
+          "linked_count",
+          "unaligned_count",
+          "percent",
+          "objectives",
+          "pillars",
+          "warnings",
+          "evidence_refs"
+        ],
+        "title": "Alignment",
+        "type": "object"
+      },
+      "Allocation": {
+        "properties": {
+          "count": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Count",
+            "type": "string"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "share_percent": {
+            "title": "Share Percent",
+            "type": "number"
+          }
+        },
+        "required": [
+          "entity_id",
+          "count",
+          "share_percent"
+        ],
+        "title": "Allocation",
+        "type": "object"
+      },
       "AncestorOut": {
         "properties": {
           "id": {
@@ -5729,6 +5894,61 @@
         "title": "FeedUpdate",
         "type": "object"
       },
+      "Finding": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "entity_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Entity Refs",
+            "type": "array"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "observed_facts": {
+            "title": "Observed Facts",
+            "type": "string"
+          },
+          "severity": {
+            "default": "warning",
+            "enum": [
+              "info",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "window_end": {
+            "format": "date-time",
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "format": "date-time",
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "entity_refs",
+          "evidence_refs",
+          "observed_facts",
+          "window_start",
+          "window_end"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
       "FlashcardReviewStats": {
         "description": "Donemde tekrar edilen kart sayisi + deste kirilimi.",
         "properties": {
@@ -6324,9 +6544,40 @@
             "title": "Horizon",
             "type": "string"
           },
+          "parent_goal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Goal Id"
+          },
+          "pillar_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pillar Id"
+          },
           "position": {
             "default": 0,
             "title": "Position",
+            "type": "integer"
+          },
+          "priority": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Priority",
             "type": "integer"
           },
           "source_memory_id": {
@@ -6340,6 +6591,29 @@
               }
             ],
             "title": "Source Memory Id"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "active",
+              "paused",
+              "completed",
+              "retired"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategic_plan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategic Plan Id"
           },
           "target_at": {
             "anyOf": [
@@ -6358,6 +6632,20 @@
             "minLength": 1,
             "title": "Title",
             "type": "string"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+                "type": "string"
+              }
+            ],
+            "default": "1",
+            "title": "Weight"
           }
         },
         "required": [
@@ -6548,6 +6836,17 @@
             "title": "Milestone Count",
             "type": "integer"
           },
+          "milestone_progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Milestone Progress Percent"
+          },
           "milestones": {
             "items": {
               "$ref": "#/components/schemas/GoalMilestoneOut"
@@ -6555,8 +6854,39 @@
             "title": "Milestones",
             "type": "array"
           },
+          "parent_goal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Goal Id"
+          },
+          "pillar_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pillar Id"
+          },
           "position": {
             "title": "Position",
+            "type": "integer"
+          },
+          "priority": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Priority",
             "type": "integer"
           },
           "progress_percent": {
@@ -6591,6 +6921,18 @@
             "title": "Status",
             "type": "string"
           },
+          "strategic_plan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategic Plan Id"
+          },
           "target_at": {
             "anyOf": [
               {
@@ -6610,6 +6952,12 @@
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
+            "type": "string"
+          },
+          "weight": {
+            "default": "1",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+            "title": "Weight",
             "type": "string"
           }
         },
@@ -6663,6 +7011,30 @@
             ],
             "title": "Horizon"
           },
+          "parent_goal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Goal Id"
+          },
+          "pillar_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pillar Id"
+          },
           "position": {
             "anyOf": [
               {
@@ -6673,6 +7045,13 @@
               }
             ],
             "title": "Position"
+          },
+          "priority": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "type": "integer"
           },
           "status": {
             "anyOf": [
@@ -6690,6 +7069,18 @@
               }
             ],
             "title": "Status"
+          },
+          "strategic_plan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategic Plan Id"
           },
           "target_at": {
             "anyOf": [
@@ -6715,6 +7106,20 @@
               }
             ],
             "title": "Title"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+                "type": "string"
+              }
+            ],
+            "default": "1",
+            "title": "Weight"
           }
         },
         "title": "GoalPatch",
@@ -6795,6 +7200,46 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HistoryItem": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "plan_revision",
+              "review_snapshot"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "state": {
+            "additionalProperties": true,
+            "title": "State",
+            "type": "object"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "occurred_at",
+          "title",
+          "state"
+        ],
+        "title": "HistoryItem",
         "type": "object"
       },
       "HistoryOut": {
@@ -7879,6 +8324,340 @@
         "title": "IssueToTodoIn",
         "type": "object"
       },
+      "KeyResultIn": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,21}0*$)\\d{0,16}\\.\\d{0,4}0*$)",
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Baseline Value"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "direction": {
+            "default": "increase",
+            "enum": [
+              "increase",
+              "decrease"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "manual_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,21}0*$)\\d{0,16}\\.\\d{0,4}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual Value"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "source_config": {
+            "$ref": "#/components/schemas/MetricConfig"
+          },
+          "source_key": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "applications_applied",
+              "applications_interview",
+              "applications_offer",
+              "goal_milestones",
+              "linked_completion"
+            ],
+            "title": "Source Key",
+            "type": "string"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "active",
+              "paused",
+              "completed",
+              "retired"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target At"
+          },
+          "target_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,21}0*$)\\d{0,16}\\.\\d{0,4}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Target Value"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "trajectory_model": {
+            "default": "none",
+            "enum": [
+              "linear",
+              "deadline",
+              "none"
+            ],
+            "title": "Trajectory Model",
+            "type": "string"
+          },
+          "unit": {
+            "default": "adet",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+                "type": "string"
+              }
+            ],
+            "default": "1",
+            "title": "Weight"
+          }
+        },
+        "required": [
+          "title",
+          "target_value"
+        ],
+        "title": "KeyResultIn",
+        "type": "object"
+      },
+      "KeyResultOut": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_value": {
+            "default": "0",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,21}0*$)\\d{0,16}\\.\\d{0,4}0*$)",
+            "title": "Baseline Value",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "direction": {
+            "default": "increase",
+            "enum": [
+              "increase",
+              "decrease"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "goal_id": {
+            "format": "uuid",
+            "title": "Goal Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "manual_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,21}0*$)\\d{0,16}\\.\\d{0,4}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual Value"
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
+          },
+          "measurement": {
+            "$ref": "#/components/schemas/Measurement"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "source_config": {
+            "$ref": "#/components/schemas/MetricConfig"
+          },
+          "source_key": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "applications_applied",
+              "applications_interview",
+              "applications_offer",
+              "goal_milestones",
+              "linked_completion"
+            ],
+            "title": "Source Key",
+            "type": "string"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "active",
+              "paused",
+              "completed",
+              "retired"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target At"
+          },
+          "target_value": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,21}0*$)\\d{0,16}\\.\\d{0,4}0*$)",
+            "title": "Target Value",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "trajectory_model": {
+            "default": "none",
+            "enum": [
+              "linear",
+              "deadline",
+              "none"
+            ],
+            "title": "Trajectory Model",
+            "type": "string"
+          },
+          "unit": {
+            "default": "adet",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          },
+          "weight": {
+            "default": "1",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+            "title": "Weight",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "target_value",
+          "id",
+          "goal_id",
+          "measured_at",
+          "measurement"
+        ],
+        "title": "KeyResultOut",
+        "type": "object"
+      },
       "KnockoutAnswerOut": {
         "properties": {
           "classification": {
@@ -8329,6 +9108,86 @@
           "status"
         ],
         "title": "ManualRefreshOut",
+        "type": "object"
+      },
+      "Measurement": {
+        "properties": {
+          "confidence": {
+            "default": "low",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "current_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Value"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "expected_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Percent"
+          },
+          "progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Percent"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/Reason"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "trajectory": {
+            "default": "unknown",
+            "enum": [
+              "ahead",
+              "on_track",
+              "behind",
+              "not_applicable",
+              "unknown"
+            ],
+            "title": "Trajectory",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_value",
+          "progress_percent"
+        ],
+        "title": "Measurement",
         "type": "object"
       },
       "MediaArtworkPruneOut": {
@@ -10971,6 +11830,37 @@
         "title": "MetadataSearchWarning",
         "type": "object"
       },
+      "MetricConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "linked_entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Entity Id"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          }
+        },
+        "title": "MetricConfig",
+        "type": "object"
+      },
       "MilestoneIn": {
         "properties": {
           "due_at": {
@@ -11182,6 +12072,112 @@
           "read_at"
         ],
         "title": "NotificationOut",
+        "type": "object"
+      },
+      "ObjectiveState": {
+        "properties": {
+          "active_kr_count": {
+            "title": "Active Kr Count",
+            "type": "integer"
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "expected_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Percent"
+          },
+          "goal": {
+            "$ref": "#/components/schemas/GoalOut"
+          },
+          "key_results": {
+            "items": {
+              "$ref": "#/components/schemas/KeyResultOut"
+            },
+            "title": "Key Results",
+            "type": "array"
+          },
+          "linked_entity_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Linked Entity Ids",
+            "type": "array"
+          },
+          "measurable_count": {
+            "title": "Measurable Count",
+            "type": "integer"
+          },
+          "milestone_progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Milestone Progress Percent"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/Reason"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "strategic_progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategic Progress Percent"
+          },
+          "trajectory": {
+            "title": "Trajectory",
+            "type": "string"
+          }
+        },
+        "required": [
+          "goal",
+          "key_results",
+          "strategic_progress_percent",
+          "milestone_progress_percent",
+          "measurable_count",
+          "active_kr_count",
+          "confidence",
+          "reasons",
+          "trajectory",
+          "expected_percent",
+          "linked_entity_ids",
+          "evidence_refs"
+        ],
+        "title": "ObjectiveState",
         "type": "object"
       },
       "ObservationLivenessOut": {
@@ -12989,6 +13985,253 @@
         "title": "PaidRecurringOut",
         "type": "object"
       },
+      "PillarIn": {
+        "additionalProperties": false,
+        "properties": {
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+                "type": "string"
+              }
+            ],
+            "default": "1",
+            "title": "Weight"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "PillarIn",
+        "type": "object"
+      },
+      "PillarOut": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "plan_id": {
+            "format": "uuid",
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "weight": {
+            "default": "1",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+            "title": "Weight",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "id",
+          "plan_id"
+        ],
+        "title": "PillarOut",
+        "type": "object"
+      },
+      "PlanIn": {
+        "additionalProperties": false,
+        "properties": {
+          "change_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Reason"
+          },
+          "end_at": {
+            "format": "date-time",
+            "title": "End At",
+            "type": "string"
+          },
+          "narrative_path": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Narrative Path"
+          },
+          "start_at": {
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "active",
+              "paused",
+              "archived",
+              "superseded"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "start_at",
+          "end_at"
+        ],
+        "title": "PlanIn",
+        "type": "object"
+      },
+      "PlanOut": {
+        "additionalProperties": false,
+        "properties": {
+          "change_reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Reason"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "end_at": {
+            "format": "date-time",
+            "title": "End At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "narrative_path": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Narrative Path"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "start_at": {
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "active",
+              "paused",
+              "archived",
+              "superseded"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "start_at",
+          "end_at",
+          "id",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PlanOut",
+        "type": "object"
+      },
       "PlanSlotIn": {
         "properties": {
           "day": {
@@ -14385,6 +15628,37 @@
         "title": "ProposalOut",
         "type": "object"
       },
+      "ProviderMetadata": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "key": {
+            "enum": [
+              "manual",
+              "applications_applied",
+              "applications_interview",
+              "applications_offer",
+              "goal_milestones",
+              "linked_completion"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "description"
+        ],
+        "title": "ProviderMetadata",
+        "type": "object"
+      },
       "PrunePreviewOut": {
         "description": "Silme onizlemesi. Kullaniciya ikinci onaydan once gosterilir.",
         "properties": {
@@ -14465,6 +15739,24 @@
           "days"
         ],
         "title": "PruneResultOut",
+        "type": "object"
+      },
+      "Reason": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "explanation"
+        ],
+        "title": "Reason",
         "type": "object"
       },
       "RecommendedAction": {
@@ -15590,6 +16882,18 @@
             },
             "title": "Habits",
             "type": "object"
+          },
+          "strategy_snapshot": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy Snapshot"
           },
           "study": {
             "$ref": "#/components/schemas/StudyReviewStats"
@@ -17559,6 +18863,156 @@
         ],
         "title": "StrategicSignal",
         "type": "object"
+      },
+      "StrategyHistory": {
+        "properties": {
+          "alignment_delta": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alignment Delta"
+          },
+          "comparable": {
+            "title": "Comparable",
+            "type": "boolean"
+          },
+          "comparison_reason": {
+            "title": "Comparison Reason",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "progress_deltas": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Progress Deltas",
+            "type": "object"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "comparable",
+          "comparison_reason"
+        ],
+        "title": "StrategyHistory",
+        "type": "object"
+      },
+      "StrategyOverview": {
+        "properties": {
+          "alignment": {
+            "$ref": "#/components/schemas/Alignment"
+          },
+          "calculated_at": {
+            "format": "date-time",
+            "title": "Calculated At",
+            "type": "string"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "method": {
+            "default": "strategy-v1",
+            "title": "Method",
+            "type": "string"
+          },
+          "objectives": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectiveState"
+            },
+            "title": "Objectives",
+            "type": "array"
+          },
+          "pillar_progress": {
+            "items": {
+              "$ref": "#/components/schemas/Aggregate"
+            },
+            "title": "Pillar Progress",
+            "type": "array"
+          },
+          "pillars": {
+            "items": {
+              "$ref": "#/components/schemas/PillarOut"
+            },
+            "title": "Pillars",
+            "type": "array"
+          },
+          "plan_progress": {
+            "items": {
+              "$ref": "#/components/schemas/Aggregate"
+            },
+            "title": "Plan Progress",
+            "type": "array"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/PlanOut"
+            },
+            "title": "Plans",
+            "type": "array"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderMetadata"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "schema_version": {
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/Reason"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "calculated_at",
+          "plans",
+          "pillars",
+          "objectives",
+          "plan_progress",
+          "pillar_progress",
+          "alignment",
+          "findings",
+          "providers",
+          "warnings"
+        ],
+        "title": "StrategyOverview",
+        "type": "object"
+      },
+      "StrategyWindow": {
+        "enum": [
+          7,
+          30,
+          90
+        ],
+        "title": "StrategyWindow",
+        "type": "integer"
       },
       "StreakOut": {
         "properties": {
@@ -25515,6 +26969,279 @@
         ]
       }
     },
+    "/api/goals/strategy/history": {
+      "get": {
+        "operationId": "strategy_history_api_goals_strategy_history_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StrategyHistory"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Strategy History",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/strategy/overview": {
+      "get": {
+        "operationId": "strategy_overview_api_goals_strategy_overview_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/StrategyWindow",
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StrategyOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Strategy Overview",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/strategy/plans": {
+      "post": {
+        "operationId": "plan_create_api_goals_strategy_plans_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Create",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/strategy/plans/{plan_id}": {
+      "put": {
+        "operationId": "plan_update_api_goals_strategy_plans__plan_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Update",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/strategy/plans/{plan_id}/pillars": {
+      "post": {
+        "operationId": "pillar_create_api_goals_strategy_plans__plan_id__pillars_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PillarIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PillarOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pillar Create",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/strategy/plans/{plan_id}/pillars/{pillar_id}": {
+      "put": {
+        "operationId": "pillar_update_api_goals_strategy_plans__plan_id__pillars__pillar_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pillar_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pillar Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PillarIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PillarOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pillar Update",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
     "/api/goals/{goal_id}": {
       "get": {
         "operationId": "goal_api_goals__goal_id__get",
@@ -25604,6 +27331,122 @@
           }
         },
         "summary": "Update Goal",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/{goal_id}/key-results": {
+      "post": {
+        "operationId": "kr_create_api_goals__goal_id__key_results_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Goal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyResultIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyResultOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Kr Create",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/{goal_id}/key-results/{kr_id}": {
+      "put": {
+        "operationId": "kr_update_api_goals__goal_id__key_results__kr_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Goal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kr_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Kr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyResultIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyResultOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Kr Update",
         "tags": [
           "goals"
         ]

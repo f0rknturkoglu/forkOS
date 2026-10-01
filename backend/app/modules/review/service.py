@@ -299,7 +299,10 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
             )
         ).scalar_one()
     )
+    from app.modules.goal import strategy as strategic_service
+    strategic_read = await strategic_service.overview(session)
     stats = {
+        "strategy_snapshot": strategic_service.snapshot(strategic_read),
         "todos": {
             "completed": await _event_count(session, "todo.completed", start_dt, end_dt),
             "created": await _event_count(session, "todo.created", start_dt, end_dt),

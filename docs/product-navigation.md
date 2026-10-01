@@ -298,3 +298,9 @@ YAZAR ve talimat metni eklemez. Hata metinleri backend'de maskelenir
   `WorkspaceRail*` / `WorkspaceScrollArea` primitiflerini kullanır. Bilinçli
   istisnalar: Home (pano), Odak (zamanlayıcı), Bilgi (Vault köprüsü), RSS
   (kendi iki panelli düzeni).
+
+### Hedefler
+
+`goal` registry modülü `/goals` rotasında birincil **Hedefler** alanına aittir.
+Genel Bakış, Hedefler, Plan ve Geçmiş aynı çalışma alanındadır. Kariyer içindeki
+eski hedef editörü özet ve Hedefleri aç bağlantısına dönüştürüldü.

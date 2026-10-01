@@ -20,7 +20,7 @@ FRONTEND_ROUTES = {
     "/study", "/learning", "/documents", "/notes", "/calendar", "/media",
     "/media/collections", "/media/{id}",
     "/projects", "/finance", "/health", "/settings", "/activity", "/day",
-    "/flashcard", "/statistics",
+    "/flashcard", "/statistics", "/goals",
 }
 
 

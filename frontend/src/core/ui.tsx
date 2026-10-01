@@ -385,6 +385,7 @@ export function Input({
   onBlur,
   ariaLabel,
   max,
+  step,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -398,6 +399,7 @@ export function Input({
   onBlur?: (value: string) => void;
   ariaLabel?: string;
   max?: string;
+  step?: string;
 }) {
   return (
     <input
@@ -409,6 +411,7 @@ export function Input({
       onBlur={(e) => onBlur?.(e.target.value)}
       aria-label={ariaLabel ?? placeholder}
       max={max}
+      step={step}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       className={cx(

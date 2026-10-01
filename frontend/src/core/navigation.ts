@@ -32,6 +32,7 @@ import {
   Library,
   SlidersHorizontal,
   Wallet,
+  Target,
 } from "lucide-react";
 import type { ModuleSpec } from "./types";
 
@@ -39,7 +40,17 @@ import type { ModuleSpec } from "./types";
 type NavigationPlacement = "primary" | "system";
 
 export type ProductAreaId =
-  "home" | "plan" | "projects" | "career" | "learning" | "library" | "finance" | "activity" | "review" | "system";
+  | "home"
+  | "goals"
+  | "plan"
+  | "projects"
+  | "career"
+  | "learning"
+  | "library"
+  | "finance"
+  | "activity"
+  | "review"
+  | "system";
 
 /** Bir alanın altındaki tek satır: mevcut bir rota ya da alan-içi derin görünüm. */
 export interface NavigationRow {
@@ -99,6 +110,7 @@ const PRODUCT_AREAS: readonly ProductArea[] = [
     moduleIds: ["today"],
     landing: "/",
   },
+  { id: "goals", label: "Hedefler", icon: Target, placement: "primary", moduleIds: ["goal"], landing: "/goals" },
   {
     id: "plan",
     label: "Plan",

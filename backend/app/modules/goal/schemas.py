@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
@@ -18,17 +19,33 @@ def _title(value: str) -> str:
 
 
 class GoalIn(BaseModel):
+    status: GoalStatus = "active"
     title: str = Field(min_length=1, max_length=300)
     description: str | None = Field(default=None, max_length=5000)
     horizon: GoalHorizon = "quarter"
     target_at: datetime | None = None
     position: int = 0
     source_memory_id: str | None = Field(default=None, max_length=64)
+    strategic_plan_id: UUID | None = None
+    pillar_id: UUID | None = None
+    parent_goal_id: UUID | None = None
+    priority: int = Field(default=2, ge=1, le=3)
+    weight: Decimal = Field(
+        default=Decimal(1), gt=0, max_digits=16, decimal_places=4, allow_inf_nan=False
+    )
 
     _clean_title = field_validator("title")(_title)
 
 
 class GoalPatch(BaseModel):
+    strategic_plan_id: UUID | None = None
+    pillar_id: UUID | None = None
+    parent_goal_id: UUID | None = None
+    priority: int = Field(default=2, ge=1, le=3)
+    weight: Decimal = Field(
+        default=Decimal(1), gt=0, max_digits=16, decimal_places=4, allow_inf_nan=False
+    )
+
     title: str | None = Field(default=None, min_length=1, max_length=300)
     description: str | None = Field(default=None, max_length=5000)
     status: GoalStatus | None = None
@@ -86,3 +103,11 @@ class GoalOut(BaseModel):
     milestone_count: int
     completed_milestones: int
     progress_percent: int | None
+    milestone_progress_percent: int | None = None
+    strategic_plan_id: UUID | None = None
+    pillar_id: UUID | None = None
+    parent_goal_id: UUID | None = None
+    priority: int = Field(default=2, ge=1, le=3)
+    weight: Decimal = Field(
+        default=Decimal(1), gt=0, max_digits=16, decimal_places=4, allow_inf_nan=False
+    )

@@ -79,7 +79,7 @@ export function CareerStrategyPanel() {
             ))}
           </div>
           <div>
-            <h3 className="text-body font-semibold text-primary">Kanonik hedef ilerlemesi</h3>
+            <h3 className="text-body font-semibold text-primary">Hedef adımlarının tamamlanması</h3>
             {query.data.goal_progress.length === 0 && (
               <p className="text-meta text-muted">Ölçülebilir operasyonel hedef kaydı yok.</p>
             )}

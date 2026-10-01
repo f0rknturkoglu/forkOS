@@ -30,7 +30,7 @@ async def _tools() -> dict:
 
 async def test_h6_adds_exactly_one_tool() -> None:
     tools = await _tools()
-    assert len(tools) == 36
+    assert len(tools) == 37
     assert set(tools) & H6_TOOLS == H6_TOOLS
 
 
@@ -82,6 +82,7 @@ def test_rule_kinds_are_a_closed_set() -> None:
         "deadline_staircase",
         "continuity_gap",
         "project_stalled",
+        "strategy_attention",
     )
 
 

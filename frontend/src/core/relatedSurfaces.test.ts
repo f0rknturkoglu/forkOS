@@ -56,6 +56,12 @@ function backendEntitySpecs(): Record<string, BackendSpec> {
  *  linkable=False oldu; yuzeyleri yok (asagidaki kapali liste). */
 const SURFACES: Record<string, string | string[]> = {
   todo: "src/modules/todo/TodoPage.tsx",
+  goal: "src/modules/goal/GoalsPage.tsx",
+  goal_milestone: "src/modules/goal/GoalsPage.tsx",
+  strategic_plan: "src/modules/goal/GoalsPage.tsx",
+  strategic_pillar: "src/modules/goal/GoalsPage.tsx",
+  key_result: "src/modules/goal/GoalsPage.tsx",
+
   project: "src/modules/projects/ProjectsPage.tsx",
   opportunity: ["src/modules/opportunity/JobDetail.tsx", "src/modules/opportunity/AnnouncementDetail.tsx"],
   // Ogrenme yuzeyi artik konu detayi ("Baglantilar" sekmesi); sayfa yalniz kabuk.
@@ -111,14 +117,13 @@ describe("entity relation visibility (Faz 18/32)", () => {
         "media_cycle",
         "media_unit",
         "flashcard_card",
-        "goal",
-        "goal_milestone",
         "career_action_proposal",
         "milestone",
         "note",
         "note_folder",
         "pomodoro_session",
         "review",
+        "strategic_plan_revision",
         "study_area",
       ].sort(),
     );

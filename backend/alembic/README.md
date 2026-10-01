@@ -4,7 +4,7 @@ forkOS migration zincirinin gerçeği dosya adları değil, her revision içinde
 
 ## Güncel durum
 
-- Tek head: `0072_interview_intelligence`
+- Tek head: `0077_goals_strategy`
 - Taban: `0001_core`
 - Zincir doğrulaması: `backend/tests/test_migrations.py::test_revisions_form_a_single_chain`
 
@@ -53,3 +53,7 @@ Bu dosyaları yalnızca isimleri düzenlemek için yeniden adlandırma. PostgreS
 ## Güvenlik notu
 
 Kişisel `lifeos` veritabanını migration denemesi için sıfırlama. `make test`, adı `_test` ile biten geçici PostgreSQL veritabanı kullanır ve test projesini iş bitince `down -v` ile temizler.
+
+Güncel tek head: `0077_goals_strategy` (önceki `0076_source_run_telemetry`).
+Yeni strateji tabloları ve nullable Goal yerleşimi eklenir; mevcut Goal/milestone,
+source_memory_id veya kişisel veriler dönüştürülmez.

@@ -10,6 +10,7 @@ import { queryClient } from "./queryClient";
 
 export const AFTER = {
   "todo.write": [
+    "strategy-overview",
     "career-strategy",
     "career-proposals",
     "todos",
@@ -55,6 +56,7 @@ export const AFTER = {
   ],
   "opportunity.write": [
     "career-insights",
+    "strategy-overview",
     "career-strategy",
     "career-proposals",
     "career-interview-intelligence",
@@ -85,6 +87,8 @@ export const AFTER = {
     "activity",
   ],
   "goal.write": [
+    "strategy-overview",
+    "strategy-history",
     "career-goals",
     "career-goal",
     "career-strategy",
@@ -96,8 +100,10 @@ export const AFTER = {
     "related",
   ],
   "career-strategy.write": [
+    "strategy-overview",
     "career-strategy",
     "career-proposals",
+    "strategy-history",
     "career-goals",
     "career-goal",
     "study-topics",
@@ -109,6 +115,7 @@ export const AFTER = {
     "related",
   ],
   "project.write": [
+    "strategy-overview",
     "career-strategy",
     "career-proposals",
     "projects",
@@ -137,6 +144,7 @@ export const AFTER = {
   // de bu veriden beslenir -- yalnizca "flashcard" tazelemek onlari bayat birakir.
   "flashcard.write": ["flashcard", "activity", "statistics", "today-agenda", "review-preview"],
   "study.write": [
+    "strategy-overview",
     "career-strategy",
     "career-proposals",
     "study-areas",
@@ -196,7 +204,7 @@ export const AFTER = {
   // Degerlendirme kararlari gorev yazar: devredilen gorev plan slotu alir,
   // oncelikler yeni gorev uretir. Home ajandasi kendi ucuyla ("today-agenda")
   // okundugu icin yalniz todos/plan tazelemek onu bayat birakiyordu.
-  "review.write": ["review-preview", "reviews", "todos", "plan", "today-agenda", "activity"],
+  "review.write": ["strategy-history", "review-preview", "reviews", "todos", "plan", "today-agenda", "activity"],
   // H6 kontrol yuzeyi (Ayarlar > Proaktivite + bildirim panelindeki erteleme)
   // bu yazma olayindan beslenir: ana anahtar, esik ve erteleme durum/kural/
   // gecmis sorgularinin ucunu de tazeler.
@@ -239,7 +247,7 @@ export const AFTER = {
     "source-coverage",
     "source-cache",
   ],
-  "link.write": ["related", "backlinks", "activity"],
+  "link.write": ["strategy-overview", "related", "backlinks", "activity"],
   // Bilgi artık Vault'ta yaşar: Vault yazması forkOS veritabanını
   // DEĞİŞTİRMEZ, bu yüzden yalnız Vault sorguları tazelenir.
   "obsidian.write": ["vault-status", "vault-item"],

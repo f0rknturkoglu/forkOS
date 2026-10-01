@@ -126,7 +126,7 @@ async def _tools() -> dict:
 async def test_exact_public_tool_surface() -> None:
     """H1'in 11 yazma aracı korunurken toplam MCP yüzeyi A5.3 ile 34'tür."""
     tool_map = await _tools()
-    assert len(tool_map) == 36
+    assert len(tool_map) == 37
     assert set(tool_map) == (
         set(READ_TOOLS)
         | set(WRITE_TOOLS)
@@ -144,6 +144,7 @@ async def test_exact_public_tool_surface() -> None:
             "forkos_answer_judge",
             "forkos_career_interview",
             "forkos_career_insights",
+            "forkos_strategy",
         }
     )
 

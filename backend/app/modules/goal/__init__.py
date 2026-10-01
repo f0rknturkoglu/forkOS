@@ -7,20 +7,50 @@ MODULE = ModuleSpec(
     title="Goals",
     router=router,
     entity_types=[
-        # C8 has a list/editor surface, not a standalone relation-detail surface.
         EntityTypeSpec(
-            "goal", "Hedef", "Hedefler", "/opportunities?tab=career", "Target", linkable=False
+            "strategic_plan", "Stratejik plan", "Stratejik planlar", "/goals?entity={id}", "Compass"
         ),
+        EntityTypeSpec(
+            "strategic_pillar",
+            "Stratejik alan",
+            "Stratejik alanlar",
+            "/goals?entity={id}",
+            "Layers",
+        ),
+        EntityTypeSpec(
+            "strategic_plan_revision",
+            "Plan revizyonu",
+            "Plan revizyonları",
+            "/goals?view=history&entity={id}",
+            "History",
+            linkable=False,
+        ),
+        EntityTypeSpec(
+            "key_result",
+            "Ölçülebilir sonuç",
+            "Ölçülebilir sonuçlar",
+            "/goals?entity={id}",
+            "TrendingUp",
+        ),
+        EntityTypeSpec("goal", "Hedef", "Hedefler", "/goals?entity={id}", "Target", linkable=True),
         EntityTypeSpec(
             "goal_milestone",
             "Hedef kilometre taşı",
             "Hedef kilometre taşları",
-            "/opportunities?tab=career",
+            "/goals?entity={id}",
             "Flag",
-            linkable=False,
+            linkable=True,
         ),
     ],
     event_verbs=[
+        "strategic_plan.created",
+        "strategic_plan.updated",
+        "strategic_plan.revised",
+        "strategic_pillar.created",
+        "strategic_pillar.updated",
+        "key_result.created",
+        "key_result.updated",
+        "key_result.manual_value_updated",
         "goal.created",
         "goal.updated",
         "goal.milestone_added",

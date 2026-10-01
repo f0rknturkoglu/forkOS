@@ -122,7 +122,7 @@ describe("RelatedPanel", () => {
     fireEvent.click(unlink);
 
     await waitFor(() =>
-      expect(apiDel).toHaveBeenCalledWith("/links", { from_id: "opp-1", to_id: "bm-1", relation: "saved_from" }),
+      expect(apiDel).toHaveBeenCalledWith("/links", { from_id: "bm-1", to_id: "opp-1", relation: "saved_from" }),
     );
   });
 

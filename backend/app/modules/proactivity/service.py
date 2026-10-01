@@ -69,6 +69,7 @@ RULE_DEFAULTS: dict[str, dict[str, object]] = {
     "deadline_staircase": {"enabled": True},
     "continuity_gap": {"enabled": False, "threshold_hours": 48},
     "project_stalled": {"enabled": False, "days": 14, "cooldown_days": 7},
+    "strategy_attention": {"enabled": False, "cooldown_days": 30},
 }
 
 #: Kural turune gore IZIN VERILEN ayar alanlari (serbest anahtar-deger YOK, §106).
@@ -79,6 +80,7 @@ RULE_CONFIG_FIELDS: dict[str, tuple[str, ...]] = {
     "deadline_staircase": (),
     "continuity_gap": ("threshold_hours",),
     "project_stalled": ("days", "cooldown_days"),
+    "strategy_attention": ("cooldown_days",),
 }
 
 #: Sinirli tarih listesi: kosu gecmisi bu kadar gun tutulur (§92).
@@ -168,7 +170,9 @@ async def load_config(session: AsyncSession) -> dict[str, object]:
             _safe_hhmm(await _get_setting(session, SETTING_QUIET_END), SETTING_QUIET_END),
         ),
         "focus_deferral_enabled": bool(await _get_setting(session, SETTING_FOCUS_DEFERRAL)),
-        "digest_time": _safe_hhmm(await _get_setting(session, SETTING_DIGEST_TIME), SETTING_DIGEST_TIME),
+        "digest_time": _safe_hhmm(
+            await _get_setting(session, SETTING_DIGEST_TIME), SETTING_DIGEST_TIME
+        ),
     }
 
 
@@ -232,7 +236,9 @@ async def list_rules(session: AsyncSession) -> list[ProactivityRule]:
     return list(
         (
             await session.execute(
-                select(ProactivityRule).order_by(ProactivityRule.kind.asc(), ProactivityRule.id.asc())
+                select(ProactivityRule).order_by(
+                    ProactivityRule.kind.asc(), ProactivityRule.id.asc()
+                )
             )
         ).scalars()
     )
@@ -285,9 +291,7 @@ def validate_rule_config(kind: str, config: dict) -> dict:
     allowed = RULE_CONFIG_FIELDS.get(kind, ())
     unknown = set(config) - set(allowed)
     if unknown:
-        raise ProactivityError(
-            "UNKNOWN_CONFIG_FIELD", f"bilinmeyen ayar alani: {sorted(unknown)}"
-        )
+        raise ProactivityError("UNKNOWN_CONFIG_FIELD", f"bilinmeyen ayar alani: {sorted(unknown)}")
     cleaned: dict[str, object] = {}
     for key, value in config.items():
         if key in {"time", "digest_time"}:
@@ -446,8 +450,7 @@ async def cancel_stale_episodes(
         run
         for run in runs
         if _episode_scope(run.logical_trigger_key) == scope
-        and rules.revision_of_key(run.logical_trigger_key)
-        != rules.revision_of_key(keep_key)
+        and rules.revision_of_key(run.logical_trigger_key) != rules.revision_of_key(keep_key)
     ]
     for run in stale:
         run.state = "cancelled"
@@ -501,7 +504,9 @@ async def tick(
         rule = by_kind.get(candidate.rule_kind)
         if rule is None:
             continue
-        await _process_candidate(session, rule=rule, candidate=candidate, config=config, now=moment, result=result)
+        await _process_candidate(
+            session, rule=rule, candidate=candidate, config=config, now=moment, result=result
+        )
 
     await _flush_pending(session, rules_by_kind=by_kind, config=config, now=moment, result=result)
     await _flush_digest(session, rules_by_kind=by_kind, config=config, now=moment, result=result)
@@ -598,7 +603,9 @@ async def _process_candidate(
         return
 
     # surface / prepare: H5 baglami TESLIM ANINDA kurulur.
-    await _deliver_now(session, run=run, rule=rule, candidate=candidate, decision=decision, now=now, result=result)
+    await _deliver_now(
+        session, run=run, rule=rule, candidate=candidate, decision=decision, now=now, result=result
+    )
 
 
 #: Teslim edilebilir (henuz terminal olmayan) durumlar.
@@ -758,7 +765,13 @@ async def _flush_pending(
             continue
         candidate = _candidate_for(rule, run)
         await _deliver_now(
-            session, run=run, rule=rule, candidate=candidate, decision=decision, now=now, result=result
+            session,
+            run=run,
+            rule=rule,
+            candidate=candidate,
+            decision=decision,
+            now=now,
+            result=result,
         )
 
 
@@ -853,17 +866,20 @@ async def _compose(
 
     if rule.kind == "deadline_staircase":
         identity = _episode_scope(run.logical_trigger_key)
-        row = (
-            await rules.current_condition_row(session, identity)
-            if identity is not None
-            else None
-        )
+        row = await rules.current_condition_row(session, identity) if identity is not None else None
         if row is None:
             return "", []
         due = row["due_at"]
         days = max((due - now).days, 0)
         title = str(row.get("title") or "Kayıt")
         return f"{title} — {days} gün kaldı", [f"{title} için son tarih {days} gün içinde"]
+
+    if rule.kind == "strategy_attention":
+        candidates = await rules._strategy_candidates(session, rule, now=now)
+        matching = next(
+            (c for c in candidates if c.logical_trigger_key == run.logical_trigger_key), None
+        )
+        return ("Stratejik inceleme", [matching.why_now]) if matching else ("", [])
 
     if rule.kind == "project_stalled":
         entity = await session.get(Entity, run.subject_id) if run.subject_id else None
@@ -908,6 +924,8 @@ def _category_for(rule: ProactivityRule, run: ProactivityRun) -> str:
             if code in mapping:
                 return mapping[code]
         return "deadline_far"
+    if rule.kind == "strategy_attention":
+        return "strategy_attention"
     if rule.kind == "project_stalled":
         return "project_stalled"
     if rule.kind == "continuity_gap":
@@ -925,9 +943,13 @@ def _candidate_for(rule: ProactivityRule, run: ProactivityRun) -> rules.Candidat
         subject_type=run.subject_type,
         subject_id=run.subject_id,
         entity_id=run.subject_id,
-        one_shot=rule.kind != "project_stalled",
-        cooldown_hours=int(rule.config.get("cooldown_days") or 7) * 24 if rule.kind == "project_stalled" else None,
-        h5_mode="continuity" if rule.kind in {"continuity_gap", "morning_continuity"} else rule.kind,
+        one_shot=rule.kind not in {"project_stalled", "strategy_attention"},
+        cooldown_hours=int(rule.config.get("cooldown_days") or 7) * 24
+        if rule.kind in {"project_stalled", "strategy_attention"}
+        else None,
+        h5_mode="continuity"
+        if rule.kind in {"continuity_gap", "morning_continuity"}
+        else rule.kind,
     )
 
 

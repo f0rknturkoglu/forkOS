@@ -67,6 +67,12 @@ from app.integrations.local_cognition import models as lc_models
 from app.integrations.local_cognition import service as lc_svc
 from app.integrations.review_intelligence import models as ri_models
 from app.integrations.review_intelligence import service as ri_svc
+from app.modules.goal.strategy_schemas import (
+    Finding,
+    ObjectiveState,
+    StrategyHistory,
+    StrategyOverview,
+)
 
 #: H1 girdi sınırları (§66). Şemada GÖRÜNÜR olmalı ki Hermes onaydan önce
 #: limitleri bilebilsin; yürütmedeki otorite yine `write_models` doğrulamasıdır.
@@ -291,6 +297,7 @@ def register_agent_tools(server: MCPServer) -> None:
     _register_memory_judge_tool(server)
     _register_answer_judge_tool(server)
     _register_career_tools(server)
+    _register_strategy_tool(server)
 
 
 def _register_career_tools(server: MCPServer) -> None:
@@ -1817,3 +1824,43 @@ def _register_execution_tool(server: MCPServer) -> None:
             raise ToolError(f"INVALID_ARGUMENT: {exc}") from exc
         except Exception as exc:  # noqa: BLE001 - sızıntısız hata zarfı
             raise ToolError(f"EXECUTION_FAILED: {type(exc).__name__}") from exc
+
+
+def _register_strategy_tool(server):
+    from app.modules.goal import strategy
+
+    @server.tool(
+        name="forkos_strategy",
+        description="Read canonical strategy facts: overview, objective, audit, history/comparison. Progress is KR outcome; alignment is execution allocation; confidence is evidence quality. Read-only, no model, network or strategic mutations. Vault narrative is read separately through brain_read and H3 evidence tools.",
+        annotations=READ_ONLY_ANNOTATIONS,
+    )
+    async def forkos_strategy(
+        mode: Literal["overview", "objective", "audit", "history"] = "overview",
+        objective_id: str | None = None,
+        days: Literal[7, 30, 90] = 30,
+    ) -> AgentEnvelope[StrategyOverview | StrategyHistory | ObjectiveState | list[Finding]]:
+        async with SessionLocal() as session:
+            truncated = False
+            if mode == "history":
+                data = await strategy.history(session)
+                truncated = data.truncated
+            else:
+                read = await strategy.overview(session, days=days)
+                truncated = bool(
+                    read.warnings
+                    or read.alignment.warnings
+                    or any(
+                        r.code == "METRIC_COLLECTION_TRUNCATED"
+                        for o in read.objectives
+                        for r in o.reasons
+                    )
+                )
+                if mode == "objective":
+                    data = next(
+                        (o for o in read.objectives if str(o.goal.id) == objective_id), None
+                    )
+                    if data is None:
+                        raise ToolError("NOT_FOUND: Objective not found")
+                else:
+                    data = read.findings if mode == "audit" else read
+            return AgentEnvelope(source="forkos", data=data, truncated=truncated)

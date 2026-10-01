@@ -56,6 +56,12 @@ def _goal_out(goal: Goal, entity: Entity, milestones: list[GoalMilestone]) -> Go
         milestone_count=len(milestones),
         completed_milestones=done,
         progress_percent=progress(done, len(milestones)),
+        milestone_progress_percent=progress(done, len(milestones)),
+        strategic_plan_id=goal.strategic_plan_id,
+        pillar_id=goal.pillar_id,
+        parent_goal_id=goal.parent_goal_id,
+        priority=goal.priority,
+        weight=goal.weight,
     )
 
 
@@ -66,6 +72,7 @@ async def list_goals(session: AsyncSession) -> list[GoalOut]:
             .join(Entity, Entity.id == Goal.id)
             .where(Entity.archived_at.is_(None))
             .order_by(Goal.position, Entity.created_at, Goal.id)
+            .limit(500)
         )
     ).all()
     ids = [goal.id for goal, _ in rows]
@@ -123,6 +130,7 @@ def _check_memory(memory_id: str | None) -> None:
 
 async def create_goal(session: AsyncSession, data: GoalIn, *, commit: bool = True) -> GoalOut:
     _check_memory(data.source_memory_id)
+    await validate_placement(session, data.model_dump())
     entity = await create_entity(
         session, type=Goal.ENTITY_TYPE, title=data.title, search_text=data.description or ""
     )
@@ -149,6 +157,14 @@ async def update_goal(
     if goal is None:
         return None
     values = data.model_dump(exclude_unset=True)
+    await validate_placement(
+        session,
+        {
+            **{k: getattr(goal, k) for k in ("strategic_plan_id", "pillar_id", "parent_goal_id")},
+            **values,
+        },
+        goal_id=goal_id,
+    )
     title = values.pop("title", None)
     for key, value in values.items():
         setattr(goal, key, value)
@@ -260,3 +276,25 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
         DeadlineRow(entity_id=id_, type="goal_milestone", title=title, due_at=due, module="goal")
         for id_, title, due in milestones
     ]
+
+
+async def validate_placement(session, values, goal_id=None):
+    from app.modules.goal.models import StrategicPillar, StrategicPlan
+
+    plan_id, pillar_id = values.get("strategic_plan_id"), values.get("pillar_id")
+    if plan_id and not await session.get(StrategicPlan, plan_id):
+        raise ValueError("Plan bulunamadı")
+    if pillar_id:
+        pillar = await session.get(StrategicPillar, pillar_id)
+        if not pillar or pillar.plan_id != plan_id:
+            raise ValueError("Alan seçilen plana ait olmalı")
+    parent_id = values.get("parent_goal_id")
+    seen = {goal_id} if goal_id else set()
+    while parent_id:
+        if parent_id in seen:
+            raise ValueError("Hedef hiyerarşisinde döngü olamaz")
+        seen.add(parent_id)
+        parent = await session.get(Goal, parent_id)
+        if not parent:
+            raise ValueError("Üst hedef bulunamadı")
+        parent_id = parent.parent_goal_id

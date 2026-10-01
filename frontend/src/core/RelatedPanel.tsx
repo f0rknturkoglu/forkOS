@@ -32,8 +32,10 @@ export function RelatedPanel({
   title = "İlgili kayıtlar",
   relation,
   exclude,
+  incoming = false,
 }: {
   entityId: string;
+  incoming?: boolean;
   title?: string;
   /** Yalniz bu iliskiyi gosterir ve yeni baglari bu iliskiyle kurar
    *  (ornek: learning'de konu -> kaynak "learns_from"). */
@@ -68,7 +70,11 @@ export function RelatedPanel({
 
   const link = useMutation({
     mutationFn: (toId: string) =>
-      api.post("/links", { from_id: entityId, to_id: toId, relation: relation ?? "related" }),
+      api.post("/links", {
+        from_id: incoming ? toId : entityId,
+        to_id: incoming ? entityId : toId,
+        relation: relation ?? "related",
+      }),
     onSuccess: () => {
       setPicking(false);
       setQuery("");
@@ -78,7 +84,11 @@ export function RelatedPanel({
 
   const unlink = useMutation({
     mutationFn: (row: RelatedRow) =>
-      api.del("/links", { from_id: entityId, to_id: row.entity.id, relation: row.relation }),
+      api.del("/links", {
+        from_id: row.direction === "incoming" ? row.entity.id : entityId,
+        to_id: row.direction === "incoming" ? entityId : row.entity.id,
+        relation: row.relation,
+      }),
     onSuccess: () => invalidateAfter("link.write"),
   });
 

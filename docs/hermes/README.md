@@ -274,3 +274,10 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 - [A3 Oturum Devri ve Epizodik Hafıza](a3-episodic-handoff.md): `post_llm_call` tur gözlemi, kaynağa bağlı epizodik ifadeler, mühürleme, ham transkript kalıcılaştırmama invariantı ve yeni oturumun ilk turuna sınırlı devir enjeksiyonu.
 - [Uçtan Uca Koşu (Walkthrough)](walkthrough.md): İki oturumluk gerçek Hermes koşusu — ne gözlendi, hangi satırlar oluştu, hangi gecikmeler ölçüldü.
 - [H-Serisi Yol Haritası (H0 → H7 + A1 → A3)](roadmap.md): Beyin arayüzünün H0 temelinden H7 kalıcı karar ve sınırlı yürütmeye, oradan A3 epizodik devre evrilme planı.
+
+### Strateji V1
+
+`forkos_strategy` 37. public araçtır: overview/objective/audit/history modlarıyla
+kanonik sonuç, rota, uyum, güven, kanıt ve karşılaştırma okur. Yazma veya H7
+onayı üretmez. Vault anlatıları brain_read, destekleyen kanıtlar H3 üzerinden
+okunur. [Sözleşme ve hesaplama](../goals-strategy.md).

@@ -469,6 +469,37 @@ def _parse_hhmm(value: str, fallback: str) -> tuple[int, int]:
 # Degerlendirme dongusu
 # ---------------------------------------------------------------------------
 
+
+async def _strategy_candidates(session, rule, *, now):
+    from app.modules.goal.strategy import overview
+
+    read = await overview(session, days=30, now=now)
+    candidates = []
+    if read.warnings or read.alignment.warnings:
+        return candidates
+    for finding in read.findings:
+        if finding.code not in {"OBJECTIVE_INACTIVE", "DEADLINE_WITHOUT_PROGRESS"}:
+            continue
+        subject = uuid.UUID(finding.entity_refs[0].split(":", 1)[1])
+        if rule.scope_entity_id and rule.scope_entity_id != subject:
+            continue
+        candidates.append(
+            Candidate(
+                rule_kind="strategy_attention",
+                logical_trigger_key=f"strategy_attention:v1:{subject}:{finding.code}",
+                category="strategy_attention",
+                why_now=finding.observed_facts,
+                reason_codes=[finding.code],
+                subject_type="goal",
+                subject_id=subject,
+                entity_id=subject,
+                one_shot=False,
+                cooldown_hours=int(rule.config.get("cooldown_days") or 30) * 24,
+            )
+        )
+    return candidates[:MAX_TICK_CANDIDATES]
+
+
 _EVALUATORS = {
     "deadline_staircase": _deadline_candidates,
     "continuity_gap": _continuity_gap_candidates,
@@ -476,6 +507,7 @@ _EVALUATORS = {
     "daily_close": _daily_close_candidates,
     "weekly_review": _weekly_candidates,
     "project_stalled": _project_stalled_candidates,
+    "strategy_attention": _strategy_candidates,
 }
 
 
@@ -540,6 +572,18 @@ async def revalidate(
     try:
         if rule.kind == "deadline_staircase":
             return await _revalidate_deadline(session, logical_trigger_key, now=now)
+        if rule.kind == "strategy_attention":
+            from app.modules.goal.strategy import overview
+
+            read = await overview(session, days=30, now=now)
+            if read.warnings or read.alignment.warnings:
+                return "indeterminate"
+            candidates = await _strategy_candidates(session, rule, now=now)
+            return (
+                "found"
+                if any(c.logical_trigger_key == logical_trigger_key for c in candidates)
+                else "not_found"
+            )
         if rule.kind == "project_stalled":
             found = await _revalidate_project(session, logical_trigger_key, rule, now=now)
             return "found" if found else "not_found"
@@ -626,9 +670,7 @@ async def _revalidate_project(
     return any(item.logical_trigger_key == logical_trigger_key for item in candidates)
 
 
-async def _ritual_facts(
-    session: AsyncSession, kind: str, *, now: datetime
-) -> list[object]:
+async def _ritual_facts(session: AsyncSession, kind: str, *, now: datetime) -> list[object]:
     from app.integrations.review_intelligence import service as h5_svc
 
     if kind == "morning_continuity":

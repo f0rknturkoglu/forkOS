@@ -64,13 +64,12 @@ CATEGORY_OUTCOMES: dict[str, str] = {
     # Ritüeller: anlamli bir sey varsa kisa ve net yuzey.
     "ritual": "surface",
     "project_stalled": "digest",
+    "strategy_attention": "digest",
 }
 
 #: Odak aktifken ERTELENMEYEN kategoriler. Bunlar da sessiz/snooze/kuiet
 #: kurallarini ATLAYAMAZ; yalnizca odak ertelemesinden muaftir.
-FOCUS_CRITICAL_CATEGORIES: frozenset[str] = frozenset(
-    {"deadline_today", "deadline_tomorrow"}
-)
+FOCUS_CRITICAL_CATEGORIES: frozenset[str] = frozenset({"deadline_today", "deadline_tomorrow"})
 
 #: Bildirim onemi (1..3) — mevcut bildirim olcegiyle ayni.
 CATEGORY_IMPORTANCE: dict[str, int] = {
@@ -82,6 +81,7 @@ CATEGORY_IMPORTANCE: dict[str, int] = {
     "deadline_near": 1,
     "deadline_far": 1,
     "project_stalled": 1,
+    "strategy_attention": 1,
 }
 
 #: Gunluk ANLIK yuzey butcesi (§120). Asildiginda aday kaybolmaz: digest'e duser.
@@ -139,9 +139,7 @@ def in_quiet_hours(local_now: time, start: time, end: time) -> bool:
 
 def quiet_hours_end(local_now: datetime, start: time, end: time) -> datetime:
     """Kuiyetin bitecegi an (yerel saat diliminde, saat dilimli)."""
-    candidate = local_now.replace(
-        hour=end.hour, minute=end.minute, second=0, microsecond=0
-    )
+    candidate = local_now.replace(hour=end.hour, minute=end.minute, second=0, microsecond=0)
     if in_quiet_hours(local_now.timetz().replace(tzinfo=None), start, end):
         if candidate <= local_now:
             candidate += timedelta(days=1)
@@ -206,9 +204,7 @@ def decide(state: PolicyInput) -> InterventionDecision:
 
     # 8) Gunluk anlik butce dolduysa kaybolmaz: digest'e duser.
     if outcome == "surface" and state.immediate_surfaces_today >= state.immediate_budget:
-        return InterventionDecision(
-            "digest", ["IMMEDIATE_BUDGET_EXHAUSTED", *codes], state.why_now
-        )
+        return InterventionDecision("digest", ["IMMEDIATE_BUDGET_EXHAUSTED", *codes], state.why_now)
 
     return InterventionDecision(outcome, codes, state.why_now)
 

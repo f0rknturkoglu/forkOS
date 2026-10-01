@@ -38,6 +38,7 @@ def test_rule_kinds_are_a_closed_set() -> None:
         "deadline_staircase",
         "continuity_gap",
         "project_stalled",
+        "strategy_attention",
     )
     assert RULE_VERSION == 1
 

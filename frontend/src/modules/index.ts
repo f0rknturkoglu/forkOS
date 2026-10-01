@@ -1,5 +1,6 @@
 /** Modulleri burada kaydet. Sira, sidebar sirasini belirler. */
 import "./today";
+import "./goal";
 import "./inbox";
 import "./bookmarks";
 import "./rss";

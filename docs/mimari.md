@@ -362,3 +362,11 @@ Worker açıkken her gece 04:00'te; worker kapalıyken API açılışında arka 
 - TanStack Query: `refetchOnWindowFocus: false` ve `refetchIntervalInBackground: false` ile arka plan sekmelerinde ve pencere odak değişimlerinde istek fırtınası engellenir.
 - Paylaşılan runtime sorguları: Sistem istatistikleri, kaynak sağlığı ve yedek durumu tek anahtar üzerinden sorgulanır; bileşenler arası mükerrer polling yapılmaz.
 - Home paneli (`today` modülü, görünen ad Home): Gizli widget'lar tamamen unmount edilir ve ağ isteği çıkarmaz; analog saat saniyelik render yerine dakika sınırına kilitlidir.
+
+## Hedefler ve Strateji V1
+
+Kanonik sahip mevcut `goal` modülüdür; plan/pillar/Goal/KR graph'ı, Decimal
+ölçümler, deterministik rota ve H5 anlamlı event tabanlı uyum içerir.
+Review.stats immutable sürümlü snapshot taşır. Hermes tek salt okunan strategy
+aracıyla gerçekleri okur; H6 isteğe bağlı stratejik dikkat aynı teslim motorunu
+kullanır. Ayrıntılar: [Hedefler ve Strateji](goals-strategy.md).

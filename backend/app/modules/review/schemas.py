@@ -82,6 +82,7 @@ class CareerGoalReviewProgress(BaseModel):
 
 
 class ReviewStats(BaseModel):
+    strategy_snapshot: dict | None = None
     todos: TodoReviewStats
     focus: FocusReviewStats
     topics: list[TopicReviewStats]
