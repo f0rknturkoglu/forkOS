@@ -12,11 +12,12 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, ClassVar
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
+from urllib.robotparser import RobotFileParser
 
 import httpx
 
-from app.sources.base import retry_after_seconds
+from app.sources.base import ScrapeTelemetry, retry_after_seconds
 
 from ..geo import region_for
 from ..models import Company, Job, Region
@@ -48,6 +49,7 @@ class HttpConfig:
     #: per-host, not per-company. Layer B raises this to 2s in its own base.
     min_interval_per_host: float = 0.25
     user_agent: str = USER_AGENT
+    max_response_bytes: int = 8 * 1024 * 1024
 
 
 class HttpClient:
@@ -59,6 +61,7 @@ class HttpClient:
         self._host_locks: dict[str, asyncio.Lock] = {}
         self._host_last: dict[str, float] = {}
         self._client: httpx.AsyncClient | None = None
+        self._robots = {}
 
     async def __aenter__(self) -> HttpClient:
         self._client = httpx.AsyncClient(
@@ -78,7 +81,11 @@ class HttpClient:
         if self._client is None:
             raise RuntimeError("HttpClient must be used as an async context manager")
 
-        host = urlsplit(url).netloc
+        parsed = urlsplit(url)
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+            raise PermanentError("ATS requires a public HTTPS source URL")
+        host = parsed.netloc
+        await self._check_robots(url)
         last_error: Exception | None = None
 
         for attempt in range(self.config.max_retries):
@@ -86,7 +93,7 @@ class HttpClient:
             async with self._semaphore:
                 await self._space_out(host)
                 try:
-                    response = await self._client.request(method, url, **kwargs)
+                    response = await self._bounded_response(method, url, **kwargs)
                 except (httpx.TimeoutException, httpx.TransportError) as exc:
                     last_error = TransientError(f"{type(exc).__name__}: {exc}")
                 else:
@@ -97,15 +104,69 @@ class HttpClient:
                         raise last_error
 
             delay = self.config.backoff_base * (2**attempt)
-            if response is not None and response.status_code == 429:
+            if response is not None and response.status_code in {429, 503}:
                 retry_after = retry_after_seconds(response.headers.get("Retry-After"))
                 if retry_after is not None:
                     # Sunucunun soyledigi sureye uy; kotu baslik kosuyu kilitlemesin.
-                    delay = min(retry_after, 300)
+                    if retry_after > 300:
+                        raise TransientError("Retry-After exceeds bounded run wait; no early retry")
+                    delay = retry_after
             if attempt < self.config.max_retries - 1:
                 await asyncio.sleep(delay)
 
         raise last_error or TransientError("request failed")
+
+    async def _check_robots(self, url):
+        parsed = urlsplit(url)
+        root = f"{parsed.scheme}://{parsed.netloc}"
+        if root not in self._robots:
+            await self._space_out(parsed.netloc)
+            response = await self._bounded_response("GET", root + "/robots.txt", timeout=10)
+            if response.status_code == 404:
+                self._robots[root] = None
+            elif response.status_code == 200 and "user-agent:" in response.text.lower() and "<html" not in response.text.lower():
+                parser = RobotFileParser(root + "/robots.txt")
+                parser.parse(response.text.splitlines())
+                self._robots[root] = parser
+            else:
+                raise PermanentError("ATS robots policy could not be verified")
+        parser = self._robots[root]
+        if parser and not parser.can_fetch(self.config.user_agent, url):
+            raise PermanentError("ATS robots policy denies requested route")
+
+    async def _bounded_response(self, method, url, **kwargs):
+        original = urlsplit(url)
+        for index in range(6):
+            parsed = urlsplit(url)
+            if parsed.scheme != "https" or parsed.hostname != original.hostname or parsed.port not in {None, 443} or parsed.username or parsed.password:
+                raise PermanentError("ATS redirect outside original public host")
+            if index and parsed.path != "/robots.txt" and original.path != "/robots.txt":
+                await self._check_robots(url)
+                await self._space_out(parsed.netloc)
+            response = await self._read_response(method, url, **{**kwargs, "follow_redirects": False})
+            if response.status_code not in {301, 302, 303, 307, 308}:
+                return response
+            location = response.headers.get("location")
+            if not location:
+                raise PermanentError("ATS redirect without Location")
+            url = urljoin(url, location)
+            if response.status_code == 303:
+                method = "GET"
+                kwargs.pop("json", None)
+        raise PermanentError("ATS redirect limit reached")
+
+    async def _read_response(self, method, url, **kwargs):
+        async with self._client.stream(method, url, **kwargs) as response:
+            chunks, size = [], 0
+            async for chunk in response.aiter_bytes():
+                size += len(chunk)
+                if size > self.config.max_response_bytes:
+                    raise PermanentError("ATS decoded response exceeds byte budget")
+                chunks.append(chunk)
+            headers = dict(response.headers)
+            headers.pop("content-encoding", None)
+            headers.pop("content-length", None)
+            return httpx.Response(response.status_code, content=b"".join(chunks), headers=headers, request=response.request)
 
     async def get_json(self, url: str, **kwargs: Any) -> Any:
         response = await self.request("GET", url, **kwargs)
@@ -151,6 +212,8 @@ class ATSAdapter(ABC):
 
     def __init__(self, company: Company) -> None:
         self.company = company
+        self.telemetry = None
+        self.parse_errors = 0
 
     @property
     def token(self) -> str:
@@ -169,8 +232,37 @@ class ATSAdapter(ABC):
     def parse(self, raw: Any) -> list[Job]:
         """Turn a payload into Jobs. Pure — no network, so mocks can drive it."""
 
+    def parse_record(self, entry, *args):
+        """A malformed record must not erase other valid employer postings."""
+        if not isinstance(entry, dict):
+            self.parse_errors += 1
+            return None
+        try:
+            job = self._parse_one(entry, *args)
+        except (AttributeError, TypeError, ValueError, OverflowError):
+            self.parse_errors += 1
+            return None
+        if job is None:
+            self.parse_errors += 1
+        return job
+
     async def collect(self, client: HttpClient) -> list[Job]:
-        jobs = self.parse(await self.fetch_raw(client))
+        raw = await self.fetch_raw(client)
+        jobs = self.parse(raw)
+        records = raw if isinstance(raw, list) else next((raw[k] for k in ("jobs", "offers", "data", "content") if isinstance(raw, dict) and isinstance(raw.get(k), list)), [])
+        if records and not jobs:
+            raise PermanentError(f"{self.source}: nonempty response has no valid jobs")
+        if self.telemetry is None:
+            complete = self.ats in {"greenhouse", "lever", "ashby", "recruitee", "personio"}
+            self.telemetry = ScrapeTelemetry(items_seen=len(jobs), items_returned=len(jobs), pages_fetched=1,
+                cap_hit=not complete, partial_reason=None if complete else "upstream_window_unverified",
+                stop_reason="exhausted" if complete else "upstream_window_unverified",
+                metadata={"listing_completeness": "complete_contract" if complete else "unverified"})
+        else:
+            self.telemetry.items_returned = len(jobs)
+        if self.parse_errors:
+            self.telemetry.partial_reason = "malformed_job_records"
+            self.telemetry.metadata["malformed_records"] = self.parse_errors
         for job in jobs:
             self.apply_company_fallback(job)
         return jobs

@@ -1,0 +1,33 @@
+{
+  "@type": "JobPosting",
+  "title": "Junior Web & AI Automation Developer",
+  "description": "<p>This a Full Remote job, the offer is available from: Anywhere</p> <p><p><strong>Position Summary</strong> </p>\n<p>We are looking for a Junior Web &amp; AI Automation Developer to support an Australian business growth agency that helps small and medium-sized businesses connect their websites, online marketing, CRM systems, lead follow-up and practical AI automation. </p>\n<p>The role will focus primarily on website implementation and maintenance, followed by CRM workflows and digital marketing configuration. Basic AI automation will be a small",
+  "identifier": {
+    "@type": "PropertyValue",
+    "name": "Sourcefit",
+    "value": "63d1b48e8d6804064fa1d8ba"
+  },
+  "hiringOrganization": {
+    "@type": "Organization",
+    "name": "Sourcefit",
+    "sameAs": "https://www.sourcefit.com",
+    "logo": "https://cdn-s3.jobgether.com/sourcefit/profile.webp"
+  },
+  "datePosted": "Wed Sep 30 2026 19:34:48 GMT+0000 (Coordinated Universal Time)",
+  "employmentType": [
+    "FULL_TIME"
+  ],
+  "jobLocationType": "TELECOMMUTE",
+  "applicantLocationRequirements": [
+    {
+      "@type": "Country",
+      "name": "RW"
+    },
+    {
+      "@type": "Country",
+      "name": "SO"
+    }
+  ],
+  "jobLocation": [],
+  "validThrough": "2026-11-30T19:34:48.772Z"
+}

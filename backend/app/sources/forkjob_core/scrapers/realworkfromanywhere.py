@@ -11,7 +11,7 @@ they live".
 Field notes from the live response:
 - `guid` is the posting URL; the numeric id at the end of the URL is the
   external_id.
-- `pubDate` (RFC 822) is a real publish date → date_source is `employer`.
+- `pubDate` (RFC 822) is a real publish date → date_source is `updated`.
 - `title` is the raw role title; the company appears inside the description's
   first line and in the JSON-LD on the detail page, so it is best-effort.
 - Location prose in the item is minimal; the description mentions the salary
@@ -25,6 +25,7 @@ from xml.etree import ElementTree as ET
 
 from ..models import Job, Layer, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_rfc822
+from ..rich_text import enrich
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 FEED_URL = "https://www.realworkfromanywhere.com/rss.xml"
@@ -45,7 +46,7 @@ class RealWorkFromAnywhereScraper(ScraperBase):
         try:
             xml = await client.get_html(FEED_URL)
         except ScraperPermanentError:
-            return []
+            raise
         return self.parse(xml)
 
     def parse(self, xml: str) -> list[Job]:
@@ -60,8 +61,10 @@ class RealWorkFromAnywhereScraper(ScraperBase):
         xml = _escape_loose_ampersands(xml or "")
         try:
             root = ET.fromstring(xml)
-        except ET.ParseError:
-            return []
+        except ET.ParseError as exc:
+            raise ScraperPermanentError("realworkfromanywhere: malformed feed") from exc
+        if root.tag != "rss" or root.find("channel") is None:
+            raise ScraperPermanentError("realworkfromanywhere: unknown feed root")
         jobs: list[Job] = []
         for item in root.iter("item"):
             job = self._parse_item(item)
@@ -95,10 +98,10 @@ class RealWorkFromAnywhereScraper(ScraperBase):
             external_id=external_id,
             work_mode=work_mode,
             remote=True,
-            description=description,
+            description=enrich(description, self.source, {"Board remote scope": "Anywhere"}),
             salary=salary,
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )
 
 

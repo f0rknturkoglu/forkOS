@@ -118,7 +118,7 @@ class KariyerNetScraper(ScraperBase):
                 url = SEARCH_URL.format(keyword=keyword)
                 if page > 1:
                     url = f"{url}?sayfa={page}"
-                html = await self.isolate(url, lambda: client.get_html(url))
+                html = await self.isolate(url, lambda url=url: client.get_html(url))
                 if html is None:
                     break  # blocked or gone — drop this keyword, keep the rest
 
@@ -208,7 +208,7 @@ class KariyerNetScraper(ScraperBase):
             work_mode=work_mode,
             department=attrs.get("sectorname") or None,
             description=summary,
-            language="tr",
+            language=None,
             posted_at=posted_at,
             date_source=date_source,
         )

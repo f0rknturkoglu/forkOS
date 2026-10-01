@@ -51,7 +51,7 @@ class JavascriptJobsScraper(ScraperBase):
         seen: set[str] = set()
         for page in range(1, self.max_pages + 1):
             url = LISTING_URL if page == 1 else f"{LISTING_URL}?page={page}"
-            html = await self.isolate(url, lambda: client.get_html(url))
+            html = await self.isolate(url, lambda url=url: client.get_html(url))
             if html is None:
                 break
             page_jobs = self.parse(html)

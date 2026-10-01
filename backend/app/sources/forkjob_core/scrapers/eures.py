@@ -33,7 +33,7 @@ Two things make this source unusually good:
   happening to contain the right word — which matters a great deal on a
   31-country portal where the titles are in 24 languages.
 
-`creationDate` is a real publish timestamp, so `date_source` is `employer`.
+`creationDate` is a real publish timestamp, so `date_source` is `updated`.
 """
 
 from __future__ import annotations
@@ -45,6 +45,7 @@ from typing import Any
 from ..geo import region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_epoch_ms
+from ..rich_text import enrich
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://europa.eu/eures"
@@ -289,7 +290,7 @@ class EuresScraper(ScraperBase):
                 for page in range(1, search.max_pages + 1):
                     payload = self.build_payload(search, country, page)
                     data = await self.isolate(
-                        f"{country} page {page}", lambda: client.post_json(
+                        f"{country} page {page}", lambda payload=payload: client.post_json(
                             SEARCH_API, payload, headers=self.headers
                         )
                     )
@@ -355,7 +356,7 @@ class EuresScraper(ScraperBase):
         description = html_to_text(html_lib.unescape(entry.get("description") or ""))
 
         languages = entry.get("availableLanguages")
-        language = languages[0] if isinstance(languages, list) and languages else None
+        posting_languages = ", ".join(str(v) for v in languages) if isinstance(languages, list) else None
 
         posted_at = parse_epoch_ms(entry.get("creationDate"))
 
@@ -374,10 +375,10 @@ class EuresScraper(ScraperBase):
             # prose in 24 languages would invent more than it found.
             work_mode=WorkMode.UNKNOWN,
             department=entry.get("positionOfferingCode") or None,
-            description=description,
-            language=language,
+            description=enrich(description, self.source, {"Posting languages": posting_languages}),
+            language=None,
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )
 
 

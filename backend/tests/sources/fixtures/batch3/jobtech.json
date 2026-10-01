@@ -1,0 +1,75 @@
+{
+  "hits": [
+    {
+      "id": "31534510",
+      "webpage_url": "https://arbetsformedlingen.se/platsbanken/annonser/31534510",
+      "headline": " Software Developer",
+      "application_deadline": "2026-10-14T23:59:59",
+      "description": {
+        "text": "På Toyota Material Handling R&D utvecklar vi nästa generations autonoma truckar och avancerade förarstödssystem. Vi erbjuder möjligheten att bli en del av våra mjukvaruteam, där du som ingenjör får utveckla ny funktionalitet som enkelt kan testas på kompletta fordon i vårt stora test- och labbområde i direkt anslutning till arbetsplatsen.\n\nSom SW Developer i Toyotas plattformsteam kommer du att arbeta med:\nUtveckling av sensorfusionsplattformar för våra truckar.\nUtveckling av funktionalitet för våra autonoma truckar.\nUtveckling av funktionalitet för assistanssystem till våra manuella truckar.\nIndustriprojekt och konceptfordon.\n\n\nDenna tjänst ingår i ett team som ansvarar för inbyggda applika",
+        "text_formatted": "<p>På Toyota Material Handling R&amp;D utvecklar vi nästa generations autonoma truckar och avancerade förarstödssystem. Vi erbjuder möjligheten att bli en del av våra mjukvaruteam, där du som ingenjör får utveckla ny funktionalitet som enkelt kan testas på kompletta fordon i vårt stora test- och labbområde i direkt anslutning till arbetsplatsen.\n\n<strong>Som SW Developer i Toyotas plattformsteam kommer du att arbeta med:</strong></p><ul><li>Utveckling av sensorfusionsplattformar för våra truckar.</li><li>Utveckling av funktionalitet för våra autonoma truckar.</li><li>Utveckling av funktionalitet för assistanssystem till våra manuella truckar.</li><li>Industriprojekt och konceptfordon.</li></"
+      },
+      "employment_type": {
+        "concept_id": "PFZr_Syz_cUq",
+        "label": "Vanlig anställning",
+        "legacy_ams_taxonomy_id": "1"
+      },
+      "duration": {
+        "concept_id": "a7uU_j21_mkL",
+        "label": "Tills vidare",
+        "legacy_ams_taxonomy_id": "1"
+      },
+      "working_hours_type": {
+        "concept_id": "6YE1_gAC_R2G",
+        "label": "Heltid",
+        "legacy_ams_taxonomy_id": "1"
+      },
+      "scope_of_work": {
+        "min": 100,
+        "max": 100
+      },
+      "employer": {
+        "url": null,
+        "name": "Toyota Material Handling Europe AB",
+        "workplace": "Thesis Project"
+      },
+      "application_details": {
+        "url": "https://www.aplitrak.com/?adid=VE1ITVMuNjYwMzkuMTM3NjVAdG95b3RhbWhlbWVhLmFwbGl0cmFrLmNvbQ"
+      },
+      "workplace_address": {
+        "municipality": "Mjölby",
+        "municipality_code": "0586",
+        "municipality_concept_id": "stqv_JGB_x8A",
+        "region": "Östergötlands län",
+        "region_code": "05",
+        "region_concept_id": "oLT3_Q9p_3nn",
+        "country": "Sverige",
+        "country_code": "199",
+        "country_concept_id": "i46j_HmG_v64",
+        "street_address": "Svarvargatan 8",
+        "postcode": "59535",
+        "city": "Mjölby",
+        "coordinates": [
+          15.108936571857,
+          58.3197408320597
+        ]
+      },
+      "must_have": {
+        "skills": [],
+        "languages": [],
+        "work_experiences": [],
+        "education": [],
+        "education_level": []
+      },
+      "nice_to_have": {
+        "skills": [],
+        "languages": [],
+        "work_experiences": [],
+        "education": [],
+        "education_level": []
+      },
+      "publication_date": "2026-09-30T07:49:49",
+      "removed": false
+    }
+  ]
+}

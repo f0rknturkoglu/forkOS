@@ -94,7 +94,7 @@ class FreelancermapScraper(ScraperBase):
 
         for page in range(1, self.max_pages + 1):
             url = LISTING_URL if page == 1 else f"{LISTING_URL}?pagenr={page}"
-            html = await self.isolate(url, lambda: client.get_html(url))
+            html = await self.isolate(url, lambda url=url: client.get_html(url))
             if html is None:
                 break
             pages_fetched += 1
@@ -105,7 +105,8 @@ class FreelancermapScraper(ScraperBase):
             fresh = self.dedup_seen(seen, page_jobs)
             jobs.extend(fresh)
             if not fresh:
-                break  # paged past the end
+                self.errors.append("freelancermap: repeated page identities")
+                break
             if page == self.max_pages:
                 cap_hit = True
 

@@ -495,6 +495,8 @@ def job_from_row(row: Mapping[str, Any]) -> Job | None:
                 "Job function": _text(row.get("job_function")),
                 "Industry": _text(row.get("company_industry")),
                 "Application URL": direct_url,
+                "Company URL": _text(row.get("company_url")),
+                "Remote scope": location if work_mode is WorkMode.REMOTE else None,
             },
         ),
         salary=_salary(row),

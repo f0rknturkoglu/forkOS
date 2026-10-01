@@ -1,0 +1,29 @@
+{
+  "baseline": "4fbd1a33d749024d92e914447659691e5dba941f",
+  "date": "2026-10-01",
+  "backend_broad": {
+    "passed": 2740,
+    "skipped": 43,
+    "seconds": 212.58,
+    "environment": "isolated tmpfs PostgreSQL forkos_test; Docker --init",
+    "note": "Follow-up focused includes final date/window fixes and newly added receipt tests."
+  },
+  "final_focused": {
+    "passed": 347,
+    "skipped": 28,
+    "seconds": 7.08
+  },
+  "live": {
+    "passed": 10,
+    "seconds": 37.44,
+    "gate": "FORKOS_RUN_LIVE_CAREER_TESTS=1",
+    "note": "Final NoFluff/Bulldog date revalidation:2passed; denied sources offline only."
+  },
+  "canonical_batch3_cases": 12,
+  "lint": "passed",
+  "diff_check": "passed",
+  "personal_database_used": false,
+  "new_sources": 0,
+  "migrations": 0,
+  "ci_changes": 0
+}

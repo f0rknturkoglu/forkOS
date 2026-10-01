@@ -1,0 +1,120 @@
+{
+  "data": [
+    {
+      "id": "01a0f790-d514-7d6e-b064-b19178f5c2a2",
+      "slug": "senior-stormwater-planning-engineer-at-city-of-gold-coast-412189ee",
+      "title": "Senior Stormwater Planning Engineer",
+      "description": "- Full Time | Permanent\n- From $121,839.00 plus superannuation\n- Position Brief - [Senior Stormwater Planning Engineer](https://applynow.net.au/jobs/COG2170/assets/32526693)\n\n**About the team**\n\nWe are the Asset Custodian for the City’s stormwater assets totalling over $8.2 billion worth of assets including, but not limited to over 2,800 kilometres of drainage pipe, approximately 300 kilometres of surface drains, 500+ water sensitive urban design (WSUD) assets and 1,200+ gross pollutant traps (GPT’s).\n\nOur stormwater team has substantial experience planning and delivering renewals from minor localised drainage to major projects including large culvert crossings, bridges, and significant stor",
+      "url": "https://4dayweek.io/job/senior-stormwater-planning-engineer-at-city-of-gold-coast-412189ee",
+      "category": "engineering",
+      "role": "Stormwater Planning Engineer",
+      "level": "senior",
+      "contract_type": "permanent",
+      "schedule_type": "9_day_fortnight",
+      "hours_per_week_min": 36,
+      "hours_per_week_max": 36,
+      "work_arrangement": "hybrid",
+      "locations": [
+        {
+          "city": "Gold Coast",
+          "state": "Queensland",
+          "country": "Australia",
+          "continent": "Oceania",
+          "latitude": -27.9769248,
+          "longitude": 153.380936,
+          "work_arrangement": "hybrid",
+          "is_primary": true
+        }
+      ],
+      "timezones": [
+        "AEDT"
+      ],
+      "salary_min": 12183900,
+      "salary_max": 12183900,
+      "salary_currency": "AUD",
+      "salary_period": "year",
+      "skills": [
+        {
+          "name": "Analytical Skills",
+          "slug": "analytical-skills"
+        },
+        {
+          "name": "Asset Management",
+          "slug": "asset-management"
+        },
+        {
+          "name": "Customer Focus",
+          "slug": "customer-focus"
+        },
+        {
+          "name": "Negotiation",
+          "slug": "negotiation"
+        },
+        {
+          "name": "Problem Solving",
+          "slug": "problem-solving"
+        },
+        {
+          "name": "Stormwater Design",
+          "slug": "stormwater-design"
+        }
+      ],
+      "stack": [
+        {
+          "name": "12d",
+          "slug": "12d"
+        },
+        {
+          "name": "ArcGIS",
+          "slug": "arcgis"
+        },
+        {
+          "name": "AutoCAD",
+          "slug": "autocad"
+        },
+        {
+          "name": "MUSIC",
+          "slug": "music"
+        },
+        {
+          "name": "TUFLOW",
+          "slug": "tuflow"
+        },
+        {
+          "name": "URBS",
+          "slug": "urbs"
+        }
+      ],
+      "tools": [
+        {
+          "name": "Criteria",
+          "slug": "criteria"
+        },
+        {
+          "name": "Microsoft Teams",
+          "slug": "microsoft-teams"
+        },
+        {
+          "name": "Xref",
+          "slug": "xref"
+        }
+      ],
+      "posted_at": "2026-10-01T13:04:19Z",
+      "company": {
+        "id": "019fc41f-8968-782d-9bea-5b53c392cffb",
+        "slug": "city-of-gold-coast",
+        "name": "City of Gold Coast",
+        "url": "https://4dayweek.io/company/city-of-gold-coast",
+        "website": "https://www.goldcoast.qld.gov.au",
+        "logo_url": "https://media.4dayweek.io/files/1785536874891_3cd2b20bc05b8011.jpg",
+        "short_description": "Australia's second-largest council - serving the Gold Coast with a 36-hour week worked over a 9-day fortnight, every second Friday off.",
+        "country": "Australia",
+        "employees": 4000,
+        "schedule_type": "9_day_fortnight",
+        "hours_full_time": 36,
+        "remote_level": "hybrid",
+        "hires_worldwide": false
+      }
+    }
+  ]
+}

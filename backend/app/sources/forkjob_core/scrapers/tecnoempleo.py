@@ -37,8 +37,8 @@ from selectolax.parser import HTMLParser
 
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime, sitemap_child
-from .base import ScraperBase, ScraperConfig, ScraperHttpClient, ScraperPermanentError
-from .schemaorg import find_type, ld_blocks, organisation_name, place, text
+from .base import ScraperBase, ScraperConfig, ScraperError, ScraperHttpClient, ScraperPermanentError
+from .schemaorg import find_type, ld_blocks, organisation_name, place, schema_job, text
 
 SITEMAP_URL = "https://www.tecnoempleo.com/sitemap.xml"
 SITE_BASE = "https://www.tecnoempleo.com"
@@ -107,7 +107,8 @@ class TecnoempleoScraper(ScraperBase):
             try:
                 page = await client.get_html(url)
                 pages_fetched += 1
-            except ScraperPermanentError:
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 continue  # one dead offer must not end the run
             job = self.parse_offer(page, url)
             if job is not None:
@@ -161,7 +162,7 @@ class TecnoempleoScraper(ScraperBase):
 
         description = _compose_description(posting, html, detail)
 
-        return Job.build(
+        return schema_job(posting,
             url=url,
             source=self.source,
             layer=Layer.B,
@@ -176,7 +177,7 @@ class TecnoempleoScraper(ScraperBase):
             department=posting.get("employmentType") or None,
             description=description,
             salary=detail.get("Salario"),
-            language="es",
+            language=None,
             posted_at=posted_at,
             date_source=date_source,
         )

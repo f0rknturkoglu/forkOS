@@ -32,7 +32,7 @@ from typing import Any
 
 from ..geo import CA_PROVINCE_CODES, US_STATE_CODES, country_from_name, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from .base import ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
 
 STORY_URL = (
     "https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&hitsPerPage=12"
@@ -68,7 +68,8 @@ class HackerNewsScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         try:
             index = await client.get_json(STORY_URL)
-        except ScraperPermanentError:
+        except ScraperError as exc:
+            self.errors.append(str(exc))
             self.record_telemetry(
                 items_seen=0,
                 items_returned=0,
@@ -109,7 +110,7 @@ class HackerNewsScraper(ScraperBase):
         """Newest first, hiring threads only."""
         hits = index.get("hits") if isinstance(index, dict) else None
         if not isinstance(hits, list):
-            return []
+            raise ScraperPermanentError("hackernews: missing story index schema")
         stories = []
         for hit in hits:
             if not isinstance(hit, dict):
@@ -130,15 +131,25 @@ class HackerNewsScraper(ScraperBase):
         pages_fetched = 0
         items_seen = 0
         cap_hit = False
+        seen = set()
         for page in range(self.max_pages):
             try:
                 payload = await client.get_json(f"{base}&hitsPerPage=100&page={page}")
-            except ScraperPermanentError:
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 break
             pages_fetched += 1
             hits = payload.get("hits") if isinstance(payload, dict) else None
-            if not isinstance(hits, list) or not hits:
+            if not isinstance(hits, list):
+                self.errors.append("hackernews: missing hits schema")
                 break
+            if not hits:
+                break
+            keys = {str(h.get("objectID")) for h in hits if isinstance(h, dict) and h.get("objectID")}
+            if page and keys and keys <= seen:
+                self.errors.append("hackernews: repeated comment page identities")
+                break
+            seen.update(keys)
             items_seen += len(hits)
             for hit in hits:
                 job = self._parse_comment(hit, story_id)

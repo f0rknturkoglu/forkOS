@@ -105,6 +105,8 @@ class TechJobsFamilyScraper(ScraperBase):
                 "Employment type": row.get("jobType"),
                 "Salary": salary,
                 "Application URL": row.get("redirectJobUrl"),
+                "Company ID": row.get("companyId"),
+                "Company URL": row.get("companyWebsiteLink"),
             },
         )
         city = row.get("actualCity") or row.get("cityCategory")

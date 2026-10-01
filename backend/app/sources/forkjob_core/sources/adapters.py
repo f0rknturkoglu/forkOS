@@ -25,13 +25,16 @@ see.
 
 from __future__ import annotations
 
-from datetime import UTC
 from typing import Any, ClassVar
+from urllib.parse import urlencode, urljoin, urlsplit
+
+from app.sources.base import ScrapeTelemetry
 
 from ..geo import country_from_name, region_for
 from ..models import Company, DateSource, Job, Layer, WorkMode
 from ..normalize import detect_language, html_to_text, parse_datetime, parse_location
-from .base import ATSAdapter, HttpClient, PermanentError
+from .base import ATSAdapter, HttpClient, PermanentError, SourceError
+from .evidence import ats_job
 
 # ---------------------------------------------------------------------------
 # Greenhouse — verified
@@ -67,12 +70,12 @@ class GreenhouseAdapter(ATSAdapter):
         )
 
     def parse(self, raw: Any) -> list[Job]:
-        if not isinstance(raw, dict) or "jobs" not in raw:
+        if not isinstance(raw, dict) or not isinstance(raw.get("jobs"), list):
             raise PermanentError(f"{self.source}: unexpected payload shape {type(raw).__name__}")
 
         jobs: list[Job] = []
         for entry in raw.get("jobs") or []:
-            job = self._parse_one(entry)
+            job = self.parse_record(entry)
             if job is not None:
                 jobs.append(job)
         return jobs
@@ -113,7 +116,7 @@ class GreenhouseAdapter(ATSAdapter):
         # than us reading it off a title.
         description = _prepend_metadata(entry, description)
 
-        return Job.build(
+        return ats_job(entry,
             url=url,
             source=self.source,
             layer=Layer.A,
@@ -127,7 +130,7 @@ class GreenhouseAdapter(ATSAdapter):
             work_mode=info.work_mode,
             department=" / ".join(departments) or None,
             description=description,
-            language=detect_language(description, declared=entry.get("language")),
+            language=detect_language(description, declared=entry.get("workingLanguage")),
             posted_at=posted_at,
             date_source=date_source,
         )
@@ -164,7 +167,7 @@ class LeverAdapter(ATSAdapter):
         }
       ]
 
-    `createdAt` is a publish timestamp, so date_source = employer.
+    `createdAt` is ATS record creation, not proven original publication; date_source = updated.
     `workplaceType` is "remote" / "onsite" / "hybrid" / unspecified.
     """
 
@@ -184,7 +187,7 @@ class LeverAdapter(ATSAdapter):
         for entry in raw:
             if not isinstance(entry, dict):
                 continue
-            job = self._parse_one(entry)
+            job = self.parse_record(entry)
             if job is not None:
                 jobs.append(job)
         return jobs
@@ -207,17 +210,17 @@ class LeverAdapter(ATSAdapter):
             info.region = region_for(info.country)
 
         posted_at = parse_datetime(_lever_ts(entry.get("createdAt")))
-        date_source = DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED
+        date_source = DateSource.UPDATED if posted_at else DateSource.DISCOVERED
 
         workplace = (entry.get("workplaceType") or "").lower()
-        if workplace in ("remote", "hybrid", "onsite"):
-            info.work_mode = WorkMode(workplace)
+        if workplace in ("remote", "hybrid", "onsite", "on-site"):
+            info.work_mode = WorkMode(workplace.replace("on-site", "onsite"))
 
         description = html_to_text(entry.get("description"))
         if description is None:
             description = html_to_text(entry.get("descriptionPlain"))
 
-        return Job.build(
+        return ats_job(entry,
             url=url,
             source=self.source,
             layer=Layer.A,
@@ -231,7 +234,7 @@ class LeverAdapter(ATSAdapter):
             work_mode=info.work_mode,
             department=categories.get("department") or categories.get("team"),
             description=description,
-            language=detect_language(description),
+            language=detect_language(description, declared=entry.get("workingLanguage")),
             posted_at=posted_at,
             date_source=date_source,
         )
@@ -244,6 +247,13 @@ class LeverAdapter(ATSAdapter):
 _USEFUL_METADATA = {
     "seniority": "Seniority",
     "level": "Level",
+    "visa sponsorship": "Visa sponsorship",
+    "relocation": "Relocation",
+    "working language": "Working language",
+    "employment type": "Employment type",
+    "remote scope": "Remote scope",
+    "salary": "Salary",
+    "skills": "Skills",
     "target remote countries / states locations [for job wrapping]": "Remote countries",
 }
 
@@ -265,7 +275,9 @@ def _prepend_metadata(entry: dict[str, Any], description: str | None) -> str | N
             continue
         if isinstance(value, list):
             value = ", ".join(str(v) for v in value if v)
-        if value:
+        if isinstance(value, bool) and label in {"Visa sponsorship", "Relocation"}:
+            value = "Yes" if value else "No"
+        if value is not None and value != "":
             lines.append(f"{label}: {value}")
     if not lines:
         return description
@@ -307,9 +319,11 @@ def _lever_location(categories: dict[str, Any]) -> str | None:
 def _lever_ts(value: Any) -> str | None:
     """Lever timestamps are millisecond epoch integers."""
     if isinstance(value, (int, float)) and value > 0:
-        from datetime import datetime
 
-        return datetime.fromtimestamp(value / 1000, tz=UTC).isoformat()
+        from ..normalize import parse_epoch_ms
+
+        parsed = parse_epoch_ms(value)
+        return parsed.isoformat() if parsed else None
     return str(value) if value else None
 
 
@@ -343,7 +357,7 @@ class AshbyAdapter(ATSAdapter):
         ]
       }
 
-    `publishedAt` is the real publish date → date_source = employer.
+    `publishedAt` is the last-published date → date_source = updated.
     `isRemote` is a boolean, no need to guess.
     """
 
@@ -351,16 +365,16 @@ class AshbyAdapter(ATSAdapter):
     BASE_URL: ClassVar[str] = "https://api.ashbyhq.com/posting-api/job-board/{token}"
 
     async def fetch_raw(self, client: HttpClient) -> Any:
-        return await client.get_json(self.BASE_URL.format(token=self.token))
+        return await client.get_json(self.BASE_URL.format(token=self.token), params={"includeCompensation": "true"})
 
     def parse(self, raw: Any) -> list[Job]:
-        if not isinstance(raw, dict) or "jobs" not in raw:
+        if not isinstance(raw, dict) or not isinstance(raw.get("jobs"), list):
             raise PermanentError(f"{self.source}: unexpected payload shape {type(raw).__name__}")
 
         board_name = raw.get("jobBoard", {}).get("name") or self.company.name
         jobs: list[Job] = []
         for entry in raw.get("jobs") or []:
-            job = self._parse_one(entry, board_name)
+            job = self.parse_record(entry, board_name)
             if job is not None:
                 jobs.append(job)
         return jobs
@@ -379,7 +393,7 @@ class AshbyAdapter(ATSAdapter):
             info.work_mode = WorkMode.REMOTE
 
         posted_at = parse_datetime(entry.get("publishedAt"))
-        date_source = DateSource.EMPLOYER
+        date_source = DateSource.UPDATED
         if posted_at is None:
             posted_at = parse_datetime(entry.get("updatedAt"))
             date_source = DateSource.UPDATED if posted_at else DateSource.DISCOVERED
@@ -388,7 +402,7 @@ class AshbyAdapter(ATSAdapter):
         if description is None:
             description = html_to_text(entry.get("descriptionPlain"))
 
-        return Job.build(
+        return ats_job(entry,
             url=url,
             source=self.source,
             layer=Layer.A,
@@ -400,9 +414,9 @@ class AshbyAdapter(ATSAdapter):
             country=info.country,
             region=info.region,
             work_mode=info.work_mode,
-            department=entry.get("departmentName"),
+            department=entry.get("department") or entry.get("departmentName"),
             description=description,
-            language=detect_language(description),
+            language=detect_language(description, declared=entry.get("workingLanguage")),
             posted_at=posted_at,
             date_source=date_source,
         )
@@ -453,12 +467,12 @@ class WorkableAdapter(ATSAdapter):
         )
 
     def parse(self, raw: Any) -> list[Job]:
-        if not isinstance(raw, dict) or "jobs" not in raw:
+        if not isinstance(raw, dict) or not isinstance(raw.get("jobs"), list):
             raise PermanentError(f"{self.source}: unexpected payload shape {type(raw).__name__}")
 
         jobs: list[Job] = []
         for entry in raw.get("jobs") or []:
-            job = self._parse_one(entry)
+            job = self.parse_record(entry)
             if job is not None:
                 jobs.append(job)
         return jobs
@@ -496,7 +510,7 @@ class WorkableAdapter(ATSAdapter):
 
         description = html_to_text(entry.get("description"))
 
-        return Job.build(
+        return ats_job(entry,
             url=url,
             source=self.source,
             layer=Layer.A,
@@ -510,7 +524,7 @@ class WorkableAdapter(ATSAdapter):
             work_mode=info.work_mode,
             department=entry.get("department"),
             description=description,
-            language=detect_language(description),
+            language=detect_language(description, declared=entry.get("workingLanguage")),
             posted_at=posted_at,
             date_source=date_source,
         )
@@ -556,28 +570,50 @@ class SmartRecruitersAdapter(ATSAdapter):
     MAX_PAGES: ClassVar[int] = 20  # safety cap — real boards rarely exceed this
 
     async def fetch_raw(self, client: HttpClient) -> Any:
-        all_content: list[dict[str, Any]] = []
-        url = self.BASE_URL.format(token=self.token)
-
+        rows, seen, visited, errors = [], set(), set(), []
+        base = self.BASE_URL.format(token=self.token)
+        url, pages, more = base, 0, True
         for _ in range(self.MAX_PAGES):
-            page = await client.get_json(url)
-            if not isinstance(page, dict):
+            if url in visited:
+                errors.append("repeated_pagination_url")
                 break
-            content = page.get("content")
-            if isinstance(content, list):
-                all_content.extend(content)
-            # SmartRecruiters wraps links in a list; pick the "next" one.
-            links = page.get("links") or []
-            next_url = None
-            for link in links:
-                if isinstance(link, dict) and link.get("rel") == "next":
-                    next_url = link.get("href")
+            visited.add(url)
+            try:
+                page = await client.get_json(url)
+                if not isinstance(page, dict) or not isinstance(page.get("content"), list):
+                    raise PermanentError("SmartRecruiters missing content schema")
+                content = page["content"]
+                ids = {str(r.get("id")) for r in content if isinstance(r, dict) and r.get("id")}
+                if content and (not ids or ids <= seen):
+                    raise PermanentError("SmartRecruiters repeated/malformed posting page")
+                total = page.get("totalFound")
+                if not content and isinstance(total, int) and len(rows) < total:
+                    raise PermanentError("SmartRecruiters empty page before total")
+                rows.extend(r for r in content if isinstance(r, dict) and str(r.get("id")) not in seen)
+                seen.update(ids)
+                pages += 1
+                next_url = next((r.get("href") for r in page.get("links") or [] if isinstance(r, dict) and r.get("rel") == "next"), None)
+                if not next_url and content and isinstance(total, int) and len(rows) < total:
+                    next_url = base + "?" + urlencode({"offset": len(rows), "limit": 100})
+                more = bool(next_url)
+                if not more:
                     break
-            if not next_url:
+                if urlsplit(next_url).netloc != urlsplit(base).netloc or not urlsplit(next_url).path.startswith(urlsplit(base).path):
+                    raise PermanentError("SmartRecruiters foreign pagination route")
+                url = next_url
+            except SourceError as exc:
+                if not rows:
+                    raise
+                errors.append(type(exc).__name__ + ": " + str(exc))
                 break
-            url = next_url
-
-        return all_content
+        cap = more and pages == self.MAX_PAGES
+        self.telemetry = ScrapeTelemetry(
+            items_seen=len(rows), pages_fetched=pages, page_limit=self.MAX_PAGES,
+            cap_hit=cap, partial_reason="; ".join(errors) or ("page_limit_reached" if cap else None),
+            stop_reason="request_failed" if errors else "page_limit_reached" if cap else "exhausted",
+            metadata={"listing_pages": pages, "detail_requests": 0},
+        )
+        return rows
 
     def parse(self, raw: Any) -> list[Job]:
         if not isinstance(raw, list):
@@ -587,7 +623,7 @@ class SmartRecruitersAdapter(ATSAdapter):
         for entry in raw:
             if not isinstance(entry, dict):
                 continue
-            job = self._parse_one(entry)
+            job = self.parse_record(entry)
             if job is not None:
                 jobs.append(job)
         return jobs
@@ -633,7 +669,7 @@ class SmartRecruitersAdapter(ATSAdapter):
 
         company_name = (entry.get("company") or {}).get("name") or self.company.name
 
-        return Job.build(
+        return ats_job(entry,
             url=url,
             source=self.source,
             layer=Layer.A,
@@ -698,12 +734,12 @@ class RecruiteeAdapter(ATSAdapter):
         return await client.get_json(self.BASE_URL.format(token=self.token))
 
     def parse(self, raw: Any) -> list[Job]:
-        if not isinstance(raw, dict) or "offers" not in raw:
+        if not isinstance(raw, dict) or not isinstance(raw.get("offers"), list):
             raise PermanentError(f"{self.source}: unexpected payload shape {type(raw).__name__}")
 
         jobs: list[Job] = []
         for entry in raw.get("offers") or []:
-            job = self._parse_one(entry)
+            job = self.parse_record(entry)
             if job is not None:
                 jobs.append(job)
         return jobs
@@ -732,7 +768,7 @@ class RecruiteeAdapter(ATSAdapter):
         if description is None:
             description = html_to_text(entry.get("description"))
 
-        return Job.build(
+        return ats_job(entry,
             url=url,
             source=self.source,
             layer=Layer.A,
@@ -746,7 +782,7 @@ class RecruiteeAdapter(ATSAdapter):
             work_mode=info.work_mode,
             department=entry.get("department"),
             description=description,
-            language=detect_language(description),
+            language=detect_language(description, declared=entry.get("workingLanguage")),
             posted_at=posted_at,
             date_source=date_source,
         )
@@ -792,7 +828,7 @@ class PersonioAdapter(ATSAdapter):
     def parse(self, raw: Any) -> list[Job]:
         # Personio returns either {"jobs": [...]} or [...] depending on version.
         if isinstance(raw, dict):
-            entries = raw.get("jobs") or raw.get("data") or []
+            entries = next((raw[k] for k in ("jobs", "data") if isinstance(raw.get(k), list)), None)
         elif isinstance(raw, list):
             entries = raw
         else:
@@ -805,7 +841,7 @@ class PersonioAdapter(ATSAdapter):
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
-            job = self._parse_one(entry)
+            job = self.parse_record(entry)
             if job is not None:
                 jobs.append(job)
         return jobs
@@ -830,7 +866,7 @@ class PersonioAdapter(ATSAdapter):
 
         description = html_to_text(entry.get("description"))
 
-        return Job.build(
+        return ats_job(entry,
             url=url,
             source=self.source,
             layer=Layer.A,
@@ -844,7 +880,7 @@ class PersonioAdapter(ATSAdapter):
             work_mode=info.work_mode,
             department=entry.get("department") or entry.get("departmentName"),
             description=description,
-            language=detect_language(description),
+            language=detect_language(description, declared=entry.get("workingLanguage")),
             posted_at=posted_at,
             date_source=date_source,
         )
@@ -886,7 +922,7 @@ class FactorialAdapter(ATSAdapter):
 
     def parse(self, raw: Any) -> list[Job]:
         if isinstance(raw, dict):
-            entries = raw.get("jobs") or raw.get("data") or []
+            entries = next((raw[k] for k in ("jobs", "data") if isinstance(raw.get(k), list)), None)
         elif isinstance(raw, list):
             entries = raw
         else:
@@ -899,7 +935,7 @@ class FactorialAdapter(ATSAdapter):
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
-            job = self._parse_one(entry)
+            job = self.parse_record(entry)
             if job is not None:
                 jobs.append(job)
         return jobs
@@ -921,7 +957,7 @@ class FactorialAdapter(ATSAdapter):
 
         description = html_to_text(entry.get("description"))
 
-        return Job.build(
+        return ats_job(entry,
             url=url,
             source=self.source,
             layer=Layer.A,
@@ -935,7 +971,7 @@ class FactorialAdapter(ATSAdapter):
             work_mode=info.work_mode,
             department=entry.get("department"),
             description=description,
-            language=detect_language(description),
+            language=detect_language(description, declared=entry.get("workingLanguage")),
             posted_at=posted_at,
             date_source=date_source,
         )
@@ -946,7 +982,7 @@ class FactorialAdapter(ATSAdapter):
 # ---------------------------------------------------------------------------
 
 # Workday's public REST API follows this pattern:
-#   POST https://{tenant}.wd3.myworkdayjobs.com/wday/cxs/{site}/search
+#   POST https://{tenant}.wd3.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs
 #   Body: {"limit": 20, "offset": 0, "searchText": ""}
 #
 # Returns a deeply nested JSON structure. The canonical external_id is
@@ -963,7 +999,7 @@ class FactorialAdapter(ATSAdapter):
 class WorkdayAdapter(ATSAdapter):
     """Workday external career sites.
 
-    POST https://{host}/wday/cxs/{site}/search
+    POST https://{host}/wday/cxs/{tenant}/{site}/jobs
 
     Workday URLs move aggressively — without the requisition ID as external_id,
     every schema refresh produces a fresh job_id and loses first_seen.
@@ -973,7 +1009,7 @@ class WorkdayAdapter(ATSAdapter):
     """
 
     ats: ClassVar[str] = "workday"
-    POST_PATH: ClassVar[str] = "/wday/cxs/{site}/search"
+    POST_PATH: ClassVar[str] = "/wday/cxs/{tenant}/{site}/jobs"
     MAX_OFFSET: ClassVar[int] = 5000  # safety cap
     PAGE_SIZE: ClassVar[int] = 20
 
@@ -995,28 +1031,42 @@ class WorkdayAdapter(ATSAdapter):
         host = self.host.rstrip("/")
         if not host.startswith("https://"):
             host = f"https://{host}"
-        return f"{host}{self.POST_PATH.format(site=self.site)}"
+        if not self.host or not self.company.extra.get("tenant"):
+            raise PermanentError("Workday requires registry host, tenant and site")
+        return f"{host}{self.POST_PATH.format(tenant=self.company.extra["tenant"], site=self.site)}"
 
     async def fetch_raw(self, client: HttpClient) -> Any:
-        all_jobs: list[dict[str, Any]] = []
-        url = self._base_url()
-
+        rows, seen, errors = [], set(), []
+        url, pages, more = self._base_url(), 0, True
         for offset in range(0, self.MAX_OFFSET, self.PAGE_SIZE):
-            body = {"limit": self.PAGE_SIZE, "offset": offset, "searchText": ""}
-            page = await client.request("POST", url, json=body)
             try:
-                data = page.json()
-            except ValueError:
+                response = await client.request("POST", url, json={"limit": self.PAGE_SIZE, "offset": offset, "searchText": ""})
+                data = response.json()
+                if not isinstance(data, dict) or not isinstance(data.get("jobPostings"), list):
+                    raise PermanentError("Workday missing jobPostings schema")
+                postings = data["jobPostings"]
+                ids = {str(r.get("externalPath")) for r in postings if isinstance(r, dict) and r.get("externalPath")}
+                if postings and (not ids or ids <= seen):
+                    raise PermanentError("Workday repeated/malformed page")
+                if not postings and isinstance(data.get("total"), int) and len(rows) < data["total"]:
+                    raise PermanentError("Workday empty page before total")
+                rows.extend(r for r in postings if isinstance(r, dict) and str(r.get("externalPath")) not in seen)
+                seen.update(ids)
+                pages += 1
+                more = len(rows) < data["total"] if isinstance(data.get("total"), int) else len(postings) >= self.PAGE_SIZE
+                if not more:
+                    break
+            except (SourceError, ValueError) as exc:
+                if not rows:
+                    raise PermanentError("Workday invalid first response") from exc
+                errors.append(type(exc).__name__ + ": " + str(exc))
                 break
-
-            postings = _extract_workday_jobs(data)
-            if not postings:
-                break
-            all_jobs.extend(postings)
-            if len(postings) < self.PAGE_SIZE:
-                break
-
-        return all_jobs
+        cap = more and pages * self.PAGE_SIZE >= self.MAX_OFFSET
+        self.telemetry = ScrapeTelemetry(items_seen=len(rows), pages_fetched=pages,
+            page_limit=self.MAX_OFFSET // self.PAGE_SIZE, cap_hit=cap,
+            partial_reason="; ".join(errors) or ("page_limit_reached" if cap else None),
+            stop_reason="request_failed" if errors else "page_limit_reached" if cap else "exhausted")
+        return rows
 
     def parse(self, raw: Any) -> list[Job]:
         if not isinstance(raw, list):
@@ -1026,18 +1076,20 @@ class WorkdayAdapter(ATSAdapter):
         for entry in raw:
             if not isinstance(entry, dict):
                 continue
-            job = self._parse_one(entry)
+            job = self.parse_record(entry)
             if job is not None:
                 jobs.append(job)
         return jobs
 
     def _parse_one(self, entry: dict[str, Any]) -> Job | None:
         title = entry.get("title")
-        url = entry.get("url") or entry.get("bulletFields", [None])[0]
-        if not title:
+        url = entry.get("url")
+        if not url and entry.get("externalPath") and self.host:
+            url = urljoin("https://" + self.host.removeprefix("https://") + "/" + self.site + "/", entry["externalPath"].lstrip("/"))
+        if not title or not url:
             return None
 
-        location_name = entry.get("location")
+        location_name = entry.get("locationsText") or entry.get("location")
         info = parse_location(location_name)
 
         external_id = None
@@ -1049,7 +1101,7 @@ class WorkdayAdapter(ATSAdapter):
         # Workday's postedDate is not always present — do not guess employer.
         date_source = DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED
 
-        return Job.build(
+        return ats_job(entry,
             url=url or "",
             source=self.source,
             layer=Layer.A,
@@ -1088,8 +1140,8 @@ def _extract_workday_jobs(data: dict[str, Any]) -> list[dict[str, Any]]:
                     if isinstance(inner, dict) and isinstance(inner.get("jobPostings"), list):
                         return inner["jobPostings"]
 
-    # Fallback: recursive search for first list of dicts with a "title" key
-    return _find_job_list(data)
+    # Unrecognized shell/navigation records are not jobs.
+    raise PermanentError("Workday missing recognized jobPostings contract")
 
 
 def _find_job_list(node: Any, depth: int = 0) -> list[dict[str, Any]]:
@@ -1128,7 +1180,7 @@ class TeamtailorAdapter(ATSAdapter):
 
     def parse(self, raw: Any) -> list[Job]:
         if isinstance(raw, dict):
-            entries = raw.get("jobs") or raw.get("data") or []
+            entries = next((raw[k] for k in ("jobs", "data") if isinstance(raw.get(k), list)), None)
         elif isinstance(raw, list):
             entries = raw
         else:
@@ -1140,7 +1192,7 @@ class TeamtailorAdapter(ATSAdapter):
         jobs: list[Job] = []
         for entry in entries:
             if isinstance(entry, dict):
-                job = self._parse_one(entry)
+                job = self.parse_record(entry)
                 if job is not None:
                     jobs.append(job)
         return jobs
@@ -1161,12 +1213,15 @@ class TeamtailorAdapter(ATSAdapter):
         if entry.get("remote") is True:
             info.work_mode = WorkMode.REMOTE
 
-        posted_at = parse_datetime(entry.get("published_at") or entry.get("created_at"))
+        posted_at = parse_datetime(entry.get("published_at"))
         date_source = DateSource.EMPLOYER if posted_at else DateSource.DISCOVERED
+        if posted_at is None:
+            posted_at = parse_datetime(entry.get("created_at"))
+            date_source = DateSource.UPDATED if posted_at else DateSource.DISCOVERED
 
         description = html_to_text(entry.get("description") or entry.get("body"))
 
-        return Job.build(
+        return ats_job(entry,
             url=url,
             source=self.source,
             layer=Layer.A,
@@ -1180,7 +1235,7 @@ class TeamtailorAdapter(ATSAdapter):
             work_mode=info.work_mode,
             department=entry.get("department") or entry.get("departmentName"),
             description=description,
-            language=detect_language(description),
+            language=detect_language(description, declared=entry.get("workingLanguage")),
             posted_at=posted_at,
             date_source=date_source,
         )

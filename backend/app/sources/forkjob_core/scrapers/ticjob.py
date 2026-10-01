@@ -32,8 +32,8 @@ from typing import Any
 
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime, sitemap_locations
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
-from .schemaorg import find_type, ld_blocks, organisation_name, place, text
+from .base import ScraperBase, ScraperError, ScraperHttpClient
+from .schemaorg import find_type, ld_blocks, organisation_name, place, schema_job, text
 
 BASE_URL = "https://ticjob.es"
 SITEMAP_URL = "https://www.ticjob.es/{lang}/sitemap.xml"
@@ -82,7 +82,8 @@ class TicjobScraper(ScraperBase):
             try:
                 xml = await client.get_html(SITEMAP_URL.format(lang=lang))
                 pages_fetched += 1
-            except ScraperPermanentError:
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 continue
 
             for url in parse_sitemap(xml):
@@ -96,7 +97,8 @@ class TicjobScraper(ScraperBase):
                 try:
                     page = await client.get_html(url)
                     pages_fetched += 1
-                except ScraperPermanentError:
+                except ScraperError as exc:
+                    self.errors.append(str(exc))
                     continue
                 job = self.parse_offer(page, url)
                 if job is not None:
@@ -144,7 +146,7 @@ class TicjobScraper(ScraperBase):
         posted_at = parse_datetime(posting.get("datePosted"))
         description = html_to_text(posting.get("description"))
 
-        return Job.build(
+        return schema_job(posting,
             url=url,
             source=self.source,
             layer=Layer.B,
@@ -160,7 +162,7 @@ class TicjobScraper(ScraperBase):
             work_mode=WorkMode.UNKNOWN,
             department=posting.get("employmentType") or None,
             description=description,
-            language="es",
+            language=None,
             posted_at=posted_at,
             date_source=date_source_for(posted_at)[1],
         )

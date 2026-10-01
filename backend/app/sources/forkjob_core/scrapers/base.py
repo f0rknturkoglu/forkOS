@@ -88,7 +88,7 @@ class ScraperConfig:
     #: Request timeout in seconds.
     timeout: float = 30.0
     #: Optional decoded response bound; zero preserves existing source behavior.
-    max_response_bytes: int = 0
+    max_response_bytes: int = 8 * 1024 * 1024
     #: Optional fixed public hosts; redirects are checked before following.
     allowed_hosts: tuple[str, ...] = ()
     #: Max retries on transient failures.
@@ -137,6 +137,7 @@ class ScraperHttpClient:
         self._robots_cache: dict[str, RobotFileParser | None] = {}
         #: Butce/TTL kontrolunu her yazimda degil, araliklarla calistir.
         self._last_prune = 0.0
+        self.empty_contracts: list[bool] = []
 
     async def __aenter__(self) -> ScraperHttpClient:
         self._client = httpx.AsyncClient(
@@ -160,12 +161,29 @@ class ScraperHttpClient:
     async def get_html(self, url: str, **kwargs: Any) -> str:
         """Fetch a page and return its HTML text."""
         response = await self._request("GET", url, **kwargs)
-        return response.text
+        body = response.text
+        stripped = body.lstrip().lower()
+        xml = False
+        if stripped.startswith(("<?xml", "<rss", "<feed", "<urlset", "<sitemapindex")):
+            from xml.etree import ElementTree as ET
+            try:
+                root = ET.fromstring(body)
+                tag = root.tag.rsplit("}", 1)[-1]
+                xml = tag in {"rss", "feed", "RDF", "urlset", "sitemapindex"} and not any(
+                    n.tag.rsplit("}", 1)[-1] in {"item", "entry", "url", "sitemap"} for n in root.iter()
+                )
+            except ET.ParseError:
+                pass
+        empty = bool(HTMLParser(body).css_first("[data-empty-results], .jobs-search__no-results"))
+        self.empty_contracts.append(xml or empty)
+        return body
 
     async def get_json(self, url: str, **kwargs: Any) -> Any:
         """Fetch JSON from an API endpoint."""
         response = await self._request("GET", url, **kwargs)
-        return response.json()
+        data = response.json()
+        self.empty_contracts.append(_recognized_json_empty(data))
+        return data
 
     async def post_json(self, url: str, payload: Any, **kwargs: Any) -> Any:
         """POST a JSON body and return the JSON response.
@@ -175,7 +193,9 @@ class ScraperHttpClient:
         URL do not collide.
         """
         response = await self._request("POST", url, json=payload, **kwargs)
-        return response.json()
+        data = response.json()
+        self.empty_contracts.append(_recognized_json_empty(data))
+        return data
 
     async def parse_page(self, url: str, **kwargs: Any) -> HTMLParser:
         """Fetch a page and return a selectolax HTMLParser."""
@@ -241,28 +261,35 @@ class ScraperHttpClient:
                     raise last_error
 
             delay = self.config.backoff_base * (2**attempt)
-            if response is not None and response.status_code == 429:
+            if response is not None and response.status_code in {429, 503}:
                 retry_after = _retry_after_seconds(response.headers.get("Retry-After"))
                 if retry_after is not None:
                     # The server said how long to wait; honour it, capped so a
                     # bad header cannot stall the whole run.
-                    delay = min(retry_after, 300)
+                    if retry_after > 300:
+                        raise ScraperTransientError("Retry-After exceeds bounded wait; no early retry")
+                    delay = retry_after
             if attempt < self.config.max_retries - 1:
                 await asyncio.sleep(delay)
 
         raise last_error or ScraperTransientError("request failed")
 
     async def _bounded_request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
-        if self.config.allowed_hosts:
+        initial_url = urlsplit(url)
+        initial_host = initial_url.hostname
+        if not initial_host or initial_url.scheme not in {"http", "https"}:
+            raise ScraperPermanentError("invalid public source URL")
+        allowed_hosts = self.config.allowed_hosts or (initial_host, ("www." + initial_host.removeprefix("www.")), initial_host.removeprefix("www."))
+        if allowed_hosts:
             kwargs = {**kwargs, "follow_redirects": False}
             for redirect_index in range(6):
                 parsed = urlsplit(url)
                 if (parsed.scheme not in {"http", "https"}
-                    or parsed.hostname not in self.config.allowed_hosts
+                    or parsed.hostname not in allowed_hosts
                     or parsed.username or parsed.password or parsed.port not in {None, 80, 443}):
                     raise ScraperPermanentError("source URL is outside fixed public host scope")
                 if redirect_index:
-                    if self.config.robots is RobotsPolicy.RESPECT and parsed.path != "/robots.txt":
+                    if self.config.robots is RobotsPolicy.RESPECT and initial_url.path != "/robots.txt":
                         await self._check_robots(parsed.netloc, url)
                     await self._rate_limit(parsed.netloc)
                 response = await self._read_bounded_response(method, url, **kwargs)
@@ -321,14 +348,16 @@ class ScraperHttpClient:
         robots_url = f"https://{host}/robots.txt"
         await self._rate_limit(host)
         try:
-            resp = await self._bounded_request("GET", robots_url, timeout=10.0) if self.config.allowed_hosts else await self._client.get(robots_url, timeout=10.0)
-            if resp.status_code == 200:
-                rp = RobotFileParser()
-                rp.parse(resp.text.splitlines())
-            else:
-                rp = None  # no robots.txt → allow all
-        except Exception:
+            resp = await self._bounded_request("GET", robots_url, timeout=10.0)
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            raise ScraperTransientError("robots policy unavailable") from exc
+        if resp.status_code == 404:
             rp = None
+        elif resp.status_code == 200 and "user-agent:" in resp.text.lower() and "<html" not in resp.text.lower():
+            rp = RobotFileParser()
+            rp.parse(resp.text.splitlines())
+        else:
+            raise ScraperPermanentError("robots policy could not be verified")
 
         self._robots_cache[host] = rp
         if rp is not None and not rp.can_fetch(self.config.user_agent, url):
@@ -697,11 +726,11 @@ class ScraperBase(ABC):
         (usually a fetch). On a ScraperPermanentError the reason is recorded
         on `self.errors` under `label` and None comes back — the caller's
         existing `if … is None: break/continue` keeps the old control flow.
-        Transient errors propagate because the client already retried them.
+        Exhausted transient errors are also recorded, preserving earlier pages.
         """
         try:
             return await fn()
-        except ScraperPermanentError as exc:
+        except ScraperError as exc:
             self.errors.append(f"{label}: {exc}")
             return None
 
@@ -729,19 +758,25 @@ class ScraperBase(ABC):
             async with ScraperHttpClient(self.config) as c:
                 result = await self.scrape(c)
 
+        if self.errors and not isinstance(result, ScrapeBatch):
+            result = ScrapeBatch(result, list(self.errors), len(self.errors) + 1, int(bool(result)), self.telemetry)
+        jobs = result.jobs if isinstance(result, ScrapeBatch) else result
+        contracts = getattr(client if client is not None else c, "empty_contracts", [])
+        if not jobs and contracts and not all(contracts):
+            raise ScraperPermanentError(f"{self.source}: unrecognized empty response (schema drift/block/malformed records)")
+        if self.telemetry is None:
+            self.record_telemetry(
+                items_seen=len(jobs), items_returned=len(jobs),
+                pages_fetched=len(contracts) if contracts else None,
+                cap_hit=bool(jobs), partial_reason="upstream_window_unknown" if jobs else None,
+                stop_reason="upstream_window_unknown" if jobs else "recognized_empty",
+                metadata={"listing_completeness": "unverified" if jobs else "recognized_empty"},
+            )
         if isinstance(result, ScrapeBatch):
             if result.telemetry is not None:
                 self.telemetry = result.telemetry
-            elif self.telemetry is not None:
-                object.__setattr__(result, "telemetry", self.telemetry)
-        elif self.telemetry is None:
-            self.record_telemetry(
-                items_seen=len(result),
-                items_returned=len(result),
-                pages_fetched=1,
-                cap_hit=False,
-                stop_reason="feed_exhausted",
-            )
+            else:
+                result.telemetry = self.telemetry
         return result
 
     def __repr__(self) -> str:
@@ -776,3 +811,22 @@ def css_all(parser: HTMLParser, selector: str, *, attr: str | None = None) -> li
             if text:
                 results.append(text)
     return results
+
+
+def _recognized_json_empty(data):
+    """Only explicit empty collections can establish legitimate API exhaustion."""
+    if isinstance(data, list):
+        return not data
+    if isinstance(data, dict):
+        nested = (data.get("data") or {}).get("searchJobs") if isinstance(data.get("data"), dict) else None
+        if isinstance(nested, dict):
+            return _recognized_json_empty(nested)
+        total = data.get("total")
+        if isinstance(total, dict) and isinstance(total.get("value"), (int, float)) and total["value"] > 0:
+            return False
+        if any(isinstance(data.get(k), (int, float)) and data[k] > 0 for k in ("total", "totalCount", "totalFound", "numberRecords")):
+            return False
+        for key in ("jobs", "data", "results", "hits", "jobAds", "postings", "content", "offers", "jvs", "nodes"):
+            if isinstance(data.get(key), list):
+                return not data[key]
+    return False

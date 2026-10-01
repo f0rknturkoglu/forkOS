@@ -27,8 +27,8 @@ from typing import Any
 
 from ..models import Job, Layer, WorkMode, date_source_for
 from ..normalize import format_salary, html_to_text, parse_datetime, sitemap_locations
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
-from .schemaorg import find_type, ld_blocks, organisation_name, text
+from .base import ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
+from .schemaorg import find_type, ld_blocks, organisation_name, schema_job, text
 
 SITEMAP_URL = "https://dynamitejobs.com/sitemap/jobs-of-category.xml"
 BASE_URL = "https://dynamitejobs.com"
@@ -47,7 +47,8 @@ class DynamiteJobsScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         try:
             xml = await client.get_html(SITEMAP_URL)
-        except ScraperPermanentError:
+        except ScraperError as exc:
+            self.errors.append(str(exc))
             self.record_telemetry(
                 items_seen=0,
                 items_returned=0,
@@ -81,7 +82,8 @@ class DynamiteJobsScraper(ScraperBase):
             try:
                 html = await client.get_html(url)
                 pages_fetched += 1
-            except ScraperPermanentError:
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 continue
             job = self.parse_offer(html, url)
             if job is not None:
@@ -121,7 +123,7 @@ class DynamiteJobsScraper(ScraperBase):
         posted_at = parse_datetime(text(posting.get("datePosted")))
         salary = _salary(posting.get("baseSalary"))
 
-        return Job.build(
+        return schema_job(posting,
             url=url,
             source=self.source,
             layer=Layer.B,

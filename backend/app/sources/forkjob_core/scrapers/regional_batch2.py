@@ -257,6 +257,7 @@ class EnglishJobsDeScraper(PublicPagedScraper):
                 location=fields[1],
                 description=card.text(separator=" ", strip=True),
                 facts={
+                    "Source authority": "meta",
                     "Original source": link.attributes.get("source"),
                     "Listed date (year unspecified)": fields[2] if len(fields) > 2 else None,
                     "Board context": "English-oriented search; posting language requirements are not inferred",

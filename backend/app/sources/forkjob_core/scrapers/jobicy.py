@@ -22,7 +22,7 @@ The one thing lost against the API is `jobLevel` ("Entry-Level, Junior" /
 "Midweight" / "Senior"), which the feed does not carry. The title-based
 seniority rules cover it, less precisely.
 
-`pubDate` is RFC 822 and a real publish date, so `date_source` is `employer`.
+`pubDate` is RFC 822 and a real publish date, so `date_source` is `updated`.
 
 Their terms ask that Jobicy be credited with a direct link and that
 applications go to the original URL; the stored `url` is that link.
@@ -36,6 +36,7 @@ from xml.etree import ElementTree as ET
 from ..geo import region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_rfc822, parse_single_country
+from ..rich_text import enrich
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://jobicy.com"
@@ -85,7 +86,7 @@ class JobicyScraper(ScraperBase):
         for geo in self.geos:
             for industry in self.industries:
                 url = self.feed_url(geo, industry)
-                xml = await self.isolate(url, lambda: client.get_html(url))
+                xml = await self.isolate(url, lambda url=url: client.get_html(url))
                 if xml is None:
                     continue  # one slice failing must not stop the rest
                 jobs.extend(self.dedup_seen(seen, self.parse(xml)))
@@ -100,6 +101,8 @@ class JobicyScraper(ScraperBase):
         except ET.ParseError as exc:
             raise ScraperPermanentError(f"jobicy: feed is not valid XML: {exc}") from exc
 
+        if root.tag != "rss" or root.find("channel") is None:
+            raise ScraperPermanentError("jobicy: unrecognized RSS root")
         jobs: list[Job] = []
         for item in root.findall(".//item"):
             job = self.build_job(item)
@@ -139,9 +142,9 @@ class JobicyScraper(ScraperBase):
             work_mode=WorkMode.REMOTE,
             remote=True,
             department=", ".join(p for p in (category, job_type) if p) or None,
-            description=description,
+            description=enrich(description, self.source, {"Remote scope": location, "Employment type": job_type, "Category": category}),
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )
 
 

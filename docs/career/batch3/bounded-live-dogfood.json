@@ -1,0 +1,380 @@
+{
+  "method": "Bounded permitted live smoke 2026-10-01. Last verified record per source; no production DB writes. Coverage describes public source fields, not their truth/completeness against original employer records. Full employer JD cannot be independently established.",
+  "sources": [
+    {
+      "source": "himalayas",
+      "jobs": 20,
+      "seconds": 2.149,
+      "http_requests_including_robots": 2,
+      "telemetry": {
+        "items_seen": 20,
+        "items_returned": 20,
+        "pages_fetched": 1,
+        "page_limit": null,
+        "result_limit": null,
+        "cap_hit": true,
+        "partial_reason": "upstream_window",
+        "stop_reason": "upstream_window",
+        "metadata": {
+          "upstream_total": 98578
+        }
+      },
+      "parser_errors": [],
+      "fields": {
+        "stable_external_id": 20,
+        "country": 19,
+        "salary": 7,
+        "language": 0,
+        "technologies": 0,
+        "remote_scope": 20,
+        "visa_relocation": 0,
+        "specific_apply_url": 20,
+        "employer_date": 0
+      },
+      "full_employer_jd_percentage": null
+    },
+    {
+      "source": "workingnomads",
+      "jobs": 59,
+      "seconds": 4.949,
+      "http_requests_including_robots": 3,
+      "telemetry": {
+        "items_seen": 59,
+        "items_returned": 59,
+        "pages_fetched": 1,
+        "page_limit": null,
+        "result_limit": null,
+        "cap_hit": true,
+        "partial_reason": "upstream_window_unknown",
+        "stop_reason": "upstream_window_unknown",
+        "metadata": {
+          "listing_completeness": "unverified"
+        }
+      },
+      "parser_errors": [],
+      "fields": {
+        "stable_external_id": 59,
+        "country": 10,
+        "salary": 0,
+        "language": 0,
+        "technologies": 58,
+        "remote_scope": 59,
+        "visa_relocation": 0,
+        "specific_apply_url": 0,
+        "employer_date": 0
+      },
+      "full_employer_jd_percentage": null
+    },
+    {
+      "source": "fourdayweek",
+      "jobs": 50,
+      "seconds": 2.571,
+      "http_requests_including_robots": 2,
+      "telemetry": {
+        "items_seen": 50,
+        "items_returned": 50,
+        "pages_fetched": 1,
+        "page_limit": 1,
+        "result_limit": null,
+        "cap_hit": true,
+        "partial_reason": "page_limit_reached: 1 pages fetched, has_more=True",
+        "stop_reason": null,
+        "metadata": {}
+      },
+      "parser_errors": [],
+      "fields": {
+        "stable_external_id": 50,
+        "country": 50,
+        "salary": 12,
+        "language": 0,
+        "technologies": 50,
+        "remote_scope": 10,
+        "visa_relocation": 0,
+        "specific_apply_url": 0,
+        "employer_date": 0
+      },
+      "full_employer_jd_percentage": null
+    },
+    {
+      "source": "solidjobs",
+      "jobs": 100,
+      "seconds": 2.316,
+      "http_requests_including_robots": 2,
+      "telemetry": {
+        "items_seen": 100,
+        "items_returned": 100,
+        "pages_fetched": 1,
+        "page_limit": 1,
+        "result_limit": null,
+        "cap_hit": true,
+        "partial_reason": "max_pages_reached",
+        "stop_reason": "max_pages_reached",
+        "metadata": {}
+      },
+      "parser_errors": [],
+      "fields": {
+        "stable_external_id": 100,
+        "country": 100,
+        "salary": 100,
+        "language": 100,
+        "technologies": 95,
+        "remote_scope": 33,
+        "visa_relocation": 0,
+        "specific_apply_url": 0,
+        "employer_date": 0
+      },
+      "full_employer_jd_percentage": null
+    },
+    {
+      "source": "wearedevelopers",
+      "jobs": 24,
+      "seconds": 4.076,
+      "http_requests_including_robots": 3,
+      "telemetry": {
+        "items_seen": 24,
+        "items_returned": 24,
+        "pages_fetched": 1,
+        "page_limit": 1,
+        "result_limit": null,
+        "cap_hit": true,
+        "partial_reason": "page_limit_reached; detail_budget_reached",
+        "stop_reason": "page_limit_reached",
+        "metadata": {
+          "transport": "public_markdown",
+          "requests": 2,
+          "listing_pages": 1,
+          "details_succeeded": 1,
+          "detail_budget": 1,
+          "listing_complete": false,
+          "richness_partial": true
+        }
+      },
+      "parser_errors": [],
+      "fields": {
+        "stable_external_id": 24,
+        "country": 24,
+        "salary": 1,
+        "language": 0,
+        "technologies": 1,
+        "remote_scope": 7,
+        "visa_relocation": 0,
+        "specific_apply_url": 24,
+        "employer_date": 0
+      },
+      "full_employer_jd_percentage": null
+    },
+    {
+      "source": "dailyremote",
+      "jobs": 30,
+      "seconds": 4.258,
+      "http_requests_including_robots": 3,
+      "telemetry": {
+        "items_seen": 30,
+        "items_returned": 30,
+        "pages_fetched": 1,
+        "page_limit": 1,
+        "result_limit": null,
+        "cap_hit": true,
+        "partial_reason": "page_limit_reached",
+        "stop_reason": "page_limit_reached",
+        "metadata": {
+          "requests": 2,
+          "listing_pages": 1,
+          "detail_requests": 1,
+          "details_succeeded": 1,
+          "detail_budget": 1,
+          "listing_complete": false,
+          "richness_partial": true
+        }
+      },
+      "parser_errors": [],
+      "fields": {
+        "stable_external_id": 30,
+        "country": 3,
+        "salary": 9,
+        "language": 0,
+        "technologies": 29,
+        "remote_scope": 10,
+        "visa_relocation": 0,
+        "specific_apply_url": 0,
+        "employer_date": 10
+      },
+      "full_employer_jd_percentage": null
+    },
+    {
+      "source": "jobgether",
+      "jobs": 25,
+      "seconds": 4.161,
+      "http_requests_including_robots": 3,
+      "telemetry": {
+        "items_seen": 25,
+        "items_returned": 25,
+        "pages_fetched": 1,
+        "page_limit": 1,
+        "result_limit": null,
+        "cap_hit": true,
+        "partial_reason": "max_pages_reached",
+        "stop_reason": "max_pages_reached",
+        "metadata": {
+          "detail_requests": 1,
+          "details_succeeded": 1,
+          "detail_budget": 1,
+          "richness_partial": true,
+          "listing_pages": 1,
+          "listing_complete": false
+        }
+      },
+      "parser_errors": [],
+      "fields": {
+        "stable_external_id": 25,
+        "country": 0,
+        "salary": 0,
+        "language": 0,
+        "technologies": 0,
+        "remote_scope": 25,
+        "visa_relocation": 0,
+        "specific_apply_url": 0,
+        "employer_date": 0
+      },
+      "full_employer_jd_percentage": null
+    },
+    {
+      "source": "nofluffjobs",
+      "jobs": 33,
+      "seconds": 4.103,
+      "http_requests_including_robots": 3,
+      "telemetry": {
+        "items_seen": 33,
+        "items_returned": 33,
+        "pages_fetched": 1,
+        "page_limit": 1,
+        "result_limit": null,
+        "cap_hit": true,
+        "partial_reason": "max_pages_reached",
+        "stop_reason": "max_pages_reached",
+        "metadata": {
+          "detail_requests": 1,
+          "details_succeeded": 1,
+          "detail_budget": 1,
+          "richness_partial": true,
+          "listing_pages": 1,
+          "listing_complete": false
+        }
+      },
+      "parser_errors": [],
+      "fields": {
+        "stable_external_id": 33,
+        "country": 33,
+        "salary": 33,
+        "language": 0,
+        "technologies": 1,
+        "remote_scope": 1,
+        "visa_relocation": 0,
+        "specific_apply_url": 0,
+        "employer_date": 0
+      },
+      "full_employer_jd_percentage": null
+    },
+    {
+      "source": "bulldogjob",
+      "jobs": 50,
+      "seconds": 4.159,
+      "http_requests_including_robots": 3,
+      "telemetry": {
+        "items_seen": 50,
+        "items_returned": 50,
+        "pages_fetched": 1,
+        "page_limit": 1,
+        "result_limit": null,
+        "cap_hit": true,
+        "partial_reason": "max_pages_reached",
+        "stop_reason": "max_pages_reached",
+        "metadata": {
+          "detail_requests": 1,
+          "details_succeeded": 1,
+          "detail_budget": 1,
+          "richness_partial": true,
+          "listing_pages": 1,
+          "listing_complete": false
+        }
+      },
+      "parser_errors": [],
+      "fields": {
+        "stable_external_id": 50,
+        "country": 50,
+        "salary": 0,
+        "language": 0,
+        "technologies": 1,
+        "remote_scope": 0,
+        "visa_relocation": 0,
+        "specific_apply_url": 0,
+        "employer_date": 0
+      },
+      "full_employer_jd_percentage": null
+    },
+    {
+      "source": "eurotechjobs",
+      "jobs": 4,
+      "seconds": 4.62,
+      "http_requests_including_robots": 3,
+      "telemetry": {
+        "items_seen": 4,
+        "items_returned": 4,
+        "pages_fetched": 1,
+        "page_limit": null,
+        "result_limit": null,
+        "cap_hit": true,
+        "partial_reason": "listing_window; detail_budget_or_failure",
+        "stop_reason": "detail_budget_or_failure",
+        "metadata": {
+          "requests": 2,
+          "listing_pages": 1,
+          "details_succeeded": 1,
+          "detail_budget": 1,
+          "richness_partial": true,
+          "listing_complete": false
+        }
+      },
+      "parser_errors": [],
+      "fields": {
+        "stable_external_id": 4,
+        "country": 4,
+        "salary": 0,
+        "language": 0,
+        "technologies": 0,
+        "remote_scope": 0,
+        "visa_relocation": 0,
+        "specific_apply_url": 0,
+        "employer_date": 0
+      },
+      "full_employer_jd_percentage": null
+    }
+  ],
+  "aggregate": {
+    "source_records_not_unique_canonical": 395,
+    "field_counts": {
+      "stable_external_id": 395,
+      "country": 293,
+      "salary": 162,
+      "language": 100,
+      "technologies": 235,
+      "remote_scope": 165,
+      "visa_relocation": 0,
+      "specific_apply_url": 44,
+      "employer_date": 10
+    },
+    "field_percentages": {
+      "stable_external_id": 100.0,
+      "country": 74.18,
+      "salary": 41.01,
+      "language": 25.32,
+      "technologies": 59.49,
+      "remote_scope": 41.77,
+      "visa_relocation": 0.0,
+      "specific_apply_url": 11.14,
+      "employer_date": 2.53
+    },
+    "full_employer_jd_percentage": null,
+    "full_employer_jd_reason": "Mixed previews/bounded details; no length heuristic or original-employer equivalence claim."
+  }
+}

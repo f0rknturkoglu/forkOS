@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.sources.base import FetchOutcome, RawItem, ScrapeTelemetry, source_timeout_seconds
+from app.sources.base import FetchOutcome, RawItem, source_timeout_seconds
 from app.sources.forkjob_core.config import load_config
 from app.sources.forkjob_core.models import Job
 from app.sources.forkjob_core.registry import Registry
@@ -89,13 +89,13 @@ class AtsBoardSource:
         async with HttpClient() as client:
             jobs = await adapter.collect(client)
             raw_items = [job_to_raw(job) for job in jobs]
-            telemetry = ScrapeTelemetry(
-                items_seen=len(jobs),
-                items_returned=len(raw_items),
-                pages_fetched=1,
-                cap_hit=False,
+            telemetry = adapter.telemetry
+            return FetchOutcome(
+                items=raw_items,
+                partial=bool(telemetry and (telemetry.cap_hit or telemetry.partial_reason)),
+                detail=telemetry.partial_reason or "" if telemetry else "",
+                telemetry=telemetry,
             )
-            return FetchOutcome(items=raw_items, partial=False, telemetry=telemetry)
 
 
 @dataclass
@@ -157,7 +157,7 @@ class PortalSource:
             )
         if result.telemetry is not None:
             telemetry = result.telemetry
-        if result.succeeded == 0 and result.errors:
+        if result.succeeded == 0 and result.errors and not result.jobs:
             # Hicbir parca basarili degil: guvenilir sonuc yok, kosum hatadir.
             raise RuntimeError("; ".join(result.errors))
         # Yarim basari KORUNUR: bazi sayfalar/profiller alindiysa kayitlar

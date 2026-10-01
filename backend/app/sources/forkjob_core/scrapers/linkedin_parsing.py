@@ -9,8 +9,9 @@ from selectolax.parser import HTMLParser
 
 from ..models import DateSource, Job, Layer
 from ..normalize import format_salary, html_to_text, parse_datetime, parse_location
-from ..rich_text import enrich
-from .schemaorg import job_posting_nodes
+from ..rich_text import enrich, merge_descriptions
+from .schemaorg import job_posting_nodes, schema_job
+from .schemaorg import text as schema_text
 
 
 class LinkedInResponseError(Exception):
@@ -148,6 +149,11 @@ def detail_job(html, card):
     tree = fingerprint(html)
     posts = list(job_posting_nodes(html))
     post = posts[0] if posts else {}
+    if post:
+        declared_url = post.get("url") or post.get("@id")
+        declared_id = linkedin_identity(declared_url)[0] if isinstance(declared_url, str) else None
+        if (declared_id and card.job_id and declared_id != card.job_id) or (post.get("title") and schema_text(post["title"]).casefold() != card.title.casefold()):
+            raise LinkedInResponseError("detail_identity", eligible=False)
     body = html_to_text(post.get("description")) or text(tree, ".show-more-less-html__markup")
     if not body:
         raise LinkedInResponseError("detail_schema", eligible=True)
@@ -200,5 +206,8 @@ def detail_job(html, card):
     reposted = "repost" in (card.posted_text or "").lower()
     if posted and not reposted:
         job.posted_at, job.date_source = posted, DateSource.EMPLOYER
-    job.description = enrich(body, "linkedin", facts)
+    detail = schema_job(post, url=job.url, source="linkedin", layer=Layer.B, company=job.company,
+        title=job.title, external_id=job.external_id, location=job.location, country=job.country,
+        region=job.region, work_mode=job.work_mode, description=body)
+    job.description = merge_descriptions(job.description, enrich(detail.description, "linkedin", facts), prefer_incoming=True)
     return job

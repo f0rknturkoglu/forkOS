@@ -1,0 +1,50 @@
+{
+  "@type": "JobPosting",
+  "title": "Junior Social Media Specialist",
+  "description": "<p>Dołączysz do zespołu BlueBinary, który rozwija nowoczesne serwisy online z branży iGaming dla jednego z naszych klientów. Nasze systemy obsługują ponad 100 milionów zapytań dziennie, a my nieustannie dbamy o to, by komunikacja z naszymi użytkownikami była tak samo dynamiczna i nowoczesna, jak nasza infrastruktura.</p><p>Poszukujemy osoby na stanowisko Junior Social Media Specialist, która przejmie stery nad naszą komunikacją w kanałach społecznościowych. To rola dla kogoś, kto potrafi przełożyć techniczną doskonałość naszych systemów na anga",
+  "datePosted": "2026-09-30",
+  "validThrough": null,
+  "employmentType": "CONTRACTOR",
+  "hiringOrganization": {
+    "@type": "Organization",
+    "name": "BLUEBINARY",
+    "logo": "companies/logos/jobs_listing/bluebinary_io_logo_20250922_143702.jpeg"
+  },
+  "experienceRequirements": {
+    "@type": "OccupationalExperienceRequirements",
+    "description": "Junior"
+  },
+  "applicantLocationRequirements": [
+    {
+      "@type": "Country",
+      "name": "Poland"
+    },
+    {
+      "@type": "Country",
+      "name": "Hungary"
+    }
+  ],
+  "baseSalary": {
+    "@type": "MonetaryAmount",
+    "currency": "PLN",
+    "value": {
+      "@type": "QuantitativeValue",
+      "value": 7000,
+      "unitText": "Month"
+    }
+  },
+  "skills": [
+    {
+      "value": "Social media",
+      "type": "main"
+    },
+    {
+      "value": "Slack",
+      "type": "main"
+    },
+    {
+      "value": "Asana",
+      "type": "main"
+    }
+  ]
+}

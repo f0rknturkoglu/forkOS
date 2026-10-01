@@ -18,9 +18,9 @@ Why it matters for the B2B case: Arc is explicitly a contractor marketplace —
 on the record rather than inferred.
 
 Field notes from the live response:
-- `postedAt` is a Unix timestamp → date_source is `employer`.
-- `requiredCountries: []` and `timeZone: "no-preference"` mean open to
-  anyone; a populated list is a geographic lock.
+- `postedAt` is a board Unix timestamp → date_source is `updated`.
+- Explicit `requiredCountries: []` and `timeZone: "no-preference"` mean open to
+  anyone; missing fields do not. a populated list is a geographic lock.
 - `randomKey` is the stable id; `urlString` builds the job URL.
 - The listing is shallow on purpose: the rest is client-side infinite scroll,
   so this reads the SSR page only.
@@ -33,6 +33,7 @@ from typing import Any
 
 from ..models import Job, Layer, WorkMode, date_source_for
 from ..normalize import parse_epoch_ms
+from ..rich_text import enrich
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 LISTING_URL = "https://arc.dev/remote-jobs"
@@ -65,14 +66,14 @@ class ArcDevScraper(ScraperBase):
         page_props = (data.get("props") or {}).get("pageProps") or {}
         jobs: list[Job] = []
         seen: set[str] = set()
-        for entry in list(page_props.get("arcJobs") or []) + list(
-            page_props.get("externalJobs") or []
-        ):
+        entries = [(entry, "native") for entry in page_props.get("arcJobs") or []] + [(entry, "meta") for entry in page_props.get("externalJobs") or []]
+        for entry, authority in entries:
             if not isinstance(entry, dict):
                 continue
             job = self.build_job(entry)
             if job is None:
                 continue
+            job.description = enrich(job.description, self.source, {"Source authority": authority})
             key = job.external_id or job.url
             if key in seen:
                 continue
@@ -115,12 +116,12 @@ class ArcDevScraper(ScraperBase):
             description_parts.append(f"Rate: {hourly}")
         if geo_text:
             description_parts.append(f"Residency required: {geo_text}")
-        else:
+        elif "requiredCountries" in entry and not required and entry.get("timeZone") == "no-preference":
             description_parts.append("Open to candidates worldwide")
         categories = entry.get("categories")
         if isinstance(categories, list) and categories:
             description_parts.append("Skills: " + ", ".join(str(c) for c in categories))
-        description = "\n".join(description_parts)
+        description = enrich("\n".join(description_parts), self.source, {"Remote scope": geo_text or ("Anywhere" if "requiredCountries" in entry and not required and entry.get("timeZone") == "no-preference" else None), "Timezone requirements": entry.get("timeZone"), "Timezone offset": entry.get("timeZoneOffset"), "Overlap hours": entry.get("overlapHours"), "Client timezone restriction": entry.get("clientTimeZoneRestriction"), "Annual salary minimum (currency unspecified)": entry.get("minAnnualSalary"), "Annual salary maximum (currency unspecified)": entry.get("maxAnnualSalary"), "Technologies": ", ".join(str(c) for c in categories) if isinstance(categories, list) else None})
 
         posted_at = parse_epoch_ms(entry.get("postedAt"))
 
@@ -131,12 +132,12 @@ class ArcDevScraper(ScraperBase):
             company=company,
             title=title,
             external_id=str(random_key),
-            work_mode=WorkMode.REMOTE if not geo_locked else WorkMode.UNKNOWN,
-            remote=None if geo_locked else True,
+            work_mode=WorkMode.REMOTE,
+            remote=True,
             description=description,
             salary=hourly,
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )
 
 

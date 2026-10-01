@@ -226,3 +226,11 @@ Final scheduler/refresh/catalog/source-contract gate after verifying unchanged p
 ## LinkedIn V1 + V2 reimplementation — 2026-10-01
 
 The Batch 2 LinkedIn implementation statements above are historical. Native V2 now exists and is tested using explicitly synthetic contracts; isolated JobSpy V1 remains the fallback. One canonical `forkjob_core:linkedin` source remains catalogued and disabled. The shared live policy check denied all six checked route families; no guest or JobSpy acquisition was performed. Source totals and historical dogfood counts above are unchanged. See [the current implementation report](linkedin-acquisition-v1-v2.md).
+
+## Batch 3 — current richness and correctness audit (2026-10-01)
+
+The earlier transport/completeness rows are historical. Current authoritative matrix: [Batch 3 richness audit](forkjob-core-batch3-richness-audit.md). Dynamic inventory remains 10 ATS transports, 39 configured companies and 62 Layer B entries (49 enabled, 13 disabled). No new source, tenant or enable change.
+
+WeAreDevelopers now uses the site's advertised Markdown listing/detail surface; Himalayas is a partial first-window JSON API; Remotive policy is currently unverified (robots403); GulfTalent listing403; Consider bootstrap200 does not prove its timed-out search healthy. SmartRecruiters robots denies our agent, so no job API was fetched. Ashby robots401 and Recruitee redirects were not followed by strict recon. Five ATS transports have no configured live tenant. Full JD/explicit language/visa/original date claims must use the per-source Batch3 ledger, not historic counters. LinkedIn V1/V2 remains implemented, disabled and offline verified only under current denial.
+
+Partial listing/detail budgets and unknown upstream windows cannot close unseen opportunities. Employer > native > meta authority is preserved independently of description length. Salary period/minor units, declared languages, discrete skills, geographic restrictions, expiry and specific application URLs now survive the shared evidence path where actually provided.

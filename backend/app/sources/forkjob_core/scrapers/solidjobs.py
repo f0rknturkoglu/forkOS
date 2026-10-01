@@ -16,7 +16,7 @@ offers B2B billing is set up to pay a contractor in another country.
 Field notes from the live response:
 - `jobOfferKey` is a UUID — the external_id.
 - `validFrom` is the listing's start date and matches the RSS pubDate
-  exactly, so date_source is `employer`.
+  exactly; this is board validity, so date_source is `updated`.
 - `isRemote` / `isHybrid` are explicit booleans.
 - `locations` is a list of Polish city names.
 - `experienceLevel` ("Regular", "Senior"…) is stated by the poster.
@@ -27,8 +27,9 @@ from __future__ import annotations
 from typing import Any
 
 from ..models import Job, Layer, Region, WorkMode, date_source_for
-from ..normalize import format_salary, parse_datetime
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from ..normalize import format_salary, html_to_text, parse_datetime
+from ..rich_text import enrich
+from .base import ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
 
 API_URL = "https://solid.jobs/public-api/offers/IT"
 
@@ -60,9 +61,11 @@ class SolidJobsScraper(ScraperBase):
                 payload = await client.get_json(
                     f"{API_URL}?campaign={CAMPAIGN}&pageIndex={page}&pageSize={PAGE_SIZE}"
                 )
-            except ScraperPermanentError:
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 break
             if not isinstance(payload, dict):
+                self.errors.append("solidjobs: invalid response schema")
                 break
             pages_fetched += 1
             page_jobs = self.parse(payload)
@@ -70,6 +73,9 @@ class SolidJobsScraper(ScraperBase):
             if not page_jobs:
                 break
             fresh = [j for j in page_jobs if j.external_id not in seen]
+            if not fresh:
+                self.errors.append("solidjobs: repeated page identities")
+                break
             seen.update(j.external_id for j in fresh if j.external_id)
             jobs.extend(fresh)
             # Stop when we have seen everything the API reports.
@@ -138,7 +144,10 @@ class SolidJobsScraper(ScraperBase):
         level = entry.get("experienceLevel")
         if level:
             description_parts.append(f"Level: {level}")
-        description = "\n".join(description_parts) or None
+        description = "\n\n".join(p for p in [html_to_text(entry.get("description")), "\n".join(description_parts)] if p) or None
+        languages = entry.get("languages") or []
+        language = ", ".join(str(x["name"]) for x in languages if isinstance(x, dict) and x.get("name")) or None
+        description = enrich(description, self.source, {"Technologies": ", ".join(names) if isinstance(skills, list) and skills else None, "Experience level": level, "Language": ", ".join(str(x["name"]) + ": " + str(x.get("level") or "unspecified level") for x in languages if isinstance(x, dict) and x.get("name")), "Expiry": entry.get("validTo"), "Benefits": ", ".join(entry.get("benefits") or []), "Employment type": (entry.get("salary") or {}).get("employmentType"), "Workload": entry.get("contractTime"), "Remote scope": ", ".join(locations) if entry.get("isRemote") else None})
 
         work_mode = WorkMode.UNKNOWN
         if entry.get("isRemote"):
@@ -166,8 +175,9 @@ class SolidJobsScraper(ScraperBase):
             department=entry.get("category") or None,
             description=description,
             salary=primary or None,
+            language=language,
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )
 
 

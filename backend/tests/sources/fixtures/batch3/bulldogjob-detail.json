@@ -1,0 +1,32 @@
+{
+  "@type": "JobPosting",
+  "@id": "https://bulldogjob.com/companies/jobs/257035-real-time-developer-member-of-technical-staff-gdansk-luxoft-dxc",
+  "datePosted": "2026-10-01",
+  "validThrough": "2026-10-31",
+  "title": "Real-Time Developer - Member of Technical Staff",
+  "employmentType": "FULL_TIME",
+  "experienceRequirements": {
+    "@type": "OccupationalExperienceRequirements",
+    "monthsOfExperience": 24
+  },
+  "skills": "C, Windows Driver Kit, ONNX Runtime, OpenVINO",
+  "description": "<h2>What you will do</h2><p><p><p>AMD is building a hardware-assisted security platform that uses silicon-level Performance Monitoring Counters (PMCs) and on-chip machine learning to detect advanced endpoint threats, including ransomware, fileless malware, and cryptojacking, at the processor layer, below OS-based evasion.</p>\n<br /><p>The platform collects CPU behavioral telemetry, classifies it through an ML inference engine, and exposes threat signals to security-software partners through a standardized API.</p>\n<br /><p>The project covers th",
+  "hiringOrganization": {
+    "@type": "Organization",
+    "name": "Luxoft DXC",
+    "logo": "https://cdn.bulldogjob.com/system/companies/logos/000/000/382/square/Luxoft_Purple_RGB.png",
+    "@id": "https://bulldogjob.com/companies/profiles/382-luxoft-dxc"
+  },
+  "jobLocation": [
+    {
+      "@type": "Place",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Gdansk",
+        "addressRegion": "Pomerania",
+        "addressCountry": "Poland",
+        "streetAdress": null
+      }
+    }
+  ]
+}

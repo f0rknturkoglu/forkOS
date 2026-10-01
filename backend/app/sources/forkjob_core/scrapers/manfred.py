@@ -36,9 +36,10 @@ import re
 from typing import Any
 from xml.etree import ElementTree
 
-from ..models import Job, Layer, Region, WorkMode, date_source_for
+from ..models import Job, Layer, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime, parse_location, sitemap_child
-from .base import ScraperBase, ScraperConfig, ScraperHttpClient, ScraperPermanentError
+from ..rich_text import enrich
+from .base import ScraperBase, ScraperConfig, ScraperError, ScraperHttpClient, ScraperPermanentError
 
 SITEMAP_URL = "https://www.getmanfred.com/sitemap-offers.xml"
 SITE_BASE = "https://www.getmanfred.com"
@@ -99,7 +100,8 @@ class ManfredScraper(ScraperBase):
             try:
                 html = await client.get_html(url)
                 fetched_pages += 1
-            except ScraperPermanentError:
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 continue  # one dead offer must not end the run
             job = self.parse_offer(html, url)
             if job is not None:
@@ -142,16 +144,23 @@ class ManfredScraper(ScraperBase):
         work_mode, remote = _work_mode(offer, jsonld)
         location_text = _location_text(offer, jsonld)
         info = parse_location(location_text)
-        # Manfred is a Spanish platform; a remote posting with no named country
-        # is Spain-based unless it says otherwise.
-        country = info.country or ("ES" if work_mode is WorkMode.REMOTE else None)
-        region = info.region if info.country else (Region.EU if country else info.region)
+        country = info.country
+        region = info.region
 
         # The jsonld description is a short summary; the page's own sections and
         # FAQs carry the requirements. The FAQs matter most: Manfred asks every
         # employer "¿Puedo aplicar si vivo fuera de España?" and the answer is
         # the clearest relocation signal any source in this project provides.
         description = _compose_description(jsonld, offer)
+        skill_section = offer.get("skillsSectionData") or {}
+        stack = skill_section.get("skills") or {}
+        technologies = [str(x["skill"]) for group in ("must", "nice") for x in stack.get(group, []) if isinstance(x, dict) and x.get("skill")]
+        description = enrich(description, self.source, {
+            "Technologies": ", ".join(dict.fromkeys(technologies)),
+            "Language": _language(offer), "Posting languages": ", ".join(str(x.get("code") or x.get("name")) for x in offer.get("languages", []) if isinstance(x, dict)),
+            "Company URL": offer.get("companyUrl"), "Requisition": offer.get("internalCode"),
+            "Remote scope": location_text if remote else None,
+        })
 
         return Job.build(
             url=url,
@@ -274,11 +283,9 @@ def _salary(offer: dict[str, Any]) -> str | None:
 
 
 def _language(offer: dict[str, Any]) -> str | None:
-    languages = offer.get("languages") or []
-    if languages and isinstance(languages[0], dict):
-        code = languages[0].get("code") or languages[0].get("name")
-        return str(code).lower() if code else None
-    return None
+    # offer.languages selects translated page versions, not working languages.
+    languages = (offer.get("skillsSectionData") or {}).get("minLanguages") or []
+    return ", ".join(str(x.get("name") or x.get("language") or x.get("code")) for x in languages if isinstance(x, dict) and (x.get("name") or x.get("language") or x.get("code"))) or None
 
 
 #: Prose sections, in the order they read on the page.
@@ -287,6 +294,9 @@ _SECTION_KEYS = (
     "skillsSectionData",
     "howSectionData",
     "teamSectionData",
+    "whenSectionData",
+    "whereSectionData",
+    "offerSectionData",
 )
 
 

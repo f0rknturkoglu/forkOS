@@ -30,6 +30,7 @@ KNOWN_ATS = (
     "personio",
     "factorial",
     "workday",
+    "teamtailor",
 )
 
 #: Workday cannot be discovered from a name alone — it needs host + tenant +

@@ -72,7 +72,17 @@ class CustomFeedsScraper(ScraperBase):
                 errors.append(f"{feed.label}: {type(exc).__name__}: {exc}")
                 continue
 
-            parsed = self.parse_page(xml, feed) if feed.is_page else self.parse(xml, feed)
+            try:
+                parsed = self.parse_page(xml, feed) if feed.is_page else self.parse(xml, feed)
+            except ScraperError as exc:
+                errors.append(f"{feed.label}: {exc}")
+                continue
+            if not parsed and not feed.is_page:
+                root = ET.fromstring(xml)
+                entries = [n for n in root.iter() if n.tag.rsplit("}", 1)[-1] in {"item", "entry"}]
+                if not entries:
+                    succeeded += 1
+                    continue
             if not parsed:
                 what = "page" if feed.is_page else "feed"
                 errors.append(f"{feed.label}: no postings found in the {what}")
@@ -231,6 +241,8 @@ class CustomFeedsScraper(ScraperBase):
                 f"customfeeds: {feed.label} is not valid XML: {exc}"
             ) from exc
 
+        if root.tag not in {"rss", f"{ATOM}feed", "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF"}:
+            raise ScraperPermanentError("customfeeds: unknown feed root")
         items = list(root.iter("item")) or list(root.iter(f"{ATOM}entry"))
         jobs: list[Job] = []
         for item in items:
@@ -250,7 +262,7 @@ class CustomFeedsScraper(ScraperBase):
         # html_to_text returns None for empty input, and plenty of feeds carry
         # a title and a link with nothing else.
         description = (
-            html_to_text(self._text(item, "description", f"{ATOM}summary", f"{ATOM}content") or "")
+            html_to_text(self._text(item, "{http://purl.org/rss/1.0/modules/content/}encoded", f"{ATOM}content", "description", f"{ATOM}summary") or "")
             or ""
         )
 
@@ -292,8 +304,10 @@ class CustomFeedsScraper(ScraperBase):
         """First non-empty match. Atom namespaces every element, RSS none."""
         for tag in tags:
             found = item.find(tag)
-            if found is not None and found.text and found.text.strip():
-                return found.text
+            if found is not None:
+                value = " ".join(found.itertext()).strip()
+                if value:
+                    return value
         return None
 
     @staticmethod

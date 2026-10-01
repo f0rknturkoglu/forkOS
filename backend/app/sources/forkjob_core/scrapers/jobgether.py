@@ -27,7 +27,7 @@ That makes it the second source after EURES where the seniority filter is a
     senior-5-10-years, expert-10-years
 
 `postedAt` is ISO 8601 and a real publish date, so `date_source` is
-`employer`. `salaryRange` comes through as prose ("82500-102500 EUR").
+`updated` (board insertion). `salaryRange` comes through as prose ("82500-102500 EUR").
 """
 
 from __future__ import annotations
@@ -37,7 +37,9 @@ from typing import Any
 from ..geo import region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime, parse_single_country
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from ..rich_text import enrich
+from .base import ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
+from .detail_evidence import enrich_job_details
 
 BASE_URL = "https://jobgether.com"
 API_URL = "https://jobgether.com/astroapi/ai/jobs"
@@ -76,6 +78,7 @@ class JobgetherScraper(ScraperBase):
         keywords: tuple[str, ...] | list[str] = DEFAULT_KEYWORDS,
         limit: int = DEFAULT_LIMIT,
         max_pages: int = DEFAULT_MAX_PAGES,
+        detail_budget: int = 20,
     ) -> None:
         super().__init__(config)
         self.experience = tuple(experience)
@@ -83,6 +86,7 @@ class JobgetherScraper(ScraperBase):
         self.keywords = tuple(keywords)
         self.limit = min(limit, DEFAULT_LIMIT)
         self.max_pages = max_pages
+        self.detail_budget = max(0, int(detail_budget))
 
     @property
     def scope(self) -> str:
@@ -119,15 +123,22 @@ class JobgetherScraper(ScraperBase):
         page_limit = len(keywords) * self.max_pages
 
         for keyword in keywords:
+            profile_seen = set()
             for page in range(1, self.max_pages + 1):
                 try:
                     payload = await client.get_json(self.query_url(keyword, page))
-                except ScraperPermanentError:
+                except ScraperError as exc:
+                    self.errors.append(str(exc))
                     break  # a rejected filter must not sink the rest
 
                 pages_fetched += 1
                 page_jobs = self.parse(payload)
                 items_seen += len(page_jobs)
+                keys = {j.external_id or j.url for j in page_jobs}
+                if page > 1 and keys and not (keys - profile_seen):
+                    self.errors.append("jobgether: repeated page identities")
+                    break
+                profile_seen.update(keys)
                 fresh = [j for j in page_jobs if (j.external_id or j.url) not in seen]
                 seen.update((j.external_id or j.url) for j in fresh)
                 jobs.extend(fresh)
@@ -141,16 +152,20 @@ class JobgetherScraper(ScraperBase):
                 if not page_jobs or not has_more:
                     break
 
-        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
+        metadata = await enrich_job_details(self, client, jobs, self.detail_budget)
+        metadata["listing_pages"] = pages_fetched
+        metadata["listing_complete"] = not cap_hit and not any(not e.startswith("detail:") for e in self.errors)
+        stop_reason = "max_pages_reached" if cap_hit else "detail_budget_or_failure" if metadata["richness_partial"] else "exhausted"
         self.record_telemetry(
             items_seen=items_seen,
             items_returned=len(jobs),
             pages_fetched=pages_fetched,
             page_limit=page_limit,
             result_limit=None,
-            cap_hit=cap_hit,
+            cap_hit=cap_hit or metadata["richness_partial"],
             stop_reason=stop_reason,
-            partial_reason="max_pages_reached" if cap_hit else None,
+            partial_reason=stop_reason if cap_hit or metadata["richness_partial"] else None,
+            metadata=metadata,
         )
         return jobs
 
@@ -158,7 +173,7 @@ class JobgetherScraper(ScraperBase):
 
     def parse(self, payload: Any) -> list[Job]:
         """Pure: API payload in, Jobs out."""
-        if not isinstance(payload, dict) or "jobs" not in payload:
+        if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
             raise ScraperPermanentError(
                 f"jobgether: unexpected payload shape {type(payload).__name__}; "
                 "expected an object with a 'jobs' list"
@@ -209,8 +224,8 @@ class JobgetherScraper(ScraperBase):
             work_mode=work_mode,
             remote=work_mode is WorkMode.REMOTE or None,
             department=", ".join(functions[:2]) if isinstance(functions, list) else None,
-            description=description,
+            description=enrich(description, self.source, {"Source authority": "meta", "Experience level": experience, "Employment type": entry.get("contractType"), "Remote scope": location if work_mode is WorkMode.REMOTE else None}),
             salary=(entry.get("salaryRange") or "").strip() or None,
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )

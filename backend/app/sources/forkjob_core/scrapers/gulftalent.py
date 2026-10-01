@@ -28,8 +28,8 @@ from urllib.parse import urljoin
 from ..geo import country_from_name, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime
-from .base import ScraperBase, ScraperConfig, ScraperHttpClient, ScraperPermanentError
-from .schemaorg import find_type, ld_blocks, organisation_name, place, text
+from .base import ScraperBase, ScraperConfig, ScraperError, ScraperHttpClient
+from .schemaorg import find_type, ld_blocks, organisation_name, place, schema_job, text
 
 BASE_URL = "https://www.gulftalent.com"
 SEARCH_URL = f"{BASE_URL}/jobs/search"
@@ -97,7 +97,8 @@ class GulfTalentScraper(ScraperBase):
                 try:
                     html = await client.get_html(card.url)
                     pages_fetched += 1
-                except ScraperPermanentError:
+                except ScraperError as exc:
+                    self.errors.append(str(exc))
                     continue  # One dead detail page must not sink the whole run.
 
                 for job in self._parse_detail(html, card.url, cutoff):
@@ -139,7 +140,8 @@ class GulfTalentScraper(ScraperBase):
             url = f"{SEARCH_URL}?keyword={keyword.replace(' ', '+')}&sort=d&page={page}"
             try:
                 html = await client.get_html(url)
-            except ScraperPermanentError:
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 break
 
             page_cards = self._parse_listing(html, BASE_URL)
@@ -241,7 +243,7 @@ class GulfTalentScraper(ScraperBase):
         elif extra_parts:
             description = "\n".join(extra_parts)
 
-        return Job.build(
+        return schema_job(posting,
             url=url,
             source=self.source,
             layer=Layer.B,

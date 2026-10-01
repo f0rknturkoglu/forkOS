@@ -35,7 +35,7 @@ from ..geo import country_code, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime, parse_location
 from .base import ScraperBase, ScraperHttpClient
-from .schemaorg import ld_blocks
+from .schemaorg import ld_blocks, schema_job
 
 BASE_URL = "https://bebee.com"
 #: No query string on either — anything with `?` is disallowed by robots.
@@ -85,7 +85,7 @@ class BebeeScraper(ScraperBase):
                     break
 
                 listing_url = f"{BASE_URL}/{country}/{path}"
-                listing = await self.isolate(listing_url, lambda: client.get_html(listing_url))
+                listing = await self.isolate(listing_url, lambda listing_url=listing_url: client.get_html(listing_url))
                 if listing is None:
                     continue  # one country blocked must not sink the rest
                 pages_fetched += 1
@@ -100,7 +100,7 @@ class BebeeScraper(ScraperBase):
                         continue
                     seen.add(url)
 
-                    page = await self.isolate(url, lambda: client.get_html(url))
+                    page = await self.isolate(url, lambda url=url: client.get_html(url))
                     if page is None:
                         continue
                     pages_fetched += 1
@@ -180,7 +180,7 @@ class BebeeScraper(ScraperBase):
             value = identifier.get("value")
             external_id = str(value) if value else None
 
-        return Job.build(
+        return schema_job(posting,
             url=url,
             source=self.source,
             layer=Layer.B,

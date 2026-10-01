@@ -14,6 +14,7 @@ from typing import Any
 from ..geo import country_from_name, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text
+from ..rich_text import enrich
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 API_URL = "https://remotive.com/api/remote-jobs"
@@ -63,6 +64,7 @@ class RemotiveScraper(ScraperBase):
         if isinstance(salary, str) and salary.strip():
             salary_text = salary.strip()
 
+        description = enrich(description, self.source, {"Remote scope": location, "Technologies": ", ".join(entry.get("tags") or []), "Employment type": entry.get("job_type"), "Category": entry.get("category")})
         return Job.build(
             url=url,
             source=self.source,

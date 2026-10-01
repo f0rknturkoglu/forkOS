@@ -8,12 +8,15 @@ Public API, no key. Software and data roles focused.
 from __future__ import annotations
 
 import contextlib
+import re
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlsplit
 
 from ..geo import country_from_name, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text
+from ..rich_text import enrich
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 API_URL = "https://www.workingnomads.com/api/exposed_jobs"
@@ -31,7 +34,10 @@ class WorkingNomadsScraper(ScraperBase):
     def parse(self, payload: Any) -> list[Job]:
         entries = payload
         if isinstance(payload, dict):
-            entries = payload.get("jobs") or payload.get("data") or payload.get("results") or []
+            keys = [k for k in ("jobs", "data", "results") if isinstance(payload.get(k), list)]
+            if not keys:
+                raise ScraperPermanentError("workingnomads: missing recognized job envelope")
+            entries = payload[keys[0]]
         if not isinstance(entries, list):
             raise ScraperPermanentError(
                 f"workingnomads: expected list, got {type(payload).__name__}"
@@ -58,6 +64,8 @@ class WorkingNomadsScraper(ScraperBase):
 
         # Tags / categories
         tags = entry.get("tags") or entry.get("categories") or []
+        if isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
         if isinstance(tags, list) and tags:
             description = f"Tags: {', '.join(str(t) for t in tags)}\n\n{description}"
 
@@ -67,13 +75,17 @@ class WorkingNomadsScraper(ScraperBase):
             with contextlib.suppress(ValueError):
                 posted_at = datetime.fromisoformat(posted_str.replace("Z", "+00:00"))
 
+        parts = urlsplit(url)
+        reference = re.fullmatch(r"/job/go/(\d+)/?", parts.path) if parts.hostname in {"workingnomads.com", "www.workingnomads.com"} else None
+        external_id = str(entry["id"]) if entry.get("id") else reference.group(1) if reference else None
+        description = enrich(description, self.source, {"Technologies": ", ".join(str(t) for t in tags), "Remote scope": location, "Category": entry.get("category_name"), "Application URL": entry.get("apply_url")})
         return Job.build(
             url=url,
             source=self.source,
             layer=Layer.B,
             company=company,
             title=title,
-            external_id=str(entry.get("id")) if entry.get("id") else None,
+            external_id=external_id,
             location=location,
             country=country,
             region=region_for(country) if country else Region.UNKNOWN,
@@ -81,5 +93,5 @@ class WorkingNomadsScraper(ScraperBase):
             remote=True,
             description=description,
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )

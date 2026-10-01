@@ -53,7 +53,7 @@ def source_fact(description: str | None, label: str) -> str | None:
 
 def scoring_tags(description: str) -> str:
     """Discrete stack/experience evidence remains readable beyond the prose head."""
-    prefixes = ("Technologies: ", "Technologies/topics: ", "Experience level: ")
+    prefixes = ("Technologies: ", "Technologies/topics: ", "Experience level: ", "Seniority: ", "Skills: ", "Tags: ")
     return "\n".join(
         line
         for block in _BLOCK.finditer(description)
@@ -70,6 +70,7 @@ def scoring_evidence(description: str) -> str:
         "Board benefits:",
         "Board discovery tags:",
         "Board language tag:",
+        "Board English level:",
         "Board region:",
     )
     return "\n".join(

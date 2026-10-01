@@ -93,6 +93,8 @@ def detect(job: Job, sc: ScoringConfig) -> Signals:
     signals.payment_rails = _find_payment_rails(haystack)
     signals.open_remote_phrase = _first_match(_OPEN_REMOTE_RE, haystack)
     signals.geo_locked_phrase = _first_match(_GEO_LOCKED_RE, haystack)
+    if signals.geo_locked_phrase:
+        signals.open_remote_phrase = None
     return signals
 
 
@@ -378,9 +380,8 @@ _OPEN_REMOTE_RE = re.compile(
     # Boards state this as a policy rather than a place, e.g. Cryptocurrency
     # Jobs writes "100% remote with no geographical restrictions".
     r"|\bno\s+geo(?:graphic(?:al)?)?\s+restrictions?\b"
-    r"|\b100%\s+remote\b|\bremote[-\s]first\b"
     r"|\bremote\s*[-(,]?\s*(?:worldwide|global|anywhere)\b"
-    r"|\b(?:worldwide|global(?:ly)?|fully)\s+remote\b"
+    r"|\b(?:worldwide|global(?:ly)?)\s+remote\b"
     r"|\bemea\b|\bcemea\b"
     r"|\bremote\s+(?:in\s+)?europe\b|\beurope[-\s]wide\b"
     r"|\butc\s*\+\s*[1-4]\b|\bgmt\s*\+\s*[1-4]\b"

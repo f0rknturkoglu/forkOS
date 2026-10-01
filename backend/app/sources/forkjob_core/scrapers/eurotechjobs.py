@@ -39,9 +39,10 @@ from typing import Any
 from selectolax.parser import HTMLParser, Node
 
 from ..geo import country_from_name, region_for
-from ..models import Job, Layer, Region, WorkMode, date_source_for, utcnow
+from ..models import Job, Layer, Region, WorkMode, date_source_for, norm_text, utcnow
 from ..normalize import html_to_text
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from ..rich_text import merge_descriptions
+from .base import ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://www.eurotechjobs.com"
 LISTING_URL = "https://www.eurotechjobs.com/jobs/{country}"
@@ -74,9 +75,11 @@ class EuroTechJobsScraper(ScraperBase):
         config: Any = None,
         *,
         countries: tuple[str, ...] | list[str] = DEFAULT_COUNTRIES,
+        detail_budget: int = 20,
     ) -> None:
         super().__init__(config)
         self.countries = tuple(c.lower() for c in countries)
+        self.detail_budget = max(0, int(detail_budget))
 
     @property
     def scope(self) -> str:
@@ -86,11 +89,15 @@ class EuroTechJobsScraper(ScraperBase):
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
         seen: set[str] = set()
+        listing_pages = details = requests = 0
 
         for country in self.countries:
             try:
+                requests += 1
                 html = await client.get_html(LISTING_URL.format(country=country))
-            except ScraperPermanentError:
+                listing_pages += 1
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 continue  # one country page missing must not stop the rest
 
             for job in self.parse(html):
@@ -98,6 +105,28 @@ class EuroTechJobsScraper(ScraperBase):
                     continue
                 seen.add(job.url)
                 jobs.append(job)
+        for job in jobs[:self.detail_budget]:
+            try:
+                requests += 1
+                parser = HTMLParser(await client.get_html(job.url))
+                body = parser.css_first(".jobDisplay")
+                title = body.css_first("h2") if body else None
+                if body is None or title is None or norm_text(title.text(strip=True)) != norm_text(job.title):
+                    raise ScraperPermanentError("eurotechjobs: mismatched job detail")
+                for node in body.css("a, script, style"):
+                    node.decompose()
+                prose = html_to_text(body.html)
+                if not prose:
+                    raise ScraperPermanentError("eurotechjobs: empty job detail")
+                job.description = merge_descriptions(job.description, prose, prefer_incoming=True)
+                details += 1
+            except ScraperError as exc:
+                self.errors.append("detail: " + str(exc))
+        richness_partial = details < len(jobs)
+        self.record_telemetry(items_seen=len(jobs), items_returned=len(jobs), pages_fetched=listing_pages,
+            cap_hit=True, partial_reason="listing_window; detail_budget_or_failure" if richness_partial else "listing_window",
+            stop_reason="detail_budget_or_failure" if richness_partial else "listing_window",
+            metadata={"requests": requests, "listing_pages": listing_pages, "details_succeeded": details, "detail_budget": self.detail_budget, "richness_partial": richness_partial, "listing_complete": False})
         return jobs
 
     # -- pure parsing -------------------------------------------------------

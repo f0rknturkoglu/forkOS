@@ -43,8 +43,9 @@ class WorkationBaseScraper(RegionalDetailScraper):
                 external_id=r["slug"],
                 mode=WorkMode.REMOTE,
                 salary=r.get("salaryRaw"),
-                language=r.get("language"),
+                language=None,
                 facts={
+                    "Source authority": "meta",
                     "Remote scope": scope,
                     "Timezone requirements": r.get("timezoneOverlap"),
                     "Async/distributed": str(r.get("asyncFriendly"))
@@ -106,6 +107,7 @@ class JumpIntoEuScraper(RegionalDetailScraper):
                 description=resolve_text(r.get("description"), records),
                 updated=r.get("createdAt"),
                 facts={
+                    "Source authority": "meta",
                     "Technologies": ", ".join(r.get("techStack") or []),
                     "Experience level": r.get("seniority"),
                     "Board sponsorship claim": str(r.get("visaSponsorship"))

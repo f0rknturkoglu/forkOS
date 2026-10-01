@@ -128,13 +128,7 @@ sources:
     url: https://www.ticjob.es
     enabled: true
     status: >-
-      Verified 2026-08-08. The sitemap route worked again: per-language
-      sitemaps (cat/eng/esp) with posting URLs under /{lang}/job/, and each
-      posting page carries a full schema.org JobPosting in ld+json — no
-      selectors. Two quirks: the JSON contains raw newlines so it needs
-      strict=False, and `identifier` is the *company* id (the JobFluent trap),
-      so external_id comes from the URL. robots.txt disallows only legal,
-      disclaimer, privacy and online-cv paths.
+      Batch 3 2026-10-01: strict robots recon returned a redirect; no job endpoint fetched in this audit. Historical sitemap/JobPosting parser retained with salary period, skill/scope/expiry evidence. Specific job URL supplies identity, never the organization identifier. Current full detail access is unverified.
     config:
       languages: [eng]
       max_offers: 40
@@ -179,14 +173,7 @@ sources:
     url: https://jobgether.com/astroapi/ai/jobs
     enabled: true
     status: >-
-      Verified 2026-08-08, and the site actively invites this. Its robots.txt
-      closes query strings generally (`Disallow: /*?*`) and then opens one
-      endpoint by name — `Allow: /astroapi/ai/jobs?*` — with
-      `Content-Signal: ai-input=yes`. The endpoint documents itself at
-      /astroapi/ai/jobs/docs as "intended for AI agents/assistants answering
-      user job-search queries", and returns 400s that name the offending field
-      with its allowed values. Second source after EURES where seniority is a
-      fact stated by the poster rather than read out of a title.
+      Verified bounded 2026-10-01: invited public API preserves seniority/type/functions/salary/scope; permitted JobPosting details add full source prose, applicant requirements and expiry. Aggregator authority meta; board postedAt is updated. Up to 20 detail requests per run; caps/errors remain partial.
     config:
       experience: [entry-level-graduate, junior-1-2-years]
       locations: [europe]
@@ -271,13 +258,7 @@ sources:
     url: https://www.wearedevelopers.com/jobs
     enabled: true
     status: >-
-      Verified 2026-08-08. robots disallows only devjobsatBot. The sitemap is
-      a trap and was checked first: sitemap-jobs.xml holds 66,335 URLs and not
-      one is a posting — all category and location facets. So the listing page
-      is parsed via article.wad4-job-card. Worth having for its chips, which
-      carry work mode, salary band, seniority and tech stack as discrete
-      labels rather than prose. The card carries no date at all, so
-      date_source is `discovered` and nothing is invented.
+      Verified 2026-10-01: the site advertises /jobs.md and matching full-job Markdown via /agents.md. Bounded cursor listings use country=all, numeric IDs, stack/salary/seniority and explicit apply links. Board Published is updated provenance; Remote available is not worldwide eligibility. Up to 10 details per run, richness caps remain partial.
     config:
       queries: ["remote=true", ""]
 
@@ -361,10 +342,7 @@ sources:
     url: https://remotive.com
     enabled: true
     status: >-
-      Verified 2026-08-08. Public JSON API: GET /api/remote-jobs. No key,
-      no auth. Returns all active remote jobs with company, title, location,
-      salary, description. No publish date in the payload — date_source is
-      DISCOVERED. 19 postings on first probe.
+      Batch 3 2026-10-01: robots.txt returned 403, so no job endpoint was fetched. Historical public JSON parser retained; configured enabled does not prove current runnable access. Publication dates are board updates where supplied; missing date is discovered. Runtime fails closed if policy cannot be verified.
     config:
       min_interval: 1.0
 
@@ -374,9 +352,7 @@ sources:
     url: https://himalayas.app
     enabled: true
     status: >-
-      Verified 2026-08-08. Public JSON API: GET /jobs/api. Remote-first job
-      board showing visa and location restrictions explicitly per posting.
-      20 postings on first probe.
+      Verified bounded 2026-10-01: public /jobs/api returns a first 20-record window, not the whole catalogue. Stable GUID, full source description, plural country/timezone restrictions, salary currency/period, expiry and applicationLink retained. Board pubDate uses updated provenance. Missing visa fields stay unknown; scope caps remain partial.
     config:
       min_interval: 1.0
 
@@ -417,8 +393,7 @@ sources:
     url: https://www.workingnomads.com
     enabled: true
     status: >-
-      Verified 2026-08-09. Public JSON API: /api/exposed_jobs confirmed
-      working with real job data.
+      Verified bounded 2026-10-01: public API returns full source descriptions, comma-string tags and location/category. Native numeric identity is in /job/go/{id}/. Board pub_date is updated, not original employer publication. Global board label does not override residency restrictions in prose.
     config:
       min_interval: 1.0
 
@@ -500,12 +475,7 @@ sources:
     url: https://nofluffjobs.com
     enabled: true
     status: >-
-      Verified 2026-08-09: 692 junior postings over 7 pages. POST
-      /api/search/posting, allowed by robots. salaryCurrency, salaryPeriod
-      and region are required query params (400 without them), the body key
-      is criteriaSearch, and page is a query param — all three were wrong
-      before, which is why it returned zero without erroring. Seniority is
-      filtered server-side. Salary is mandatory on this board.
+      Verified bounded 2026-10-01: public search POST has explicit PLN/month query semantics and native IDs. Up to 20 public JobPosting details recover full prose, structured skill values, employer/type/scope and expiry when supplied. Null expiry remains unknown. Board posted/renewed timestamps are updated; listing and richness completeness separate.
     config:
       min_interval: 1.0
       max_pages: 8
@@ -576,10 +546,7 @@ sources:
     url: https://jobs.sequoiacap.com
     enabled: true
     status: >-
-      Verified 2026-08-09. consider.co board. POST /api-boards/search-jobs
-      with board id sequoia-capital, grouped by company. Carries minYearsExp
-      and structured salary — the best junior filter in the registry.
-      robots.txt: Allow: / for all agents except LinkedInBot. 9,719 postings.
+      Batch 3 2026-10-01: permitted public bootstrap succeeded; one CSRF-backed search POST timed out at 15 seconds. Current job results not verified. Historical grouped public API parser retains salary/skills/app/experience and meta authority. Repeated sequence/identity guarded; bounded at 200 pages. No login or token capture retained.
     config:
       board_id: sequoia-capital
       board_label: Sequoia
@@ -606,11 +573,7 @@ sources:
     url: https://www.gulftalent.com
     enabled: true
     status: >-
-      Verified 2026-08-09. Middle East job board. Server-rendered search page
-      with ld+json JobPosting on detail pages. robots.txt: Allow: / for all
-      except AI crawlers. Sitemap has 30k category URLs but no detail pages;
-      scraper walks the keyword search instead, capped at max_offers newest
-      within max_age_days.
+      Batch 3 2026-10-01: robots allowed the planned path but listing returned 403. No detail fetch or bypass. Historical SSR/JobPosting parser retained with explicit salary period, employment, scope and expiry. Configured enabled does not mean currently reachable.
     config:
       keywords:
         - developer
@@ -658,10 +621,7 @@ sources:
     url: https://bulldogjob.com
     enabled: true
     status: >-
-      Verified 2026-08-18. Public GraphQL endpoint POST /graphql
-      (searchJobs), 852 postings, no auth. contractB2b boolean stated by the
-      employer; publishedAt real publish date. robots.txt leaves listing
-      paths open.
+      Verified bounded 2026-10-01: current public GraphQL listing has no salary fields; query does not invent them. Up to 20 permitted JobPosting details add full prose, actual company, skills, experience months and expiry. Board publishedAt is updated. Repeated pages and partial detail budgets are visible.
     config:
       max_pages: 6
       min_interval: 1.0

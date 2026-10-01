@@ -1,0 +1,1606 @@
+{
+  "portals": [
+    {
+      "key": "manfred",
+      "label": "Manfred",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://www.getmanfred.com",
+      "module": "app.sources.forkjob_core.scrapers.manfred",
+      "cls": "ManfredScraper",
+      "config": {
+        "max_offers": 40
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None, *, max_offers: 'int' = 40) -> 'None'",
+      "status": "Verified 2026-08-08. No REST API exists (api.getmanfred.com/v1/jobs is 404). Offers are indexed by sitemap-offers.xml, which robots.txt advertises, and each offer page carries __NEXT_DATA__ plus a schema.org JobPosting with a real datePosted. robots.txt allows everything."
+    },
+    {
+      "key": "kariyernet",
+      "label": "Kariyer.net",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://www.kariyer.net/is-ilanlari/yazilim",
+      "module": "app.sources.forkjob_core.scrapers.kariyernet",
+      "cls": "KariyerNetScraper",
+      "config": {
+        "keywords": [
+          "yazilim",
+          "yazilim-muhendisi",
+          "backend-developer",
+          "frontend-developer"
+        ],
+        "max_pages": 5
+      },
+      "defaults": "(config: 'Any' = None, *, keywords: 'tuple[str, ...] | list[str]' = ('yazilim', 'yazilim-muhendisi', 'backend-developer', 'frontend-developer'), max_pages: 'int' = 5) -> 'None'",
+      "status": "Verified 2026-08-08 against a live listing page: 53 cards, and all 25 data attributes present on every one. Cards carry their data in HTML attributes (positionname, cityname, workmodeltext, jobdatestatus) rather than nested markup, so there is almost no selector surface to break. robots.txt permits /is-ilanlari/ and disallows only CV, profile, application and settings paths — none of which this touches. No login."
+    },
+    {
+      "key": "arbeitnow",
+      "label": "Arbeitnow",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://www.arbeitnow.com/api/job-board-api",
+      "module": "app.sources.forkjob_core.scrapers.arbeitnow",
+      "cls": "ArbeitnowScraper",
+      "config": {
+        "max_pages": 3
+      },
+      "defaults": "(config: 'Any' = None, *, max_pages: 'int' = 3) -> 'None'",
+      "status": "Verified 2026-08-08: free public API published by the site itself, 175 postings per page, hourly updates, no key. Berlin/München/Hamburg/London heavy. Note there is NO visa_sponsorship field in the current payload despite what older write-ups claim — the visa signal comes from the description like every other source. Their terms ask for a link back, which the stored `url` provides."
+    },
+    {
+      "key": "linkedin",
+      "label": "LinkedIn",
+      "enabled": false,
+      "runnable": false,
+      "category": "social",
+      "url": "https://www.linkedin.com/jobs",
+      "module": "app.sources.forkjob_core.scrapers.linkedin",
+      "cls": "LinkedInScraper",
+      "config": {
+        "proxy_file_env": "FORKJOB_LINKEDIN_PROXIES_FILE",
+        "ca_cert_env": "FORKJOB_LINKEDIN_CA_CERT",
+        "user_agent_env": "FORKJOB_LINKEDIN_USER_AGENT",
+        "searches": []
+      },
+      "defaults": "(config=None, *, searches=None, proxy_file_env='FORKJOB_LINKEDIN_PROXIES_FILE', allow_direct=None, ca_cert_env='FORKJOB_LINKEDIN_CA_CERT', user_agent_env='FORKJOB_LINKEDIN_USER_AGENT', runner=None, transport=None, policy_gate=None, native_transport=None, jobspy_transport=None, max_wall_seconds=180, max_requests=40, max_pages=10, detail_enrich_max=10)",
+      "status": "V1 JobSpy retained; V2 native guest implemented with a shared runtime policy gate. Current 2026-10-01 robots.txt denies acquisition routes; catalogued but non-runnable. Neither transport may bypass the denial."
+    },
+    {
+      "key": "bebee",
+      "label": "beBee",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://bebee.com/tr/jobs",
+      "module": "app.sources.forkjob_core.scrapers.bebee",
+      "cls": "BebeeScraper",
+      "config": {
+        "countries": [
+          "tr",
+          "es"
+        ],
+        "max_offers": 40
+      },
+      "defaults": "(config: 'Any' = None, *, countries: 'tuple[str, ...] | list[str]' = ('tr', 'es'), max_offers: 'int' = 40) -> 'None'",
+      "status": "Verified 2026-08-08 against live TR pages. Posting pages carry a full schema.org JobPosting (datePosted, structured addressLocality/ addressCountry, identifier), so there are no selectors at all. Constraint: robots.txt allows / but disallows every query parameter including ?page=, and the sitemap holds only category pages (0 individual postings out of 2394). So listings come from each page's own ld+json ItemList, which caps at 20 postings per country page with no way to reach the 21st. A shallow, frequent skim rather than a deep crawl."
+    },
+    {
+      "key": "jobfluent",
+      "label": "JobFluent",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://www.jobfluent.com/jobs",
+      "module": "app.sources.forkjob_core.scrapers.jobfluent",
+      "cls": "JobFluentScraper",
+      "config": {
+        "regions": [
+          "remote",
+          "barcelona",
+          "madrid",
+          "valencia"
+        ],
+        "max_offers": 40
+      },
+      "defaults": "(config: 'Any' = None, *, regions: 'tuple[str, ...] | list[str]' = ('remote', 'barcelona', 'madrid', 'valencia'), max_offers: 'int' = 40) -> 'None'",
+      "status": "Verified 2026-08-08. Not a Next.js site — no __NEXT_DATA__ and no ld+json — but it publishes schema.org *microdata* (itemprop) covering title, datePosted, addressLocality/addressCountry, hiringOrganization, identifier and a curated comma-separated `skills` list. So no invented selectors: every field is addressed by its schema.org property name. Listings come from the advertised sitemap, split by region (remote/barcelona/madrid/valencia); Barcelona alone lists 392 postings. robots.txt gives ClaudeBot/GPTBot/CCBot a blanket Disallow — those are bulk AI crawlers. The `User-agent: *` block covering this tool disallows only /login, /sessions*, /api/*, /track and the /*/external* apply redirects, none of which are touched."
+    },
+    {
+      "key": "ticjob",
+      "label": "Ticjob",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://www.ticjob.es",
+      "module": "app.sources.forkjob_core.scrapers.ticjob",
+      "cls": "TicjobScraper",
+      "config": {
+        "languages": [
+          "eng"
+        ],
+        "max_offers": 40
+      },
+      "defaults": "(config: 'Any' = None, *, languages: 'tuple[str, ...] | list[str]' = ('eng',), max_offers: 'int' = 40) -> 'None'",
+      "status": "Batch 3 2026-10-01: strict robots recon returned a redirect; no job endpoint fetched in this audit. Historical sitemap/JobPosting parser retained with salary period, skill/scope/expiry evidence. Specific job URL supplies identity, never the organization identifier. Current full detail access is unverified."
+    },
+    {
+      "key": "jobicy",
+      "label": "Jobicy",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://jobicy.com/jobs/feed",
+      "module": "app.sources.forkjob_core.scrapers.jobicy",
+      "cls": "JobicyScraper",
+      "config": {
+        "geos": [
+          "europe",
+          "emea",
+          ""
+        ],
+        "industries": [
+          "engineering"
+        ]
+      },
+      "defaults": "(config: 'Any' = None, *, geos: 'tuple[str, ...] | list[str]' = ('europe', 'emea', ''), industries: 'tuple[str, ...] | list[str]' = ('engineering',)) -> 'None'",
+      "status": "Verified 2026-08-08 via RSS, not the JSON API. The documented /api/v2/remote-jobs is forbidden by the site's own robots.txt (line 48, `Disallow: /api/`) and the scraper obeys it — the first attempt returned zero postings and no error. The RSS feed is a different, permitted path: `Disallow: /feed$` pins to the bare /feed and nothing covers /jobs/feed. The feed is richer than the API anyway, carrying company, location, job_type and category in a jobicy namespace; the only loss is the API's jobLevel field. geo and industry filters both work on it."
+    },
+    {
+      "key": "remoteok",
+      "label": "RemoteOK",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://remoteok.com/api",
+      "module": "app.sources.forkjob_core.scrapers.remoteok",
+      "cls": "RemoteOkScraper",
+      "config": {},
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Verified 2026-08-08, 100 postings. Free public JSON API, no key. robots.txt allows `*` and sets `Content-Signal: search=yes, ai-train=no, use=reference` — reference use is exactly this, and nothing here trains anything. (ClaudeBot and the other bulk AI crawlers are named and disallowed; this tool is neither.) The first array element is their API terms rather than a posting and is skipped. Terms require a followed link back, which the stored url provides. `location` is usually empty; the signal is in `tags` (dev, engineer, senior, python, react), surfaced into the description for the scorer. Carries real salary ranges, rare here."
+    },
+    {
+      "key": "jobgether",
+      "label": "Jobgether",
+      "enabled": true,
+      "runnable": true,
+      "category": "aggregator",
+      "url": "https://jobgether.com/astroapi/ai/jobs",
+      "module": "app.sources.forkjob_core.scrapers.jobgether",
+      "cls": "JobgetherScraper",
+      "config": {
+        "experience": [
+          "entry-level-graduate",
+          "junior-1-2-years"
+        ],
+        "locations": [
+          "europe"
+        ],
+        "keywords": [
+          "developer",
+          "software engineer"
+        ],
+        "max_pages": 4
+      },
+      "defaults": "(config: 'Any' = None, *, experience: 'tuple[str, ...] | list[str]' = ('entry-level-graduate', 'junior-1-2-years'), locations: 'tuple[str, ...] | list[str]' = ('europe',), keywords: 'tuple[str, ...] | list[str]' = ('developer', 'software engineer'), limit: 'int' = 25, max_pages: 'int' = 4, detail_budget: 'int' = 20) -> 'None'",
+      "status": "Verified bounded 2026-10-01: invited public API preserves seniority/type/functions/salary/scope; permitted JobPosting details add full source prose, applicant requirements and expiry. Aggregator authority meta; board postedAt is updated. Up to 20 detail requests per run; caps/errors remain partial."
+    },
+    {
+      "key": "weworkremotely",
+      "label": "We Work Remotely",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://weworkremotely.com/remote-jobs.rss",
+      "module": "app.sources.forkjob_core.scrapers.weworkremotely",
+      "cls": "WeWorkRemotelyScraper",
+      "config": {
+        "categories": [
+          "remote-programming-jobs",
+          "remote-full-stack-programming-jobs",
+          "remote-back-end-programming-jobs",
+          "remote-front-end-programming-jobs",
+          "remote-devops-sysadmin-jobs"
+        ]
+      },
+      "defaults": "(config: 'Any' = None, *, categories: 'tuple[str, ...] | list[str]' = ('remote-programming-jobs', 'remote-full-stack-programming-jobs', 'remote-back-end-programming-jobs', 'remote-front-end-programming-jobs', 'remote-devops-sysadmin-jobs')) -> 'None'",
+      "status": "Verified 2026-08-08. Public RSS feeds the site offers for this purpose, asking only for attribution back — the stored url provides it. robots is Allow:/ apart from account and admin paths. Key finding: the category feeds do NOT nest. \"All Programming\" returned 25 postings that appeared in none of the others, while Full-Stack had 123, DevOps 51, Back-End 29 and Front-End 16, all disjoint — fetching only the \"all\" feed would have collected 25 of 219. Every engineering category is fetched and merged; design, sales, support and management are left out."
+    },
+    {
+      "key": "wellfound",
+      "label": "Wellfound",
+      "enabled": true,
+      "runnable": true,
+      "category": "startup",
+      "url": "https://wellfound.com/role/l/software-engineer/spain",
+      "module": "app.sources.forkjob_core.scrapers.wellfound",
+      "cls": "WellfoundScraper",
+      "config": {
+        "roles": [
+          "software-engineer",
+          "backend-engineer",
+          "frontend-engineer"
+        ],
+        "locations": [
+          "spain",
+          "netherlands",
+          "germany",
+          "sweden",
+          "portugal",
+          "ireland"
+        ]
+      },
+      "defaults": "(config: 'Any' = None, *, roles: 'tuple[str, ...] | list[str]' = ('software-engineer', 'backend-engineer', 'frontend-engineer'), locations: 'tuple[str, ...] | list[str]' = ('spain', 'netherlands', 'germany', 'sweden', 'portugal', 'ireland')) -> 'None'",
+      "status": "Verified 2026-08-08. Next.js role pages ship their Apollo GraphQL cache in __NEXT_DATA__, so no selectors. Jobs hang off companies — a StartupResult lists its postings by __ref and the posting carries no company itself. Two fields nothing else here provides: yearsExperienceMin as a number stated by the poster, and real compensation including equity. Caveat: the page also loads Cloudflare and captcha machinery. It served fine at 2s with an honest UA, but this is the likeliest source to start refusing — if it does it will surface as an error run, and it should be left refused rather than worked around."
+    },
+    {
+      "key": "remoterocketship",
+      "label": "Remote Rocketship",
+      "enabled": false,
+      "runnable": false,
+      "category": "startup",
+      "url": "https://www.remoterocketship.com",
+      "module": "app.sources.forkjob_core.scrapers.pending",
+      "cls": "RemoteRocketshipScraper",
+      "config": {},
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Blocked at the door. robots.txt permits it, but the site answers 403 with a Cloudflare \"Just a moment\" challenge to an honest UA. Getting past that means impersonating a browser or routing around the challenge, which is not something this project does. No parser written."
+    },
+    {
+      "key": "eurotechjobs",
+      "label": "EuroTechJobs",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://www.eurotechjobs.com/jobs/spain",
+      "module": "app.sources.forkjob_core.scrapers.eurotechjobs",
+      "cls": "EuroTechJobsScraper",
+      "config": {
+        "countries": [
+          "spain",
+          "netherlands",
+          "germany",
+          "sweden",
+          "ireland",
+          "portugal"
+        ]
+      },
+      "defaults": "(config: 'Any' = None, *, countries: 'tuple[str, ...] | list[str]' = ('spain', 'netherlands', 'germany', 'sweden', 'ireland', 'portugal'), detail_budget: 'int' = 20) -> 'None'",
+      "status": "Verified 2026-08-08. robots names ClaudeBot/GPTBot/Bytespider with Disallow but leaves `User-agent: *` fully open, the same shape as JobFluent. No structured data anywhere and the sitemap holds only articles, so this needed real selectors, taken from a captured page: li.highlightedJobContainer and li.standardJobContainer, with h3, .companyName, .location, .postedDate and .badge inside. Both container classes are read — taking only one would drop either every promoted posting or nearly everything. postedDate is relative prose (\"Posted 10 days ago\") with no absolute timestamp, so date_source is `updated`, never `employer`."
+    },
+    {
+      "key": "wearedevelopers",
+      "label": "WeAreDevelopers",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://www.wearedevelopers.com/jobs",
+      "module": "app.sources.forkjob_core.scrapers.wearedevelopers",
+      "cls": "WeAreDevelopersScraper",
+      "config": {
+        "queries": [
+          "remote=true",
+          ""
+        ]
+      },
+      "defaults": "(config: 'Any' = None, *, queries: 'tuple[str, ...] | list[str]' = ('remote=true', ''), max_pages: 'int' = 2, detail_budget: 'int' = 10) -> 'None'",
+      "status": "Verified 2026-10-01: the site advertises /jobs.md and matching full-job Markdown via /agents.md. Bounded cursor listings use country=all, numeric IDs, stack/salary/seniority and explicit apply links. Board Published is updated provenance; Remote available is not worldwide eligibility. Up to 10 details per run, richness caps remain partial."
+    },
+    {
+      "key": "tecnoempleo",
+      "label": "Tecnoempleo",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://www.tecnoempleo.com/ofertas-trabajo/",
+      "module": "app.sources.forkjob_core.scrapers.tecnoempleo",
+      "cls": "TecnoempleoScraper",
+      "config": {
+        "max_offers": 40,
+        "max_age_days": 30
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None, *, max_offers: 'int' = 40, max_age_days: 'int' = 30) -> 'None'",
+      "status": "Verified 2026-08-08. The advertised sitemap.xml is the offer index: 2,008 live postings (priority 1.0, real lastmod) — the search page's query parameters are undocumented and are never touched. Each offer page carries a schema.org JobPosting with a real datePosted, so date_source is employer; the ld+json identifier is the *company* id (the JobFluent trap), so external_id comes from the rf-<hex> URL tail. The sitemap also holds the site history back to 2017, so offers are filtered to the last max_age_days and fetched newest-first, capped at max_offers. Closed offers resolve to a search page without a JobPosting and are skipped. robots.txt disallows AnthropicBot/Claude*/GPTBot by name with a blanket Disallow: / — this tool is none of those and identifies honestly; the owner's stated intent is on record and the choice is deliberate."
+    },
+    {
+      "key": "eures",
+      "label": "EURES",
+      "enabled": true,
+      "runnable": true,
+      "category": "government",
+      "url": "https://europa.eu/eures/api/jv-searchengine/public/jv-search/search",
+      "module": "app.sources.forkjob_core.scrapers.eures",
+      "cls": "EuresScraper",
+      "config": {
+        "min_interval": 10,
+        "results_per_page": 50,
+        "searches": [
+          {
+            "name": "entry-level",
+            "countries": [
+              "es",
+              "se",
+              "nl",
+              "de",
+              "pt",
+              "ie",
+              "pl",
+              "be",
+              "fr",
+              "at",
+              "dk",
+              "fi",
+              "no",
+              "ch",
+              "cz",
+              "it",
+              "gr",
+              "ro",
+              "hu",
+              "bg",
+              "hr",
+              "sk",
+              "si",
+              "ee",
+              "lv",
+              "lt",
+              "lu",
+              "mt",
+              "cy",
+              "is",
+              "li"
+            ],
+            "experience": [
+              "none_required",
+              "up_to_1_year"
+            ],
+            "max_pages": 12
+          },
+          {
+            "name": "eures-flag",
+            "countries": [
+              "es",
+              "se",
+              "nl",
+              "de",
+              "pt",
+              "ie",
+              "pl",
+              "be",
+              "fr",
+              "at",
+              "dk",
+              "fi",
+              "no",
+              "ch",
+              "cz",
+              "it",
+              "gr",
+              "ro",
+              "hu",
+              "bg",
+              "hr",
+              "sk",
+              "si",
+              "ee",
+              "lv",
+              "lt",
+              "lu",
+              "mt",
+              "cy",
+              "is",
+              "li"
+            ],
+            "eures_flag": "WITH",
+            "max_pages": 5
+          },
+          {
+            "name": "internship",
+            "countries": [
+              "es",
+              "se",
+              "nl",
+              "de",
+              "pt",
+              "ie",
+              "pl",
+              "be",
+              "fr",
+              "at",
+              "dk",
+              "fi",
+              "no",
+              "ch",
+              "cz",
+              "it",
+              "gr",
+              "ro",
+              "hu",
+              "bg",
+              "hr",
+              "sk",
+              "si",
+              "ee",
+              "lv",
+              "lt",
+              "lu",
+              "mt",
+              "cy",
+              "is",
+              "li"
+            ],
+            "offering": [
+              "internship",
+              "apprenticeship"
+            ],
+            "max_pages": 3
+          }
+        ]
+      },
+      "defaults": "(config: 'Any' = None, *, searches: 'Any' = None, countries: 'tuple[str, ...] | list[str] | None' = None, results_per_page: 'int' = 50) -> 'None'",
+      "status": "Verified 2026-08-08 — the largest source in the project. POST to /eures/api/jv-searchengine/public/jv-search/search. The service name was not guessable (eight plausible names all 401'd); it came from a captured request. Referer and Origin are required, but an honest forkjob/0.1 UA works — no browser impersonation. The captured sessionId is not needed. Occupations filter by ESCO URI rather than keyword, so ISCO C25 targets ICT roles directly across all 24 languages. numberRecords gives the total up front, so paging stops exactly. robots.txt has no rule against /eures but sets Crawl-delay: 10 — min_interval below enforces it, do not lower."
+    },
+    {
+      "key": "remotive",
+      "label": "Remotive",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://remotive.com",
+      "module": "app.sources.forkjob_core.scrapers.remotive",
+      "cls": "RemotiveScraper",
+      "config": {
+        "min_interval": 1.0
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Batch 3 2026-10-01: robots.txt returned 403, so no job endpoint was fetched. Historical public JSON parser retained; configured enabled does not prove current runnable access. Publication dates are board updates where supplied; missing date is discovered. Runtime fails closed if policy cannot be verified."
+    },
+    {
+      "key": "himalayas",
+      "label": "Himalayas",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://himalayas.app",
+      "module": "app.sources.forkjob_core.scrapers.himalayas",
+      "cls": "HimalayasScraper",
+      "config": {
+        "min_interval": 1.0
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Verified bounded 2026-10-01: public /jobs/api returns a first 20-record window, not the whole catalogue. Stable GUID, full source description, plural country/timezone restrictions, salary currency/period, expiry and applicationLink retained. Board pubDate uses updated provenance. Missing visa fields stay unknown; scope caps remain partial."
+    },
+    {
+      "key": "justjoinit",
+      "label": "JustJoin.it",
+      "enabled": false,
+      "runnable": false,
+      "category": "regional",
+      "url": "https://justjoin.it",
+      "module": "app.sources.forkjob_core.scrapers.blocked",
+      "cls": "JustJoinItScraper",
+      "config": {
+        "min_interval": 1.0
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Blocked by robots.txt, checked 2026-08-09. /api/ is disallowed for every agent, and the scraper correctly refuses rather than fetching. There is a permitted route — /sitemaps/active-jobs.xml, which redirects to public.justjoin.com and indexes per-posting sitemaps — but using it means fetching each posting page one by one, which is a different scraper than the one written here. Keep off until then."
+    },
+    {
+      "key": "devitjobs",
+      "label": "DevITJobs Netherlands",
+      "enabled": false,
+      "runnable": false,
+      "category": "regional",
+      "url": "https://devitjobs.nl",
+      "module": "app.sources.forkjob_core.scrapers.devitjobs",
+      "cls": "DevITJobsScraper",
+      "config": {
+        "max_offers": 1000,
+        "detail_budget": 20,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_offers: int = 1000, detail_budget: int = 20)",
+      "status": "Revalidated 2026-10-01: current site exists, but local ordinary HTTP to robots, listing, RSS, sitemap and /api/jobsLight returns 403. Shared current TechJobs parser registered; disabled until public transport succeeds. Legacy /api/jobs retirement is not source death."
+    },
+    {
+      "key": "workingnomads",
+      "label": "Working Nomads",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://www.workingnomads.com",
+      "module": "app.sources.forkjob_core.scrapers.workingnomads",
+      "cls": "WorkingNomadsScraper",
+      "config": {
+        "min_interval": 1.0
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Verified bounded 2026-10-01: public API returns full source descriptions, comma-string tags and location/category. Native numeric identity is in /job/go/{id}/. Board pub_date is updated, not original employer publication. Global board label does not override residency restrictions in prose."
+    },
+    {
+      "key": "hackernews",
+      "label": "HN Who is Hiring",
+      "enabled": true,
+      "runnable": true,
+      "category": "community",
+      "url": "https://news.ycombinator.com",
+      "module": "app.sources.forkjob_core.scrapers.hackernews",
+      "cls": "HackerNewsScraper",
+      "config": {
+        "min_interval": 1.0,
+        "max_threads": 1,
+        "max_pages": 6
+      },
+      "defaults": "(config: 'Any' = None, *, max_threads: 'int' = 1, max_pages: 'int' = 6) -> 'None'",
+      "status": "Verified 2026-08-09 against the August 2026 thread: 308 comments. Algolia's public API, no key, and hn.algolia.com serves no robots.txt at all; news.ycombinator.com itself is never fetched, only linked. Two threads are posted the same day by the same account and only one is employers — \"Who wants to be hired?\" is candidates advertising themselves, so the title filter is load-bearing. Only top-level comments are postings; replies are conversation. The pipe-separated first line is a convention rather than a schema, so each segment is classified by what it looks like, not by its position."
+    },
+    {
+      "key": "jobspresso",
+      "label": "Jobspresso",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://jobspresso.co/jobs/feed/",
+      "module": "app.sources.forkjob_core.scrapers.jobspresso",
+      "cls": "JobspressoScraper",
+      "config": {
+        "min_interval": 3.0
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Verified 2026-08-09: 20 postings, all remote. WP Job Manager RSS. robots.txt allows it — the only broad rule is `Disallow: /*?`, which covers query strings, and this path has none; crawl-delay 3. Note the site's main /feed/ is the blog and carries no postings at all. Company and location are not separate elements: both are packed into dc:creator as \"Company<br>pin Location\", and postings list every country they hire from, so the country is taken from the first resolvable entry."
+    },
+    {
+      "key": "jobtech",
+      "label": "JobTech (Platsbanken)",
+      "enabled": true,
+      "runnable": true,
+      "category": "government",
+      "url": "https://jobsearch.api.jobtechdev.se",
+      "module": "app.sources.forkjob_core.scrapers.jobtech",
+      "cls": "JobTechScraper",
+      "config": {
+        "min_interval": 1.0,
+        "max_pages": 2
+      },
+      "defaults": "(config: 'Any' = None, *, searches: 'list[str] | None' = None, max_pages: 'int' = 2) -> 'None'",
+      "status": "Verified 2026-08-09: 290 postings over five English role searches, 116 of them in English. Open government data from Arbetsformedlingen, the Swedish public employment service — no key, no bot protection, and Swedish employers are required by law to post here, so it is the most complete view of one country's market in this registry. The API has no language filter and most postings are Swedish, so the language is detected from the description and stored on the job; searches are English role names because an English-titled ad at a Swedish employer is itself a signal about the working language."
+    },
+    {
+      "key": "customfeeds",
+      "label": "Custom RSS feeds",
+      "enabled": true,
+      "runnable": true,
+      "category": "custom",
+      "url": "",
+      "module": "app.sources.forkjob_core.scrapers.customfeeds",
+      "cls": "CustomFeedsScraper",
+      "config": {
+        "min_interval": 2.0
+      },
+      "defaults": "(config: 'Any' = None, *, feeds_path: 'str' = '') -> 'None'",
+      "status": "Reads data/feeds.yaml, which the web UI at /feeds writes — adding a feed in the browser is enough for the next sync to collect it. Generic RSS 2.0 and Atom only, so what it extracts is the intersection of every feed: title, link, date, description. A board with a real API or its own quirks deserves a dedicated scraper instead. Feeds fail independently and each failure is reported by name, because a feed that returns nothing looks exactly like one that was never reachable. Ships with a single disabled example entry."
+    },
+    {
+      "key": "nofluffjobs",
+      "label": "No Fluff Jobs",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://nofluffjobs.com",
+      "module": "app.sources.forkjob_core.scrapers.nofluffjobs",
+      "cls": "NoFluffJobsScraper",
+      "config": {
+        "min_interval": 1.0,
+        "max_pages": 8
+      },
+      "defaults": "(config: 'Any' = None, *, max_pages: 'int' = 8, detail_budget: 'int' = 20) -> 'None'",
+      "status": "Verified bounded 2026-10-01: public search POST has explicit PLN/month query semantics and native IDs. Up to 20 public JobPosting details recover full prose, structured skill values, employer/type/scope and expiry when supplied. Null expiry remains unknown. Board posted/renewed timestamps are updated; listing and richness completeness separate."
+    },
+    {
+      "key": "relocateme",
+      "label": "Relocate.me",
+      "enabled": true,
+      "runnable": true,
+      "category": "relocation",
+      "url": "https://relocate.me",
+      "module": "app.sources.forkjob_core.scrapers.relocateme",
+      "cls": "RelocateMeScraper",
+      "config": {
+        "min_interval": 2.0,
+        "max_pages": 5
+      },
+      "defaults": "(config: 'Any' = None, *, max_pages: 'int' = 5) -> 'None'",
+      "status": "Verified 2026-08-09: 35 postings, 20 cards per page, allowed by robots. /search is a 301 to /international-jobs, and the markup is BEM (jobs-list__job) with no schema.org JobPosting anywhere on the listing page — the old selectors matched nothing. Every non-remote posting carries relocation and visa sponsorship by the board's own premise, so that signal is stated rather than inferred."
+    },
+    {
+      "key": "landingjobs",
+      "label": "Landing.jobs",
+      "enabled": false,
+      "runnable": false,
+      "category": "regional",
+      "url": "https://landing.jobs",
+      "module": "app.sources.forkjob_core.scrapers.blocked",
+      "cls": "LandingJobsScraper",
+      "config": {
+        "min_interval": 1.0,
+        "max_pages": 8
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Blocked by robots.txt, checked 2026-08-09. /api/, /jobs? and /jobs/search are all disallowed for every agent, so the internal API the scraper was written against is off limits. The permitted sitemap holds only 2069 category and city pages — not one individual posting — so there is no allowed path to the listings. Keep off."
+    },
+    {
+      "key": "honeypot",
+      "label": "Honeypot.io",
+      "enabled": false,
+      "runnable": false,
+      "category": "regional",
+      "url": "https://www.honeypot.io",
+      "module": "app.sources.forkjob_core.scrapers.blocked",
+      "cls": "HoneypotScraper",
+      "config": {
+        "min_interval": 1.0,
+        "max_pages": 5
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Site unreachable, checked 2026-08-09. www.honeypot.io does not accept connections at all — robots.txt included — so this is not a wrong API URL but a host that is no longer serving. Was reverse recruiting for DE/NL/AT with explicit visa status. Keep off."
+    },
+    {
+      "key": "offerzen",
+      "label": "OfferZen",
+      "enabled": false,
+      "runnable": false,
+      "category": "regional",
+      "url": "https://www.offerzen.com",
+      "module": "app.sources.forkjob_core.scrapers.blocked",
+      "cls": "OfferZenScraper",
+      "config": {
+        "min_interval": 1.0,
+        "max_pages": 5
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "No public postings to read, checked 2026-08-09. The guessed /api/v1/jobs is a 404, /jobs redirects to marketing pages, and neither the landing page nor a category page carries a JobPosting, ld+json or __NEXT_DATA__ block. OfferZen is a reverse marketplace — companies approach candidates behind a login — so there is no listing to scrape."
+    },
+    {
+      "key": "consider-sequoia",
+      "label": "Sequoia (portfolio)",
+      "enabled": true,
+      "runnable": true,
+      "category": "startup",
+      "url": "https://jobs.sequoiacap.com",
+      "module": "app.sources.forkjob_core.scrapers.consider",
+      "cls": "ConsiderScraper",
+      "config": {
+        "board_id": "sequoia-capital",
+        "board_label": "Sequoia",
+        "base_url": "https://jobs.sequoiacap.com",
+        "min_interval": 2.0
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None, *, board_id: 'str' = '', board_label: 'str' = '', base_url: 'str' = '') -> 'None'",
+      "status": "Batch 3 2026-10-01: permitted public bootstrap succeeded; one CSRF-backed search POST timed out at 15 seconds. Current job results not verified. Historical grouped public API parser retains salary/skills/app/experience and meta authority. Repeated sequence/identity guarded; bounded at 200 pages. No login or token capture retained."
+    },
+    {
+      "key": "consider-a16z",
+      "label": "a16z (portfolio)",
+      "enabled": false,
+      "runnable": false,
+      "category": "startup",
+      "url": "https://jobs.a16z.com",
+      "module": "app.sources.forkjob_core.scrapers.consider",
+      "cls": "ConsiderScraper",
+      "config": {
+        "board_id": "andreessen-horowitz",
+        "board_label": "a16z",
+        "base_url": "https://jobs.a16z.com",
+        "min_interval": 2.0
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None, *, board_id: 'str' = '', board_label: 'str' = '', base_url: 'str' = '') -> 'None'",
+      "status": "Disabled 2026-08-29: legacy /api-boards/search-jobs is gone; current board no longer uses the public Consider contract."
+    },
+    {
+      "key": "gulftalent",
+      "label": "GulfTalent",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://www.gulftalent.com",
+      "module": "app.sources.forkjob_core.scrapers.gulftalent",
+      "cls": "GulfTalentScraper",
+      "config": {
+        "keywords": [
+          "developer",
+          "software engineer"
+        ],
+        "max_offers": 60,
+        "max_age_days": 60,
+        "min_interval": 2.0
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None, *, keywords: 'tuple[str, ...] | list[str]' = ('developer', 'software engineer'), max_offers: 'int' = 60, max_age_days: 'int' = 60) -> 'None'",
+      "status": "Batch 3 2026-10-01: robots allowed the planned path but listing returned 403. No detail fetch or bypass. Historical SSR/JobPosting parser retained with explicit salary period, employment, scope and expiry. Configured enabled does not mean currently reachable."
+    },
+    {
+      "key": "fourdayweek",
+      "label": "4dayweek.io",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://4dayweek.io",
+      "module": "app.sources.forkjob_core.scrapers.fourdayweek",
+      "cls": "FourDayWeekScraper",
+      "config": {
+        "max_pages": 4,
+        "min_interval": 1.0
+      },
+      "defaults": "(config: 'Any' = None, *, max_pages: 'int' = 4) -> 'None'",
+      "status": "Verified 2026-08-18. Public JSON API GET /api/v2/jobs (23,725 jobs, honest UA, no auth) with total/has_more paging. id is a UUID; posted_at a real publish date (date_source employer); work_arrangement structured; company.hires_worldwide tells us whether they hire outside their country. robots.txt allows /api/v2 explicitly. The schedule itself (4-day week) is the point of the board."
+    },
+    {
+      "key": "solidjobs",
+      "label": "SOLID.Jobs",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://solid.jobs",
+      "module": "app.sources.forkjob_core.scrapers.solidjobs",
+      "cls": "SolidJobsScraper",
+      "config": {
+        "max_pages": 5,
+        "min_interval": 1.0
+      },
+      "defaults": "(config: 'Any' = None, *, max_pages: 'int' = 5) -> 'None'",
+      "status": "Verified 2026-08-18. Site publishes a keyless public REST API: GET /public-api/offers/IT (300 req/min/IP, 1h cache). Returns two salary brackets per posting — primary usually B2B, secondary UoP — so a company offering B2B billing is on the record. validFrom matches the RSS pubDate exactly (date_source employer). robots.txt allows / except /management/ and /admin/."
+    },
+    {
+      "key": "bulldogjob",
+      "label": "BulldogJob",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://bulldogjob.com",
+      "module": "app.sources.forkjob_core.scrapers.bulldogjob",
+      "cls": "BulldogjobScraper",
+      "config": {
+        "max_pages": 6,
+        "min_interval": 1.0
+      },
+      "defaults": "(config: 'Any' = None, *, max_pages: 'int' = 6, detail_budget: 'int' = 20) -> 'None'",
+      "status": "Verified bounded 2026-10-01: current public GraphQL listing has no salary fields; query does not invent them. Up to 20 permitted JobPosting details add full prose, actual company, skills, experience months and expiry. Board publishedAt is updated. Repeated pages and partial detail budgets are visible."
+    },
+    {
+      "key": "freelancermap",
+      "label": "Freelancermap",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://www.freelancermap.com",
+      "module": "app.sources.forkjob_core.scrapers.freelancermap",
+      "cls": "FreelancermapScraper",
+      "config": {
+        "max_pages": 5
+      },
+      "defaults": "(config: 'Any' = None, *, max_pages: 'int' = 5) -> 'None'",
+      "status": "Verified 2026-08-18. DACH/Europe B2B IT contracts. SSR /projects page embeds each project as a JSON object with id, title, company, created (real publish date) and country ISO code; rates are free text in the description (\"500-600 GBP/day\"). robots.txt fully open. The old RSS paths and /freelance-jobs are dead — /projects is the live listing."
+    },
+    {
+      "key": "arcdev",
+      "label": "Arc.dev",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://arc.dev",
+      "module": "app.sources.forkjob_core.scrapers.arcdev",
+      "cls": "ArcDevScraper",
+      "config": {
+        "min_interval": 1.0
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Verified 2026-08-18. Global remote contractor marketplace. The SSR /remote-jobs page embeds arcJobs (contract, hourly USD rate) and externalJobs in __NEXT_DATA__; postedAt is a real publish date. Open to worldwide when requiredCountries is empty. Listing is shallow (client-side infinite scroll beyond it) by design."
+    },
+    {
+      "key": "realworkfromanywhere",
+      "label": "Real Work From Anywhere",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://www.realworkfromanywhere.com",
+      "module": "app.sources.forkjob_core.scrapers.realworkfromanywhere",
+      "cls": "RealWorkFromAnywhereScraper",
+      "config": {
+        "min_interval": 1.0
+      },
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Verified 2026-08-18. Only publishes %100 location-independent jobs. RSS feed (149 items, ttl 60) with pubDate, guid=permalink, salary band in the description. robots.txt empty. date_source employer."
+    },
+    {
+      "key": "dailyremote",
+      "label": "DailyRemote",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://dailyremote.com",
+      "module": "app.sources.forkjob_core.scrapers.dailyremote",
+      "cls": "DailyRemoteScraper",
+      "config": {
+        "max_pages": 2,
+        "min_interval": 1.0
+      },
+      "defaults": "(config: 'Any' = None, *, max_pages: 'int' = 2, detail_budget: 'int' = 20) -> 'None'",
+      "status": "Verified 2026-08-18. Generalist worldwide-remote board (software, DevOps, QA). SSR listing + SSR detail with schema.org JobPosting (datePosted real, stable numeric identifier). robots.txt disallows only /apply/. Salary often absent — never invented."
+    },
+    {
+      "key": "dynamitejobs",
+      "label": "Dynamite Jobs",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://dynamitejobs.com",
+      "module": "app.sources.forkjob_core.scrapers.dynamitejobs",
+      "cls": "DynamiteJobsScraper",
+      "config": {
+        "max_offers": 40
+      },
+      "defaults": "(config: 'Any' = None, *, max_offers: 'int' = 40) -> 'None'",
+      "status": "Verified 2026-08-18. Remote-first startup/KOBİ board. Main /remote-jobs index is client-rendered, but the public jobs-of-category sitemap (~4446 posting URLs) plus fully-SSR detail pages with JobPosting JSON-LD are open to an honest UA. Cap max_offers: one request per posting."
+    },
+    {
+      "key": "javascriptjobs",
+      "label": "JavaScript Jobs",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://javascript.jobs",
+      "module": "app.sources.forkjob_core.scrapers.javascriptjobs",
+      "cls": "JavascriptJobsScraper",
+      "config": {},
+      "defaults": "(config: 'Any' = None, *, max_pages: 'int' = 3) -> 'None'",
+      "status": "Verified 2026-08-18 (formerly jsremotely.com; 301s to javascript.jobs). SSR listing of JS-stack remote roles; card carries title, employment and remote badges, relative age only — no absolute date, so date_source is discovered. Detail JSON-LD is malformed, so the listing is read and no per-posting requests are made. robots.txt allows all."
+    },
+    {
+      "key": "web3career",
+      "label": "Web3.career",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://web3.career",
+      "module": "app.sources.forkjob_core.scrapers.web3career",
+      "cls": "Web3CareerScraper",
+      "config": {
+        "max_pages": 3,
+        "min_interval": 1.0
+      },
+      "defaults": "(config: 'Any' = None, *, max_pages: 'int' = 3) -> 'None'",
+      "status": "Verified 2026-08-18. Largest Web3/blockchain board, worldwide remote. SSR table listing with a real <time datetime> per row (date_source employer) and USD salary column; data-jobid is the external id. Web3 employers pay contractors via Deel/Remote.com or crypto — dense source for the earning rules. robots.txt allows everything except /metrics*."
+    },
+    {
+      "key": "cryptojobslist",
+      "label": "CryptoJobsList",
+      "enabled": false,
+      "runnable": false,
+      "category": "remote",
+      "url": "https://cryptojobslist.com",
+      "module": "app.sources.forkjob_core.scrapers.blocked",
+      "cls": "CryptoJobsListScraper",
+      "config": {},
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Blocked, checked 2026-08-18. Main site answers 403 with a Cloudflare challenge to every honest UA (only Googlebot/Twitterbot pass). The api.cryptojobslist.com subdomain served jobs.rss to an honest UA but the feed was empty. Rich __NEXT_DATA__ exists behind the challenge; revisit if the block lifts or the api feed fills."
+    },
+    {
+      "key": "rubyonremote",
+      "label": "Ruby on Remote",
+      "enabled": false,
+      "runnable": false,
+      "category": "remote",
+      "url": "https://rubyonremote.com",
+      "module": "app.sources.forkjob_core.scrapers.blocked",
+      "cls": "RubyOnRemoteScraper",
+      "config": {},
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Blocked, checked 2026-08-18. Hard Cloudflare challenge on /, sitemap, feed.rss and remote_companies.json — every honest UA, search-bot UAs, headless browser and Jina proxy all 403. Getting past it means browser automation, which this project does not do. Keep off."
+    },
+    {
+      "key": "nodesk",
+      "label": "Nodesk",
+      "enabled": false,
+      "runnable": false,
+      "category": "remote",
+      "url": "https://nodesk.co",
+      "module": "app.sources.forkjob_core.scrapers.blocked",
+      "cls": "NodeskScraper",
+      "config": {},
+      "defaults": "(config: 'ScraperConfig | None' = None) -> 'None'",
+      "status": "Blocked, checked 2026-08-18. The /remote-jobs listing is client-rendered (Supabase fetch) with no verified public listing API; detail pages are SSR JSON-LD but carry no stable id (URL slug only). Sitemap-jobs exists. Revisit if a public listing endpoint appears."
+    },
+    {
+      "key": "germantechjobs",
+      "label": "GermanTechJobs",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://germantechjobs.de",
+      "module": "app.sources.forkjob_core.scrapers.techjobs_family",
+      "cls": "GermanTechJobsScraper",
+      "config": {
+        "max_offers": 1000,
+        "detail_budget": 20,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_offers: int = 1000, detail_budget: int = 20)",
+      "status": "Verified 2026-10-01: public /api/jobsLight and /api/jobWithUrl/<slug>. Salary, explicit visa Yes/No, language, technologies and experience. activeFrom is activation/republication, conservatively date_source updated. Full listing plus RSS prose and bounded missing-detail enrichment; caps are partial."
+    },
+    {
+      "key": "swissdevjobs",
+      "label": "SwissDevJobs",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://swissdevjobs.ch",
+      "module": "app.sources.forkjob_core.scrapers.techjobs_family",
+      "cls": "SwissDevJobsScraper",
+      "config": {
+        "max_offers": 1000,
+        "detail_budget": 20,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_offers: int = 1000, detail_budget: int = 20)",
+      "status": "Verified 2026-10-01: same public TechJobs JSON contract as DE. CHF salary, explicit visa/language/experience/tags, RSS prose plus bounded missing details."
+    },
+    {
+      "key": "remotecom",
+      "label": "Remote.com Jobs",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://remote.com/jobs/all",
+      "module": "app.sources.forkjob_core.scrapers.remotecom",
+      "cls": "RemoteComScraper",
+      "config": {
+        "max_pages": 5,
+        "max_offers": 100,
+        "detail_budget": 20,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages: int = 5, max_offers: int = 100, detail_budget: int = 20)",
+      "status": "Verified 2026-10-01: public SSR Flight jobsData, page totals and detail state. Global/location/timezone hiring scopes retained. Salary minor units verified against UI; publishedAt employer date. No private API."
+    },
+    {
+      "key": "berlinstartupjobs",
+      "label": "Berlin Startup Jobs",
+      "enabled": true,
+      "runnable": true,
+      "category": "startup",
+      "url": "https://berlinstartupjobs.com",
+      "module": "app.sources.forkjob_core.scrapers.startup_boards",
+      "cls": "BerlinStartupJobsScraper",
+      "config": {
+        "max_pages": 2,
+        "max_offers": 500,
+        "detail_budget": 20,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages: int = 2, max_offers: int = 500, detail_budget: int = 20)",
+      "status": "Verified 2026-10-01: all 12 public category listings, deduplicated URLs, skills/topics and previews; bounded detail JSON-LD adds date/employment and actual location. Not limited to remote category."
+    },
+    {
+      "key": "eustartups",
+      "label": "EU-Startups Jobs",
+      "enabled": true,
+      "runnable": true,
+      "category": "startup",
+      "url": "https://www.eu-startups.com/startup-jobs/",
+      "module": "app.sources.forkjob_core.scrapers.startup_boards",
+      "cls": "EUStartupsScraper",
+      "config": {
+        "max_pages": 3,
+        "max_offers": 150,
+        "detail_budget": 20,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages: int = 2, max_offers: int = 500, detail_budget: int = 20)",
+      "status": "Verified 2026-10-01: WPJobBoard listing pagination and detail JobPosting. Actual posting location/country, employment, date, description; domain is not evidence of EU geography. Bounded details and pages are partial."
+    },
+    {
+      "key": "arbeidsplassen",
+      "label": "NAV Arbeidsplassen",
+      "enabled": true,
+      "runnable": true,
+      "category": "government",
+      "url": "https://arbeidsplassen.nav.no/stillinger",
+      "module": "app.sources.forkjob_core.scrapers.official_batch2",
+      "cls": "ArbeidsplassenScraper",
+      "config": {
+        "max_pages": 3,
+        "max_offers": 75,
+        "detail_budget": 10,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages=3, max_offers=150, detail_budget=10)",
+      "status": "Batch 2 public surface verified 2026-10-01; bounded acquisition, source-attributed evidence, truthful partial runs."
+    },
+    {
+      "key": "workindenmark",
+      "label": "Workindenmark",
+      "enabled": true,
+      "runnable": true,
+      "category": "government",
+      "url": "https://workindenmark.jobnet.dk/find-job",
+      "module": "app.sources.forkjob_core.scrapers.official_batch2",
+      "cls": "WorkInDenmarkScraper",
+      "config": {
+        "max_pages": 3,
+        "max_offers": 150,
+        "detail_budget": 0,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages=3, max_offers=150, detail_budget=10)",
+      "status": "Batch 2 public surface verified 2026-10-01; bounded acquisition, source-attributed evidence, truthful partial runs."
+    },
+    {
+      "key": "devjobsat",
+      "label": "DEVjobs.at",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://devjobs.at/jobs/search",
+      "module": "app.sources.forkjob_core.scrapers.regional_batch2",
+      "cls": "DevJobsAtScraper",
+      "config": {
+        "max_pages": 1,
+        "max_offers": 50,
+        "detail_budget": 10,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages=3, max_offers=150, detail_budget=10)",
+      "status": "Batch 2 public surface verified 2026-10-01; bounded acquisition, source-attributed evidence, truthful partial runs."
+    },
+    {
+      "key": "developerjobsch",
+      "label": "developerjobs.ch",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://developerjobs.ch/en/",
+      "module": "app.sources.forkjob_core.scrapers.regional_batch2",
+      "cls": "DeveloperJobsChScraper",
+      "config": {
+        "max_pages": 3,
+        "max_offers": 150,
+        "detail_budget": 10,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages=3, max_offers=150, detail_budget=10)",
+      "status": "Batch 2 public surface verified 2026-10-01; bounded acquisition, source-attributed evidence, truthful partial runs."
+    },
+    {
+      "key": "englishjobsde",
+      "label": "English Jobs Germany",
+      "enabled": true,
+      "runnable": true,
+      "category": "regional",
+      "url": "https://englishjobs.de",
+      "module": "app.sources.forkjob_core.scrapers.regional_batch2",
+      "cls": "EnglishJobsDeScraper",
+      "config": {
+        "max_pages": 2,
+        "max_offers": 640,
+        "detail_budget": 0,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages=3, max_offers=150, detail_budget=10)",
+      "status": "Batch 2 public surface verified 2026-10-01; bounded acquisition, source-attributed evidence, truthful partial runs."
+    },
+    {
+      "key": "workationbase",
+      "label": "WorkationBase",
+      "enabled": true,
+      "runnable": true,
+      "category": "remote",
+      "url": "https://workationbase.com/jobs",
+      "module": "app.sources.forkjob_core.scrapers.discovery_batch2",
+      "cls": "WorkationBaseScraper",
+      "config": {
+        "max_pages": 3,
+        "max_offers": 72,
+        "detail_budget": 10,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages=3, max_offers=150, detail_budget=10)",
+      "status": "Batch 2 public surface verified 2026-10-01; bounded acquisition, source-attributed evidence, truthful partial runs."
+    },
+    {
+      "key": "jumpintoeu",
+      "label": "JumpInto.eu",
+      "enabled": true,
+      "runnable": true,
+      "category": "relocation",
+      "url": "https://jumpinto.eu/",
+      "module": "app.sources.forkjob_core.scrapers.discovery_batch2",
+      "cls": "JumpIntoEuScraper",
+      "config": {
+        "max_pages": 1,
+        "max_offers": 500,
+        "detail_budget": 0,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages=3, max_offers=150, detail_budget=10)",
+      "status": "Batch 2 public surface verified 2026-10-01; bounded acquisition, source-attributed evidence, truthful partial runs."
+    },
+    {
+      "key": "freehire",
+      "label": "FreeHire",
+      "enabled": true,
+      "runnable": true,
+      "category": "aggregator",
+      "url": "https://freehire.me",
+      "module": "app.sources.forkjob_core.scrapers.freehire",
+      "cls": "FreeHireScraper",
+      "config": {
+        "max_pages": 3,
+        "max_offers": 300,
+        "page_size": 50,
+        "recent_days": 7,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages=3, max_offers=300, page_size=50, recent_days=7, slices=None)",
+      "status": "Batch 2 public surface verified 2026-10-01; bounded acquisition, source-attributed evidence, truthful partial runs."
+    },
+    {
+      "key": "workcamino",
+      "label": "Workcamino",
+      "enabled": false,
+      "runnable": false,
+      "category": "aggregator",
+      "url": "https://workcamino.com/en/jobs",
+      "module": "app.sources.forkjob_core.scrapers.discovery_batch2",
+      "cls": "WorkcaminoScraper",
+      "config": {
+        "max_pages": 1,
+        "max_offers": 100,
+        "detail_budget": 0,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages=3, max_offers=150, detail_budget=10)",
+      "status": "Blocked 2026-10-01: public terms prohibit automated scraping. No acquisition or fallback bypass is permitted."
+    },
+    {
+      "key": "relocantly",
+      "label": "Relocantly",
+      "enabled": false,
+      "runnable": false,
+      "category": "aggregator",
+      "url": "https://relocantly.com/jobs",
+      "module": "app.sources.forkjob_core.scrapers.discovery_batch2",
+      "cls": "RelocantlyScraper",
+      "config": {
+        "max_pages": 3,
+        "max_offers": 150,
+        "detail_budget": 10,
+        "min_interval": 2.0,
+        "max_response_bytes": 8388608
+      },
+      "defaults": "(config=None, *, max_pages=3, max_offers=150, detail_budget=10)",
+      "status": "Blocked 2026-10-01: public terms prohibit automated scraping. No acquisition or fallback bypass is permitted."
+    }
+  ],
+  "ats": [
+    {
+      "key": "greenhouse",
+      "module": "app.sources.forkjob_core.sources.adapters",
+      "cls": "GreenhouseAdapter"
+    },
+    {
+      "key": "lever",
+      "module": "app.sources.forkjob_core.sources.adapters",
+      "cls": "LeverAdapter"
+    },
+    {
+      "key": "ashby",
+      "module": "app.sources.forkjob_core.sources.adapters",
+      "cls": "AshbyAdapter"
+    },
+    {
+      "key": "workable",
+      "module": "app.sources.forkjob_core.sources.adapters",
+      "cls": "WorkableAdapter"
+    },
+    {
+      "key": "smartrecruiters",
+      "module": "app.sources.forkjob_core.sources.adapters",
+      "cls": "SmartRecruitersAdapter"
+    },
+    {
+      "key": "recruitee",
+      "module": "app.sources.forkjob_core.sources.adapters",
+      "cls": "RecruiteeAdapter"
+    },
+    {
+      "key": "personio",
+      "module": "app.sources.forkjob_core.sources.adapters",
+      "cls": "PersonioAdapter"
+    },
+    {
+      "key": "factorial",
+      "module": "app.sources.forkjob_core.sources.adapters",
+      "cls": "FactorialAdapter"
+    },
+    {
+      "key": "workday",
+      "module": "app.sources.forkjob_core.sources.adapters",
+      "cls": "WorkdayAdapter"
+    },
+    {
+      "key": "teamtailor",
+      "module": "app.sources.forkjob_core.sources.adapters",
+      "cls": "TeamtailorAdapter"
+    }
+  ],
+  "companies": [
+    {
+      "key": "greenhouse:adyen",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "adyen",
+      "name": "Adyen",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "ashby:amenitiz",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "amenitiz",
+      "name": "Amenitiz",
+      "ats": "ashby"
+    },
+    {
+      "key": "ashby:belvo",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "belvo",
+      "name": "Belvo",
+      "ats": "ashby"
+    },
+    {
+      "key": "greenhouse:bitpanda",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "bitpanda",
+      "name": "Bitpanda",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "recruitee:bunq",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "bunq",
+      "name": "Bunq",
+      "ats": "recruitee"
+    },
+    {
+      "key": "greenhouse:cabify",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "cabify",
+      "name": "Cabify",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "greenhouse:careem",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "careem",
+      "name": "Careem",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "greenhouse:celonis",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "celonis",
+      "name": "Celonis",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "greenhouse:clarityai",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "clarityai",
+      "name": "Clarity AI",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "greenhouse:contentful",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "contentful",
+      "name": "Contentful",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "ashby:deliveroo",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "deliveroo",
+      "name": "Deliveroo",
+      "ats": "ashby"
+    },
+    {
+      "key": "smartrecruiters:DeliveryHero",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "DeliveryHero",
+      "name": "Delivery Hero",
+      "ats": "smartrecruiters"
+    },
+    {
+      "key": "ashby:doktortakvimi",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "doktortakvimi",
+      "name": "Doktortakvimi",
+      "ats": "ashby"
+    },
+    {
+      "key": "lever:dreamgames",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "dreamgames",
+      "name": "Dream Games",
+      "ats": "lever"
+    },
+    {
+      "key": "greenhouse:elastic",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "elastic",
+      "name": "Elastic",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "ashby:forto",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "forto",
+      "name": "Forto",
+      "ats": "ashby"
+    },
+    {
+      "key": "greenhouse:getyourguide",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "getyourguide",
+      "name": "GetYourGuide",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "greenhouse:gitlab",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "gitlab",
+      "name": "GitLab",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "greenhouse:gostudent",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "gostudent",
+      "name": "GoStudent",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "greenhouse:hellofresh",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "hellofresh",
+      "name": "HelloFresh",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "recruitee:holded",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "holded",
+      "name": "Holded",
+      "ats": "recruitee"
+    },
+    {
+      "key": "lever:iyzico",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "iyzico",
+      "name": "iyzico",
+      "ats": "lever"
+    },
+    {
+      "key": "lever:jobandtalent",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "jobandtalent",
+      "name": "Jobandtalent",
+      "ats": "lever"
+    },
+    {
+      "key": "greenhouse:mentimeter",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "mentimeter",
+      "name": "Mentimeter",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "ashby:miro",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "miro",
+      "name": "Miro",
+      "ats": "ashby"
+    },
+    {
+      "key": "greenhouse:monzo",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "monzo",
+      "name": "Monzo",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "greenhouse:n26",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "n26",
+      "name": "N26",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "lever:peakgames",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "peakgames",
+      "name": "Peak Games",
+      "ats": "lever"
+    },
+    {
+      "key": "lever:pipedrive",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "pipedrive",
+      "name": "Pipedrive",
+      "ats": "lever"
+    },
+    {
+      "key": "greenhouse:raisin",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "raisin",
+      "name": "Raisin",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "lever:spotify",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "spotify",
+      "name": "Spotify",
+      "ats": "lever"
+    },
+    {
+      "key": "lever:spyke-games",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "spyke-games",
+      "name": "Spyke Games",
+      "ats": "lever"
+    },
+    {
+      "key": "lever:trendyol",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "trendyol",
+      "name": "Trendyol",
+      "ats": "lever"
+    },
+    {
+      "key": "greenhouse:trivago",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "trivago",
+      "name": "Trivago",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "greenhouse:typeform",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "typeform",
+      "name": "Typeform",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "ashby:uipath",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "uipath",
+      "name": "UiPath",
+      "ats": "ashby"
+    },
+    {
+      "key": "greenhouse:wallapop",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "wallapop",
+      "name": "Wallapop",
+      "ats": "greenhouse"
+    },
+    {
+      "key": "smartrecruiters:wise",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "wise",
+      "name": "Wise",
+      "ats": "smartrecruiters"
+    },
+    {
+      "key": "greenhouse:wolt",
+      "enabled": true,
+      "verified": true,
+      "extra": {},
+      "token": "wolt",
+      "name": "Wolt",
+      "ats": "greenhouse"
+    }
+  ]
+}

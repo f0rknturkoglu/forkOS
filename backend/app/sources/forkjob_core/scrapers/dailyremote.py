@@ -22,10 +22,13 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from selectolax.parser import HTMLParser
+
 from ..models import Job, Layer, WorkMode, date_source_for
-from ..normalize import format_salary, html_to_text, parse_datetime
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
-from .schemaorg import find_type, ld_blocks, organisation_name, text
+from ..normalize import format_salary, html_to_text, parse_datetime, parse_location
+from ..rich_text import enrich, merge_descriptions
+from .base import ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
+from .schemaorg import job_posting_nodes, organisation_name, schema_job, text
 
 LISTING_URL = "https://dailyremote.com/remote-jobs"
 BASE_URL = "https://dailyremote.com"
@@ -41,61 +44,102 @@ class DailyRemoteScraper(ScraperBase):
     label = "DailyRemote"
     base_url = BASE_URL
 
-    def __init__(self, config: Any = None, *, max_pages: int = DEFAULT_MAX_PAGES) -> None:
+    def __init__(self, config: Any = None, *, max_pages: int = DEFAULT_MAX_PAGES, detail_budget: int = 20) -> None:
         super().__init__(config)
         self.max_pages = max_pages
+        self.detail_budget = max(0, int(detail_budget))
 
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
-        jobs: list[Job] = []
-        seen: set[str] = set()
-        pages_fetched = 0
-        items_seen = 0
-        cap_hit = False
-
+        jobs, seen = [], set()
+        pages = details = requests = 0
+        cap = False
         for page in range(1, self.max_pages + 1):
             url = LISTING_URL if page == 1 else f"{LISTING_URL}?page={page}"
             try:
+                requests += 1
                 html = await client.get_html(url)
-            except ScraperPermanentError:
+                cards = self.parse_listing(html)
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 break
-            pages_fetched += 1
-            urls = list(dict.fromkeys(_LINK_RE.findall(html)))
-            if not urls:
+            pages += 1
+            fresh = self.dedup_seen(seen, cards)
+            if cards and not fresh:
+                self.errors.append("dailyremote: repeated listing identities")
                 break
-            items_seen += len(urls)
-            for u in urls:
-                detail_url = f"{BASE_URL}{u}"
-                if detail_url in seen:
-                    continue
-                seen.add(detail_url)
-                try:
-                    detail_page = await client.get_html(detail_url)
-                    pages_fetched += 1
-                except ScraperPermanentError:
-                    continue
-                job = self.parse_offer(detail_page, detail_url)
-                if job is not None:
-                    jobs.append(job)
+            jobs.extend(fresh)
+            if not cards:
+                break
             if page == self.max_pages:
-                cap_hit = True
+                cap = True
+        for job in jobs[:self.detail_budget]:
+            try:
+                requests += 1
+                body = await client.get_html(job.url)
+                detail = self.parse_offer(body, job.url)
+                if detail is None or detail.external_id != job.external_id:
+                    raise ScraperPermanentError("dailyremote: invalid job-specific detail")
+                job.description = merge_descriptions(job.description, detail.description, prefer_incoming=True)
+                job.salary = detail.salary or job.salary
+                if job.company == "?" and detail.company != "?":
+                    job.company = detail.company
+                details += 1
+            except ScraperError as exc:
+                self.errors.append("detail: " + str(exc))
+        richness_partial = len(jobs) > details
+        self.record_telemetry(items_seen=len(jobs), items_returned=len(jobs), pages_fetched=pages,
+            page_limit=self.max_pages, cap_hit=cap or richness_partial,
+            partial_reason="page_limit_reached" if cap else "detail_budget_or_failure" if richness_partial else None,
+            stop_reason="page_limit_reached" if cap else "detail_budget_or_failure" if richness_partial else "exhausted",
+            metadata={"requests": requests, "listing_pages": pages, "detail_requests": min(len(jobs), self.detail_budget), "details_succeeded": details, "detail_budget": self.detail_budget, "listing_complete": not cap and not any(not e.startswith("detail:") for e in self.errors), "richness_partial": richness_partial})
+        return jobs
 
-        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
-        self.record_telemetry(
-            items_seen=items_seen,
-            items_returned=len(jobs),
-            pages_fetched=pages_fetched,
-            page_limit=self.max_pages,
-            result_limit=None,
-            cap_hit=cap_hit,
-            stop_reason=stop_reason,
-            partial_reason="max_pages_reached" if cap_hit else None,
-        )
+    def parse_listing(self, html: str) -> list[Job]:
+        parser = HTMLParser(html)
+        structured = {}
+        for posting in job_posting_nodes(html):
+            url = text(posting.get("url"))
+            if url and url.startswith(BASE_URL + "/remote-job/"):
+                structured[url] = self._posting(posting, url)
+        jobs = []
+        for card in parser.css(".lst-card__content"):
+            link = card.css_first('.lst-card__title a[href^="/remote-job/"]')
+            company = card.css_first(".lst-card__company")
+            if link is None:
+                continue
+            url = BASE_URL + link.attributes["href"]
+            match = _ID_RE.search(url)
+            if not match:
+                continue
+            job = structured.get(url)
+            if job is None:
+                scope = card.css_first(".lst-pill[title]")
+                location = scope.attributes.get("title") if scope else None
+                info = parse_location(location)
+                summary = card.css_first(".lst-card__summary")
+                job = Job.build(url=url, source=self.source, layer=Layer.B,
+                    company=company.text(strip=True) if company else "?", title=link.text(strip=True),
+                    external_id=match.group(1), location=location, country=info.country,
+                    work_mode=WorkMode.REMOTE, remote=True,
+                    description=summary.text(separator=" ", strip=True) if summary else None)
+            tags = [node.text(strip=True) for node in card.css(".lst-card__tags .lst-tag")]
+            scope = card.css_first(".lst-pill[title]")
+            pills = [node.text(separator=" ", strip=True).strip() for node in card.css(".lst-pill")]
+            salary = next((v for v in pills if re.match(r"^[€$£]\s*\d", v)), None)
+            job.salary = job.salary or salary  # Preserve rendered currency; no invented period.
+            job.description = enrich(job.description, self.source, {"Technologies": ", ".join(tags), "Remote scope": scope.attributes.get("title") if scope else None, "Description coverage": "listing preview"})
+            jobs.append(job)
+        if not jobs and not parser.css_first("[data-empty-results], .jobs-search__no-results"):
+            raise ScraperPermanentError("dailyremote: unrecognized listing schema")
         return jobs
 
     def parse_offer(self, html: str, url: str) -> Job | None:
-        posting = find_type(ld_blocks(html), "JobPosting")
+        posting = next(iter(job_posting_nodes(html)), None)
         if posting is None:
             return None
+        return self._posting(posting, url)
+
+    def _posting(self, posting, url):
         title = text(posting.get("title"))
         if not title:
             return None
@@ -112,7 +156,7 @@ class DailyRemoteScraper(ScraperBase):
         match = _ID_RE.search(url)
         external_id = match.group(1) if match else None
 
-        return Job.build(
+        return schema_job(posting,
             url=url,
             source=self.source,
             layer=Layer.B,

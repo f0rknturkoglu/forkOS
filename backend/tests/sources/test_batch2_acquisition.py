@@ -80,7 +80,7 @@ def test_nav_explicit_language_workload_expiry_no_visa_guess():
     assert job.work_mode is WorkMode.ONSITE
     assert "Engelsk" in job.language and "Workload: Heltid" in job.description
     assert "Expiry:" in job.description
-    assert "Visa sponsorship:" not in job.description
+    assert "Board sponsorship claim:" not in job.description
 
 
 def test_official_danish_full_description_and_pagination():
@@ -135,9 +135,9 @@ def test_freehire_explicit_visa_tristate_rich_projection(visa, expected):
     assert job.salary == "50000-65000 EUR/year"
     assert "Original source:" in job.description and "Experience years: 2" in job.description
     if expected:
-        assert "Visa sponsorship: " + expected in job.description
+        assert "Board sponsorship claim: " + expected in job.description
     else:
-        assert "Visa sponsorship:" not in job.description
+        assert "Board sponsorship claim:" not in job.description
 
 
 def test_freehire_missing_optional_and_corrupt_records():

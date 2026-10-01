@@ -16,7 +16,7 @@ would produce a titleless row.
 
 Field notes:
 
-- `epoch` / `date` is a real publish timestamp -> `date_source` is `employer`.
+- `epoch` / `date` is a real publish timestamp -> `date_source` is `updated`.
 - `location` is frequently empty, and `tags` carry the useful signal instead
   ("dev", "engineer", "senior", "python", "react"). They are surfaced into the
   description so the scorer's skill and seniority rules can read them.
@@ -31,7 +31,8 @@ from typing import Any
 
 from ..geo import country_from_name, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
-from ..normalize import html_to_text, parse_datetime, parse_epoch_ms
+from ..normalize import format_salary, html_to_text, parse_datetime, parse_epoch_ms
+from ..rich_text import enrich
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://remoteok.com"
@@ -55,7 +56,9 @@ class RemoteOkScraper(ScraperBase):
             items_seen=len(raw_entries),
             items_returned=len(jobs),
             pages_fetched=1,
-            cap_hit=False,
+            cap_hit=True,
+            partial_reason="upstream_recent_window",
+            stop_reason="upstream_recent_window",
         )
         return jobs
 
@@ -91,6 +94,7 @@ class RemoteOkScraper(ScraperBase):
 
         posted_at = parse_datetime(entry.get("date")) or parse_epoch_ms(entry.get("epoch"))
 
+        description = enrich(description, self.source, {"Technologies": ", ".join(tags), "Remote scope": location, "Application URL": entry.get("apply_url")})
         return Job.build(
             url=url,
             source=self.source,
@@ -107,12 +111,12 @@ class RemoteOkScraper(ScraperBase):
             description=description,
             salary=_salary(entry),
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )
 
 
 def _salary(entry: dict[str, Any]) -> str | None:
     low, high = entry.get("salary_min"), entry.get("salary_max")
-    if isinstance(low, (int, float)) and isinstance(high, (int, float)) and low > 0:
-        return f"${int(low):,}-${int(high):,}"
-    return None
+    low = low if isinstance(low, (int, float)) and low > 0 else None
+    high = high if isinstance(high, (int, float)) and high > 0 else None
+    return format_salary(low, high, entry.get("salary_currency"), suffix="/" + entry["salary_period"] if isinstance(entry.get("salary_period"), str) else "")

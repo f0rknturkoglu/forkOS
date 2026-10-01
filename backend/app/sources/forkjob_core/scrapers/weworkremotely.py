@@ -38,6 +38,7 @@ from xml.etree import ElementTree as ET
 from ..geo import country_from_name, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_rfc822
+from ..rich_text import enrich
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://weworkremotely.com"
@@ -82,7 +83,7 @@ class WeWorkRemotelyScraper(ScraperBase):
 
         for category in self.categories:
             url = FEED_URL.format(category=category)
-            xml = await self.isolate(url, lambda: client.get_html(url))
+            xml = await self.isolate(url, lambda url=url: client.get_html(url))
             if xml is None:
                 continue  # one dead category must not stop the rest
             jobs.extend(self.dedup_seen(seen, self.parse(xml)))
@@ -97,6 +98,8 @@ class WeWorkRemotelyScraper(ScraperBase):
         except ET.ParseError as exc:
             raise ScraperPermanentError(f"weworkremotely: feed is not valid XML: {exc}") from exc
 
+        if root.tag != "rss" or root.find("channel") is None:
+            raise ScraperPermanentError("weworkremotely: unrecognized RSS root")
         jobs: list[Job] = []
         for item in root.findall(".//item"):
             job = self.build_job(item)
@@ -132,9 +135,9 @@ class WeWorkRemotelyScraper(ScraperBase):
             work_mode=WorkMode.REMOTE,
             remote=True,
             department=(item.findtext("category") or "").strip() or None,
-            description=html_to_text(item.findtext("description")),
+            description=enrich(html_to_text(item.findtext("{http://purl.org/rss/1.0/modules/content/}encoded") or item.findtext("description")), self.source, {"Remote scope": region_text}),
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )
 
 

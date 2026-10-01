@@ -17,7 +17,7 @@ abroad too.
 
 Field notes from the live response:
 - `id` is `<numeric>-<slug>` — stable, unique, used as external_id.
-- `publishedAt` is a real publish date → date_source is `employer`.
+- `publishedAt` is a board publication date → date_source is `updated`.
 - `city` is a prose list ("Gdansk, Krakow, Warsaw, Wroclaw").
 - `experienceLevel` is stated by the poster ("lead", "regular", …).
 """
@@ -29,6 +29,7 @@ from typing import Any
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import parse_datetime
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from .detail_evidence import enrich_job_details
 
 GRAPHQL_URL = "https://bulldogjob.com/graphql"
 PAGE_SIZE = 50
@@ -57,9 +58,10 @@ class BulldogjobScraper(ScraperBase):
     label = "BulldogJob"
     base_url = "https://bulldogjob.com"
 
-    def __init__(self, config: Any = None, *, max_pages: int = DEFAULT_MAX_PAGES) -> None:
+    def __init__(self, config: Any = None, *, max_pages: int = DEFAULT_MAX_PAGES, detail_budget: int = 20) -> None:
         super().__init__(config)
         self.max_pages = max_pages
+        self.detail_budget = max(0, int(detail_budget))
 
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
@@ -69,40 +71,53 @@ class BulldogjobScraper(ScraperBase):
         cap_hit = False
         total: int | None = None
         for page in range(1, self.max_pages + 1):
-            payload = await client.post_json(
-                GRAPHQL_URL,
-                {"query": _QUERY.format(page=page, per_page=PAGE_SIZE)},
-            )
+            query = {"query": _QUERY.format(page=page, per_page=PAGE_SIZE)}
+            payload = await self.isolate(f"page {page}", lambda query=query: client.post_json(GRAPHQL_URL, query))
+            if payload is None:
+                break
             if not isinstance(payload, dict):
                 break
             errors = payload.get("errors")
             if isinstance(errors, list) and errors:
                 first = errors[0]
                 message = first.get("message") if isinstance(first, dict) else str(first)
-                raise ScraperPermanentError(f"{self.source}: GraphQL: {message}")
+                self.errors.append(f"{self.source}: GraphQL: {message}")
+                break
             result = payload.get("data", {}).get("searchJobs") or {}
             pages_fetched += 1
-            page_jobs = self.parse(result)
+            try:
+                page_jobs = self.parse(result)
+            except ScraperPermanentError as exc:
+                self.errors.append(str(exc))
+                break
             items_seen += len(page_jobs)
             if not page_jobs:
                 break
-            jobs.extend(self.dedup_seen(seen, page_jobs))
+            fresh = self.dedup_seen(seen, page_jobs)
+            if not fresh:
+                self.errors.append("bulldogjob: repeated page identities")
+                break
+            jobs.extend(fresh)
             total = result.get("totalCount")
             if page == self.max_pages and isinstance(total, int) and page * PAGE_SIZE < total:
                 cap_hit = True
             if isinstance(total, int) and page * PAGE_SIZE >= total:
                 break
 
-        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
+        metadata = await enrich_job_details(self, client, jobs, self.detail_budget)
+        metadata["listing_pages"] = pages_fetched
+        metadata["listing_complete"] = not cap_hit and not any(not e.startswith("detail:") for e in self.errors)
+        stop_reason = "max_pages_reached" if cap_hit else "detail_budget_or_failure" if metadata["richness_partial"] else "exhausted"
         self.record_telemetry(
             items_seen=items_seen,
             items_returned=len(jobs),
             pages_fetched=pages_fetched,
             page_limit=self.max_pages,
             result_limit=None,
-            cap_hit=cap_hit,
+            cap_hit=cap_hit or metadata["richness_partial"],
             stop_reason=stop_reason,
-            partial_reason="max_pages_reached" if cap_hit else None,
+            partial_reason=stop_reason if cap_hit or metadata["richness_partial"] else None,
+            metadata=metadata,
         )
         return jobs
 
@@ -163,5 +178,5 @@ class BulldogjobScraper(ScraperBase):
             description=description,
             salary=salary,
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )

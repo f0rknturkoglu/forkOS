@@ -1,42 +1,28 @@
 """WeAreDevelopers (wearedevelopers.com) — European developer jobs.
 
-Verified 2026-08-08 against the remote listing page.
-
-robots.txt disallows only `devjobsatBot` and advertises three sitemaps, so this
-is about as permissive as a site gets.
-
-**The sitemap is a trap and was checked first.** `sitemap-jobs.xml` sounds like
-the answer; it holds 66,335 URLs and not one is a posting. Every entry is a
-category or location facet — `/jobs/ls/austria/vienna`, `/jobs/s/php`. So the
-listing page is parsed instead, with selectors taken from a captured page:
-
-    article.wad4-job-card
-      .wad4-job-card__title        title
-      .wad4-job-card__link         /companies/<cid>/<company>/<jid>/<slug>
-      .wad4-job-card__info         company + location together
-      .wad4-job-card__info--light  location on its own
-      .wad4-common-chip__label     "Remote", "€70-100K", "Senior", "TypeScript"
-
-The chips are the reason this source is worth having. One card carried
-work mode, a salary band, a seniority level and the tech stack, all as
-discrete labels rather than buried in prose. Seniority and salary are pulled
-out into their own fields; the rest goes to the description where the scorer's
-skill rules read it.
-
-The card carries no date at all, so `date_source` is `discovered` and the
-posting never looks stale on evidence that does not exist.
+Batch 3 (2026-10-01): legacy HTML selectors no longer match the public listing.
+The site's advertised public Markdown mirrors provide listing identities,
+absolute board dates, specific apply links and bounded job-specific details.
+Historical HTML parsing remains only for offline replay of old fixtures.
+Publication is a board timestamp; remote availability alone is not global scope.
 """
 
 from __future__ import annotations
 
+import html as html_lib
 import re
+from contextlib import suppress
+from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from selectolax.parser import HTMLParser, Node
 
 from ..geo import country_from_name, region_for
-from ..models import DateSource, Job, Layer, Region, WorkMode
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from ..models import DateSource, Job, Layer, Region, WorkMode, canonical_url
+from ..normalize import parse_location
+from ..rich_text import enrich, merge_descriptions
+from .base import ScrapeBatch, ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://www.wearedevelopers.com"
 LISTING_URL = "https://www.wearedevelopers.com/jobs"
@@ -79,34 +65,111 @@ class WeAreDevelopersScraper(ScraperBase):
         config: Any = None,
         *,
         queries: tuple[str, ...] | list[str] = ("remote=true", ""),
+        max_pages: int = 2,
+        detail_budget: int = 10,
     ) -> None:
         super().__init__(config)
-        self.queries = tuple(queries)
+        normalized = []
+        for query in queries:
+            params = dict(parse_qsl(query))
+            if params.pop("remote", None) == "true":
+                params.setdefault("q", "remote")  # advertised search, not an unsupported strict filter
+            params.setdefault("country", "all")  # avoid IP-derived country defaults
+            normalized.append(urlencode(params))
+        self.queries = tuple(dict.fromkeys(normalized))
+        self.max_pages = max(1, int(max_pages))
+        self.detail_budget = max(0, int(detail_budget))
 
     @property
     def scope(self) -> str:
         """Which slice this run asks for — see ScraperBase.scope."""
         return ",".join(sorted(q or "all" for q in self.queries))
 
-    async def scrape(self, client: ScraperHttpClient) -> list[Job]:
-        jobs: list[Job] = []
-        seen: set[str] = set()
-
+    async def scrape(self, client: ScraperHttpClient) -> ScrapeBatch:
+        jobs, errors, seen, visited = [], [], set(), set()
+        requests = pages = details = 0
+        cap = False
         for query in self.queries:
-            url = f"{LISTING_URL}?{query}" if query else LISTING_URL
+            url = LISTING_URL + ".md" + ("?" + query if query else "?country=all")
+            for page in range(self.max_pages):
+                requests += 1
+                try:
+                    if url in visited:
+                        raise ScraperPermanentError("wearedevelopers: repeated cursor")
+                    visited.add(url)
+                    body = await client.get_html(url)
+                    parsed = self.parse_markdown(body)
+                    fresh = self.dedup_seen(seen, parsed)
+                    if parsed and not fresh and page:
+                        raise ScraperPermanentError("wearedevelopers: repeated page identities")
+                    jobs.extend(fresh)
+                    pages += 1
+                    next_match = re.search(r"\[Next page\]\((https://[^)]+)\)", body)
+                    if not next_match:
+                        break
+                    next_url = html_lib.unescape(next_match.group(1))
+                    if urlsplit(next_url).netloc != urlsplit(BASE_URL).netloc or urlsplit(next_url).path != "/jobs":
+                        raise ScraperPermanentError("wearedevelopers: foreign pagination")
+                    url = next_url.replace("/jobs?", "/jobs.md?", 1)
+                    if page + 1 == self.max_pages:
+                        cap = True
+                except ScraperError as exc:
+                    errors.append(str(exc))
+                    break
+        for job in jobs[:self.detail_budget]:
+            requests += 1
             try:
-                html = await client.get_html(url)
-            except ScraperPermanentError:
+                body = await client.get_html(job.url + ".md")
+                mirror = re.search(r"^> Markdown version of .*?\]\((https://[^)]+)\)", body)
+                if not mirror or canonical_url(mirror.group(1)) != canonical_url(job.url):
+                    raise ScraperPermanentError("wearedevelopers: mismatched detail identity")
+                if "## About the Role" not in body and "## Description" not in body:
+                    raise ScraperPermanentError("wearedevelopers: unrecognized detail")
+                prose = re.split(r"\n## Related (?:Videos|Articles)", body, maxsplit=1)[0]
+                prose = prose[prose.find("\n## ") + 1:]
+                fields = dict(re.findall(r"^- \*\*([^*]+):\*\* (.+)$", body, re.M))
+                job.description = merge_descriptions(job.description, enrich(prose, self.source, {"Technologies": fields.get("Skills"), "Application URL": fields.get("Apply")}))
+                details += 1
+            except ScraperError as exc:
+                errors.append("detail: " + str(exc))
+        richness_partial = len(jobs) > self.detail_budget
+        telemetry = self.record_telemetry(items_seen=len(jobs), items_returned=len(jobs), pages_fetched=pages,
+            page_limit=self.max_pages * len(self.queries), cap_hit=cap or richness_partial,
+            stop_reason="page_limit_reached" if cap else "detail_budget_reached" if richness_partial else "request_failed" if errors else "exhausted",
+            partial_reason="; ".join(errors + (["page_limit_reached"] if cap else []) + (["detail_budget_reached"] if richness_partial else [])) or None,
+            metadata={"transport": "public_markdown", "requests": requests, "listing_pages": pages, "details_succeeded": details, "detail_budget": self.detail_budget, "listing_complete": not cap and not any(not e.startswith("detail:") for e in errors), "richness_partial": richness_partial or any(e.startswith("detail:") for e in errors)})
+        return ScrapeBatch(jobs, errors, requests, pages + details, telemetry)
+
+    def parse_markdown(self, body):
+        if "# Developer Jobs" not in body or not re.search(r"\d+ jobs found", body):
+            raise ScraperPermanentError("wearedevelopers: missing public markdown schema")
+        jobs = []
+        for section in re.split(r"^## ", body, flags=re.M)[1:]:
+            title = section.splitlines()[0].strip()
+            fields = dict(re.findall(r"^- \*\*([^*]+):\*\* (.+)$", section, re.M))
+            link = re.search(r"\[View job\]\((https://[^)]+)\)", section)
+            apply = re.search(r"\[Apply\]\((https://[^)]+)\)", section)
+            if not link or not fields.get("Company"):
                 continue
-
-            for job in self.parse(html):
-                if job.url in seen:
-                    continue
-                seen.add(job.url)
-                jobs.append(job)
+            url = html_lib.unescape(link.group(1))
+            identity = re.fullmatch(r"/jobs/(ext/)?(\d+)-[^/]+", urlsplit(url).path)
+            if not identity or urlsplit(url).netloc != urlsplit(BASE_URL).netloc:
+                continue
+            location = fields.get("Location")
+            info = parse_location((location or "").replace(" (Remote available)", ""))
+            if location and "Remote available" in location:
+                info.work_mode = WorkMode.UNKNOWN  # flexibility is not guaranteed fully remote
+            posted = None
+            with suppress(ValueError):
+                posted = datetime.strptime(fields.get("Published", ""), "%B %d, %Y").replace(tzinfo=UTC)
+            jobs.append(Job.build(url=url, source=self.source, layer=Layer.B,
+                company=fields["Company"], title=title, external_id=identity.group(2),
+                location=location, country=info.country, city=info.city, region=info.region, work_mode=info.work_mode,
+                salary=fields.get("Salary"), posted_at=posted, date_source=DateSource.UPDATED if posted else DateSource.DISCOVERED,
+                description=enrich(None, self.source, {"Experience level": fields.get("Experience"), "Employment type": fields.get("Contract"), "Remote scope": location if location and "Remote" in location else None, "Application URL": html_lib.unescape(apply.group(1)) if apply else None, "Source authority": "meta" if identity.group(1) else "native"})))
+        if not jobs and not re.search(r"\b0 jobs found\b", body):
+            raise ScraperPermanentError("wearedevelopers: malformed nonempty markdown listing")
         return jobs
-
-    # -- pure parsing -------------------------------------------------------
 
     def parse(self, html: str) -> list[Job]:
         """Pure: listing HTML in, Jobs out. Drives `--mock` and the tests."""

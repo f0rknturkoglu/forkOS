@@ -16,7 +16,7 @@ Field notes from the live response:
 - `work_arrangement` is "remote" / "hybrid" / "onsite" (no guessing needed).
 - `company.hires_worldwide` tells us whether they hire outside their country.
 - `salary_min/max/currency/period` are structured when present.
-- `posted_at` is a real publish timestamp → date_source is `employer`.
+- `posted_at` is a real publish timestamp → date_source is `updated`.
 """
 
 from __future__ import annotations
@@ -24,7 +24,9 @@ from __future__ import annotations
 from typing import Any
 
 from ..models import Job, Layer, WorkMode, date_source_for
-from ..normalize import format_salary, parse_datetime
+from ..normalize import format_salary, html_to_text, parse_datetime
+from ..rich_text import enrich
+from ..sources.evidence import labels
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 API_URL = "https://4dayweek.io/api/v2/jobs"
@@ -52,7 +54,7 @@ class FourDayWeekScraper(ScraperBase):
         partial_reason = None
         for page in range(1, self.max_pages + 1):
             url = f"{API_URL}?page={page}&limit={PAGE_SIZE}"
-            payload = await self.isolate(url, lambda: client.get_json(url))
+            payload = await self.isolate(url, lambda url=url: client.get_json(url))
             if payload is None or not isinstance(payload, dict):
                 break
             pages_fetched += 1
@@ -62,7 +64,11 @@ class FourDayWeekScraper(ScraperBase):
             page_jobs = self.parse(payload)
             if not page_jobs:
                 break
-            jobs.extend(self.dedup_seen(seen, page_jobs))
+            fresh = self.dedup_seen(seen, page_jobs)
+            if not fresh:
+                self.errors.append("fourdayweek: repeated page identities")
+                break
+            jobs.extend(fresh)
             has_more = bool(payload.get("has_more"))
             if not has_more:
                 break
@@ -131,18 +137,16 @@ class FourDayWeekScraper(ScraperBase):
             country = _country_code(loc.get("country")) or country
             break
 
-        # The schedule is the point of this board: surface it for the scorer.
-        description_parts: list[str] = []
         schedule = entry.get("schedule_type")
-        if isinstance(schedule, str) and schedule:
-            description_parts.append(f"Schedule: {schedule}")
         hires_ww = (entry.get("company") or {}).get("hires_worldwide")
-        if hires_ww:
-            description_parts.append("Hires worldwide")
-        skills = entry.get("skills")
-        if isinstance(skills, list) and skills:
-            description_parts.append("Skills: " + ", ".join(str(s) for s in skills))
-        description = "\n".join(description_parts) or None
+        description = enrich(html_to_text(entry.get("description")), self.source, {
+            "Schedule": schedule, "Workload hours minimum": entry.get("hours_per_week_min"), "Workload hours maximum": entry.get("hours_per_week_max"),
+            "Employment type": entry.get("contract_type"), "Experience level": entry.get("level"),
+            "Technologies": labels([*(entry.get("skills") or []), *(entry.get("stack") or []), *(entry.get("tools") or [])]),
+            "Timezone requirements": labels(entry.get("timezones")), "Company URL": (entry.get("company") or {}).get("website"),
+            "Company hires worldwide": hires_ww,
+            "Remote scope": "; ".join(", ".join(str(loc.get(k)) for k in ("city", "state", "country") if loc.get(k)) for loc in locations if isinstance(loc, dict)) if work_mode is WorkMode.REMOTE else None,
+        })
 
         salary = _salary(entry)
 
@@ -165,7 +169,7 @@ class FourDayWeekScraper(ScraperBase):
             description=description,
             salary=salary,
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )
 
 
@@ -185,7 +189,10 @@ def _region(country: str | None):
 
 
 def _salary(entry: dict[str, Any]) -> str | None:
+    # Public API minor units verified against rendered 12183900 -> $121,839.00.
     low, high = entry.get("salary_min"), entry.get("salary_max")
+    low = low / 100 if isinstance(low, (int, float)) else low
+    high = high / 100 if isinstance(high, (int, float)) else high
     if low is None and high is None:
         return None
     currency = (entry.get("salary_currency") or "").upper()

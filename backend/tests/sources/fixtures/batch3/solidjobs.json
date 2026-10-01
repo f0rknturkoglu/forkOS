@@ -1,0 +1,76 @@
+{
+  "jobs": [
+    {
+      "jobOfferKey": "fba6a1a0-8b7e-44b9-beba-908a21ede1d0",
+      "title": "Java Developer",
+      "division": "IT",
+      "category": "Developer",
+      "subCategory": "Java",
+      "company": "ITFS",
+      "companyLogoUrl": "https://cdn.solid.jobs/companies/logos/1be3c4fff9014953bac5cbe352928a43",
+      "salary": {
+        "from": 16800.0,
+        "to": 20200.0,
+        "currency": "PLN",
+        "period": "Month",
+        "employmentType": "B2B"
+      },
+      "contractTime": "full_time",
+      "locations": [
+        "Warszawa"
+      ],
+      "benefits": [
+        "Pakiet medyczny",
+        "Pakiet sportowy"
+      ],
+      "isRemote": false,
+      "isHybrid": true,
+      "url": "https://solid.jobs/o/irjjyvfi/forkjob",
+      "experienceLevel": "Regular",
+      "skills": [
+        {
+          "level": "Advanced",
+          "name": "Java"
+        },
+        {
+          "level": "Advanced",
+          "name": "Spring"
+        },
+        {
+          "level": "Advanced",
+          "name": "Spring Boot"
+        },
+        {
+          "level": "Advanced",
+          "name": "JUnit"
+        },
+        {
+          "level": "Advanced",
+          "name": "SQL Developer"
+        },
+        {
+          "level": "Advanced",
+          "name": "Message queueing systems"
+        },
+        {
+          "level": "Advanced",
+          "name": "Kubernetes"
+        }
+      ],
+      "languages": [
+        {
+          "level": "Expert",
+          "name": "Polski"
+        },
+        {
+          "level": "Advanced",
+          "name": "Angielski"
+        }
+      ],
+      "description": "<div class=\"well job - description\"><p><strong>Czym będziesz się zajmować?</strong><br><br><span>Charakterystyka:</span><ul><li><strong>Miejsce pracy: </strong>hybrydowo (<u>preferowana obecność w biurze 2x w miesiącu lub 1x w tygodniu) – Łódź, Warszawa lub Katowice</u></li><li><strong>Start: </strong>ASAP (max. 1 miesiąc wypowiedzenia)</li><li><strong>Współpraca: </strong>B2B z ITFS</li><li><strong>Wynagrodzenie: </strong>100-120 zł/h + VAT (bez płatnych urlopów)</li><li><strong>Branża: </strong>finansowa</li><li><strong>Proces rekrutacyjny: </strong>krótka rozmowa z ITFS (ok. 15 min) ➡ max. 2 rozmowy techniczna z Klientem ➡ decyzja</li></ul><span>Zadania:</span><ul><li>Tworzenie backendu w",
+      "validFrom": "2026-09-24T15:54:01.670101+02:00",
+      "validTo": "2026-10-25T15:54:01.670101+02:00",
+      "updatedAt": "2026-09-24T15:28:39.026149+02:00"
+    }
+  ]
+}

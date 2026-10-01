@@ -83,7 +83,7 @@ from app.modules.opportunity.schemas import (
 )
 from app.modules.opportunity.taxonomy import classify_job
 from app.sources.forkjob_core.models import canonical_url
-from app.sources.forkjob_core.rich_text import merge_descriptions
+from app.sources.forkjob_core.rich_text import merge_descriptions, source_fact
 
 
 def _calculate_skill_match(
@@ -860,13 +860,25 @@ async def _refresh_opportunity(
 
     # Non-destructive raw merge (Finding 16-18)
     merged_raw = dict(opportunity.raw or {})
-    incoming_meta = raw.get("source_authority") == "meta"
-    existing_meta = merged_raw.get("source_authority") == "meta"
-    preserve_authority = incoming_meta and not existing_meta
-    upgrade_authority = existing_meta and not incoming_meta
+    incoming_authority = raw.get("source_authority") or "native"
+    existing_authority = merged_raw.get("source_authority") or "native"
+    existing_owner = (merged_raw.get("forkjob") or {}).get("source")
+    incoming_owner = (raw.get("forkjob") or {}).get("source")
+    # A source refresh can correct its own historical default-native label.
+    # It cannot downgrade an employer owner or another publisher's evidence.
+    if incoming_authority == "meta" and existing_authority == "native" and existing_owner and existing_owner == incoming_owner and opportunity.source == source_label:
+        existing_authority = "meta"
+        merged_raw["source_authority"] = "meta"
+    authority_rank = {"meta": 0, "native": 1, "employer": 2}
+    incoming_rank = authority_rank.get(incoming_authority, 1)
+    existing_rank = authority_rank.get(existing_authority, 1)
+    preserve_authority = incoming_rank < existing_rank
+    upgrade_authority = incoming_rank > existing_rank
     if "forkjob" in raw and isinstance(raw["forkjob"], dict):
         merged_fk = dict(merged_raw.get("forkjob") or {})
         for k, v in raw["forkjob"].items():
+            if k == "language" and v is None and (existing_owner == incoming_owner or upgrade_authority) and not preserve_authority and not source_fact(merged_fk.get("description"), "Language"):
+                merged_fk[k] = None  # remove a historical UI/prose-language guess, not explicit facts
             if v is not None and v != "":
                 if k == "description":
                     merged_fk[k] = merge_descriptions(merged_fk.get(k), v, prefer_existing=preserve_authority, prefer_incoming=upgrade_authority)

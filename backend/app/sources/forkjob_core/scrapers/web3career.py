@@ -31,7 +31,7 @@ from selectolax.parser import HTMLParser, Node
 
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import parse_datetime
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from .base import ScraperBase, ScraperError, ScraperHttpClient
 
 LISTING_URL = "https://web3.career/remote-jobs"
 DEFAULT_MAX_PAGES = 3
@@ -59,7 +59,8 @@ class Web3CareerScraper(ScraperBase):
             url = LISTING_URL if page == 1 else f"{LISTING_URL}?page={page}"
             try:
                 html = await client.get_html(url)
-            except ScraperPermanentError:
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 break
             pages_fetched += 1
             page_jobs = self.parse(html)

@@ -44,6 +44,7 @@ from typing import Any
 from ..geo import region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_epoch_ms, parse_single_country
+from ..rich_text import enrich
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://wellfound.com"
@@ -85,7 +86,7 @@ class WellfoundScraper(ScraperBase):
         for role in self.roles:
             for location in self.locations:
                 url = ROLE_URL.format(role=role, location=location)
-                html = await self.isolate(url, lambda: client.get_html(url))
+                html = await self.isolate(url, lambda url=url: client.get_html(url))
                 if html is None:
                     continue  # one role/location refused must not stop the rest
                 jobs.extend(self.dedup_seen(seen, self.parse(html)))
@@ -135,7 +136,13 @@ class WellfoundScraper(ScraperBase):
 
         work_mode, remote = _work_mode(entry)
 
-        description = html_to_text(entry.get("description"))
+        description = enrich(html_to_text(entry.get("description")), self.source, {
+            "Source authority": "meta" if entry.get("atsSource") or entry.get("autoPosted") else "native",
+            "Original source": entry.get("atsSource"),
+            "Experience maximum (years)": entry.get("yearsExperienceMax"),
+            "Remote scope": ", ".join(entry.get("acceptedRemoteLocationNames") or []) or (location if remote else None),
+            "Employment type": entry.get("jobType"),
+        })
         years = entry.get("yearsExperienceMin")
         if isinstance(years, int):
             # Stated by the poster as a number — surfaced where the scorer's
@@ -160,7 +167,7 @@ class WellfoundScraper(ScraperBase):
             description=description,
             salary=(entry.get("compensation") or "").strip() or None,
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )
 
 

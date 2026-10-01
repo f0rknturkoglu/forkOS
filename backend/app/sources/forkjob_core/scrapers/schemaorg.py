@@ -121,3 +121,56 @@ def text(value: Any) -> str | None:
     if isinstance(value, str) and value.strip():
         return html_lib.unescape(value).strip()
     return None
+
+
+def field_text(value):
+    """Declared structured values, never arbitrary JSON or inferred prose."""
+    if isinstance(value, list):
+        values = [field_text(v) for v in value]
+        return ", ".join(dict.fromkeys(v for v in values if v)) or None
+    if isinstance(value, dict):
+        return field_text(value.get("name") or value.get("label") or value.get("value") or value.get("description"))
+    return text(value)
+
+
+def schema_job(posting, **kwargs):
+    """Shared JobPosting facts; never promote the organization ID to job ID."""
+    from ..geo import region_for
+    from ..models import Job
+    from ..normalize import format_salary, parse_single_country
+    from ..rich_text import enrich
+
+    requirements = posting.get("applicantLocationRequirements")
+    if isinstance(requirements, dict):
+        requirements = [requirements]
+    scope = ", ".join(str(r["name"]) for r in requirements or [] if isinstance(r, dict) and r.get("name")) or None
+    if not kwargs.get("country"):
+        kwargs["country"] = parse_single_country(kwargs.get("location") or scope)
+        if kwargs["country"]:
+            kwargs["region"] = region_for(kwargs["country"])
+    salary = posting.get("baseSalary")
+    if isinstance(salary, dict) and isinstance(salary.get("value"), dict):
+        values = salary["value"]
+        period = values.get("unitText")
+        low, high = values.get("minValue", values.get("value")), values.get("maxValue")
+        low = low if isinstance(low, (int, float)) and low > 0 else None
+        high = high if isinstance(high, (int, float)) and high > 0 else None
+        formatted = format_salary(low, high, salary.get("currency"), suffix="/" + period if isinstance(period, str) else "")
+        if formatted:
+            kwargs["salary"] = formatted
+    kwargs["description"] = enrich(kwargs.get("description"), kwargs["source"], {
+        "Employment type": field_text(posting.get("employmentType")),
+        "Remote scope": scope,
+        "Technologies": field_text(posting.get("skills")),
+        "Experience requirements": field_text(posting.get("experienceRequirements")),
+        "Qualifications": field_text(posting.get("qualifications")),
+        "Industry": field_text(posting.get("industry")),
+        "Job function": field_text(posting.get("occupationalCategory")),
+        "Experience requirement (months)": (posting.get("experienceRequirements") or {}).get("monthsOfExperience") if isinstance(posting.get("experienceRequirements"), dict) else None,
+        "Responsibilities": field_text(posting.get("responsibilities")),
+        "Benefits": field_text(posting.get("jobBenefits")),
+        "Application deadline": text(posting.get("validThrough")),
+        "Posting language": text(posting.get("inLanguage")),
+        "Company URL": (posting.get("hiringOrganization") or {}).get("sameAs") if isinstance(posting.get("hiringOrganization"), dict) else None,
+    })
+    return Job.build(**kwargs)

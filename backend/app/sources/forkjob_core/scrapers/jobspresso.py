@@ -22,6 +22,7 @@ from xml.etree import ElementTree as ET
 from ..geo import country_from_name, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_rfc822
+from ..rich_text import enrich
 from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
 
 FEED_URL = "https://jobspresso.co/jobs/feed/"
@@ -48,6 +49,8 @@ class JobspressoScraper(ScraperBase):
             raise ScraperPermanentError(
                 f"jobspresso: feed is not valid XML: {exc}"
             ) from exc
+        if root.tag != "rss" or root.find("channel") is None:
+            raise ScraperPermanentError("jobspresso: unrecognized RSS root")
         jobs: list[Job] = []
         for item in root.iter("item"):
             job = self._parse_item(item)
@@ -80,9 +83,9 @@ class JobspressoScraper(ScraperBase):
             # The board only lists remote work; that is its whole premise.
             work_mode=WorkMode.REMOTE,
             remote=True,
-            description=html_to_text(item.findtext("description") or ""),
+            description=enrich(html_to_text(item.findtext("{http://purl.org/rss/1.0/modules/content/}encoded") or item.findtext("description") or ""), self.source, {"Remote scope": location}),
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )
 
     @staticmethod

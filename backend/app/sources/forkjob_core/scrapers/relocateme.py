@@ -25,7 +25,7 @@ from selectolax.parser import HTMLParser
 
 from ..geo import country_from_name, region_for
 from ..models import DateSource, Job, Layer, Region, WorkMode
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from .base import ScraperBase, ScraperError, ScraperHttpClient
 
 BASE_URL = "https://relocate.me"
 SEARCH_URL = "https://relocate.me/international-jobs"
@@ -54,7 +54,8 @@ class RelocateMeScraper(ScraperBase):
             url = f"{SEARCH_URL}?page={page}" if page > 1 else SEARCH_URL
             try:
                 html = await client.get_html(url)
-            except ScraperPermanentError:
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 break
             pages_fetched += 1
             page_jobs = self.parse(html)

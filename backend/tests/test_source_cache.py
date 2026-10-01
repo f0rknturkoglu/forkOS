@@ -9,6 +9,7 @@ import gzip
 import json
 import os
 import time
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -50,6 +51,10 @@ class _FakeHttp:
     def __init__(self, response: httpx.Response) -> None:
         self.response = response
         self.calls: list[dict] = []
+
+    @asynccontextmanager
+    async def stream(self, method, url, **kwargs):
+        yield await self.request(method, url, **kwargs)
 
     async def request(self, method: str, url: str, **kwargs):
         self.calls.append(kwargs)

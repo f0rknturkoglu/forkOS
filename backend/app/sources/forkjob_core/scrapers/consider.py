@@ -31,7 +31,8 @@ from typing import Any
 from ..geo import region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import parse_datetime, parse_location
-from .base import ScraperBase, ScraperConfig, ScraperHttpClient, ScraperPermanentError
+from ..rich_text import enrich
+from .base import ScraperBase, ScraperConfig, ScraperError, ScraperHttpClient, ScraperPermanentError
 
 PAGE_SIZE = 50
 
@@ -66,6 +67,8 @@ class ConsiderScraper(ScraperBase):
         seen: set[str] = set()
         meta: dict[str, Any] = {"size": PAGE_SIZE}
         page = 0
+        sequences = set()
+        cap = False
         jobs_url = f"{self.base_url}/jobs"
         csrf_token = _csrf_token(await client.get_html(jobs_url))
         request_headers = {
@@ -84,12 +87,15 @@ class ConsiderScraper(ScraperBase):
                 "query": {},
                 "grouped": True,
             }
-            payload = await client.post_json(
-                f"{self.base_url}/api-boards/search-jobs", body, headers=request_headers
-            )
+            try:
+                payload = await client.post_json(
+                    f"{self.base_url}/api-boards/search-jobs", body, headers=request_headers
+                )
+                groups = self._parse_groups(payload)
+            except ScraperError as exc:
+                self.errors.append(str(exc))
+                break
             page += 1
-
-            groups = self._parse_groups(payload)
             if not groups:
                 break
 
@@ -102,19 +108,29 @@ class ConsiderScraper(ScraperBase):
                     job = self._build_job(entry, company_info)
                     if job is not None:
                         page_jobs.append(job)
-            jobs.extend(self.dedup_seen(seen, page_jobs))
+            fresh = self.dedup_seen(seen, page_jobs)
+            if page_jobs and not fresh:
+                self.errors.append("consider: repeated page identities")
+                break
+            jobs.extend(fresh)
 
             # Pagination: the server returns a `sequence` token in meta.
             new_meta = payload.get("meta") if isinstance(payload, dict) else None
             seq = new_meta.get("sequence") if isinstance(new_meta, dict) else None
             if not seq:
                 break
+            if seq in sequences:
+                self.errors.append("consider: repeated sequence token")
+                break
+            sequences.add(seq)
             meta["sequence"] = seq
 
             # Safety valve: a buggy pagination loop must not run forever.
-            if page > 200:
+            if page >= 200:
+                cap = True
                 break
 
+        self.record_telemetry(items_seen=len(jobs), items_returned=len(jobs), pages_fetched=page, page_limit=200, cap_hit=cap, stop_reason="page_limit_reached" if cap else "request_failed" if self.errors else "exhausted", partial_reason="; ".join(self.errors) or ("page_limit_reached" if cap else None), metadata={"listing_pages": page, "csrf_requests": 1})
         return jobs
 
     # -- parsing ---------------------------------------------------------------
@@ -128,7 +144,7 @@ class ConsiderScraper(ScraperBase):
             )
         groups = payload.get("jobs")
         if not isinstance(groups, list):
-            return []
+            raise ScraperPermanentError("consider: missing jobs schema")
         return [g for g in groups if isinstance(g, dict)]
 
     def _build_job(self, entry: dict[str, Any], company_info: dict[str, Any]) -> Job | None:
@@ -248,7 +264,12 @@ class ConsiderScraper(ScraperBase):
             if isinstance(stages, list) and stages:
                 description_parts.append(f"Stages: {', '.join(str(s) for s in stages)}")
 
-        description = "\n".join(description_parts) or None
+        description = enrich("\n".join(description_parts) or None, self.source, {
+            "Source authority": "meta", "Application URL": url,
+            "Technologies": ", ".join(dict.fromkeys(skills_all)),
+            "Company URL": company_info.get("website"),
+            "Remote scope": "; ".join(str(x) for x in locations) if isinstance(locations, list) and work_mode is WorkMode.REMOTE else None,
+        })
 
         department: str | None = None
         depts = entry.get("departments")
@@ -284,7 +305,7 @@ class ConsiderScraper(ScraperBase):
             description=description,
             salary=salary_text,
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )
 
 

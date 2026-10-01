@@ -7,14 +7,10 @@ key, no bot protection, and every Swedish employer is legally required to post
 here. That makes it the most complete single view of one country's market in
 this whole registry.
 
-Two things shape how it is queried:
-
-* Postings are mostly in Swedish, and the user does not read Swedish. The API
-  has no language filter, so the language is detected from the description and
-  stored — scoring can then treat a Swedish-only posting for what it is.
-* `q` matches Swedish and English alike, so the searches are English role names.
-  An English-titled posting at a Swedish employer is itself a signal that the
-  working language is English.
+Queries use English role names because the public API supports both Swedish
+and English text. Page/prose language is not a working-language requirement.
+Batch 3 retains only explicit must_have.languages, including the original
+labels, and preserves application, workload, expiry and skill evidence.
 
 Verified 2026-08-09: 673 hits for "developer".
 """
@@ -28,7 +24,9 @@ from typing import Any
 from ..geo import country_from_name, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from ..rich_text import enrich
+from ..sources.evidence import labels
+from .base import ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
 
 API_URL = "https://jobsearch.api.jobtechdev.se/search"
 
@@ -75,6 +73,7 @@ class JobTechScraper(ScraperBase):
         cap_hit = False
 
         for term in self.searches:
+            identities = set()
             for page in range(self.max_pages):
                 url = (
                     f"{API_URL}?q={term.replace(' ', '%20')}"
@@ -82,13 +81,19 @@ class JobTechScraper(ScraperBase):
                 )
                 try:
                     payload = await client.get_json(url)
-                except ScraperPermanentError:
+                except ScraperError as exc:
+                    self.errors.append(str(exc))
                     break
                 pages_fetched += 1
                 page_jobs = self.parse(payload)
                 items_seen += len(page_jobs)
                 if not page_jobs:
                     break
+                keys = {job.external_id or job.url for job in page_jobs}
+                if page and not (keys - identities):
+                    self.errors.append("jobtech: repeated page identities")
+                    break
+                identities.update(keys)
                 # The searches overlap heavily — "software developer" and
                 # "software engineer" return much of the same set.
                 for job in page_jobs:
@@ -96,6 +101,8 @@ class JobTechScraper(ScraperBase):
                 total = payload.get("total", {}).get("value") if isinstance(payload, dict) else None
                 if page == self.max_pages - 1 and isinstance(total, int) and (page + 1) * PAGE_SIZE < total:
                     cap_hit = True
+                if isinstance(total, int) and (page + 1) * PAGE_SIZE >= total:
+                    break
 
         stop_reason = "max_pages_reached" if cap_hit else "exhausted"
         self.record_telemetry(
@@ -113,7 +120,7 @@ class JobTechScraper(ScraperBase):
     def parse(self, payload: Any) -> list[Job]:
         hits = payload.get("hits") if isinstance(payload, dict) else None
         if not isinstance(hits, list):
-            return []
+            raise ScraperPermanentError("jobtech: missing hits schema")
         jobs: list[Job] = []
         for hit in hits:
             if isinstance(hit, dict):
@@ -123,6 +130,8 @@ class JobTechScraper(ScraperBase):
         return jobs
 
     def _parse_one(self, entry: dict[str, Any]) -> Job | None:
+        if entry.get("removed") is True:
+            return None
         title = (entry.get("headline") or "").strip()
         url = (entry.get("webpage_url") or "").strip()
         if not title or not url:
@@ -156,6 +165,17 @@ class JobTechScraper(ScraperBase):
 
         posted_at = self._date(entry.get("publication_date"))
 
+        must = entry.get("must_have") or {}
+        language = labels(must.get("languages"))
+        text = enrich(text, self.source, {
+            "Application URL": (entry.get("application_details") or {}).get("url"),
+            "Application deadline": entry.get("application_deadline"),
+            "Employment type": labels(entry.get("employment_type")), "Workload": labels(entry.get("working_hours_type")),
+            "Workload percentage": str(entry.get("scope_of_work")) if entry.get("scope_of_work") else None,
+            "Contract duration": labels(entry.get("duration")), "Language": language,
+            "Technologies": labels(must.get("skills")), "Nice-to-have skills": labels((entry.get("nice_to_have") or {}).get("skills")),
+            "Company URL": (entry.get("employer") or {}).get("url"), "Requisition ID": (entry.get("application_details") or {}).get("reference"),
+        })
         return Job.build(
             url=url,
             source=self.source,
@@ -170,7 +190,7 @@ class JobTechScraper(ScraperBase):
             remote=True if work_mode is WorkMode.REMOTE else None,
             description=text,
             salary=(entry.get("salary_description") or None),
-            language=self._language(f"{title} {text[:1500]}"),
+            language=language,
             posted_at=posted_at,
             # publication_date is when the employer published the ad.
             date_source=date_source_for(posted_at)[1],

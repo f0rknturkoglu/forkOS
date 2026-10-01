@@ -112,7 +112,7 @@ def html_to_text(raw: str | None, *, limit: int = MAX_DESCRIPTION_CHARS) -> str 
 
 def parse_datetime(value: str | None) -> datetime | None:
     """Parse the ISO 8601 shapes ATS APIs actually emit."""
-    if not value:
+    if not isinstance(value, str) or not value:
         return None
     text = value.strip()
     if not text:
@@ -231,83 +231,10 @@ def _contains_any(text: str, words: set[str]) -> bool:
 
 
 def detect_language(text: str | None, *, declared: str | None = None) -> str | None:
-    """Trust the board's own language field; only guess when it is missing.
-
-    The guess is a crude Spanish/English stopword ratio — enough to flag a
-    posting written in Spanish, which the scorer treats as a weak signal only.
-    """
-    if declared:
-        return declared.strip().lower()[:5] or None
-    if not text:
-        return None
-
-    tokens = norm_text(text[:4000]).split()
-    if len(tokens) < 20:
-        return None
-    spanish = sum(1 for t in tokens if t in _ES_STOPWORDS)
-    english = sum(1 for t in tokens if t in _EN_STOPWORDS)
-    if spanish > english and spanish >= 5:
-        return "es"
-    if english > spanish and english >= 5:
-        return "en"
+    """Retain an explicit language field; prose language is not working language."""
+    if isinstance(declared, str):
+        return declared.strip() or None
     return None
-
-
-_EN_STOPWORDS = {
-    "the",
-    "and",
-    "in",
-    "of",
-    "to",
-    "a",
-    "is",
-    "for",
-    "with",
-    "as",
-    "on",
-    "at",
-    "by",
-    "from",
-    "an",
-    "our",
-    "team",
-    "experience",
-    "company",
-    "you",
-    "will",
-}
-
-_ES_STOPWORDS = {
-    "de",
-    "la",
-    "el",
-    "en",
-    "y",
-    "los",
-    "las",
-    "para",
-    "con",
-    "por",
-    "que",
-    "una",
-    "un",
-    "del",
-    "al",
-    "se",
-    "su",
-    "como",
-    "más",
-    "mas",
-    "nuestro",
-    "nuestra",
-    "experiencia",
-    "trabajo",
-    "equipo",
-    "empresa",
-}
-# --------------------------------------------------------------------------
-# Dates
-# --------------------------------------------------------------------------
 
 
 def parse_epoch_ms(value: Any) -> datetime | None:
@@ -321,7 +248,10 @@ def parse_epoch_ms(value: Any) -> datetime | None:
     if not isinstance(value, (int, float)) or value <= 0:
         return None
     seconds = value / 1000 if value > 1_000_000_000_000 else value
-    return datetime.fromtimestamp(seconds, tz=UTC)
+    try:
+        return datetime.fromtimestamp(seconds, tz=UTC)
+    except (ValueError, OverflowError, OSError):
+        return None
 
 
 def parse_rfc822(value: Any) -> datetime | None:

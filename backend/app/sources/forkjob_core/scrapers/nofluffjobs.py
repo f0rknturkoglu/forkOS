@@ -27,7 +27,8 @@ from typing import Any
 from ..geo import country_from_name, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import parse_epoch_ms
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from .base import ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
+from .detail_evidence import enrich_job_details
 
 API_URL = "https://nofluffjobs.com/api/search/posting"
 
@@ -44,9 +45,10 @@ class NoFluffJobsScraper(ScraperBase):
     label = "No Fluff Jobs"
     base_url = "https://nofluffjobs.com"
 
-    def __init__(self, config: Any = None, *, max_pages: int = 8) -> None:
+    def __init__(self, config: Any = None, *, max_pages: int = 8, detail_budget: int = 20) -> None:
         super().__init__(config)
         self.max_pages = max_pages
+        self.detail_budget = max(0, int(detail_budget))
 
     async def scrape(self, client: ScraperHttpClient) -> list[Job]:
         jobs: list[Job] = []
@@ -54,6 +56,7 @@ class NoFluffJobsScraper(ScraperBase):
         items_seen = 0
         cap_hit = False
         total_pages: int | None = None
+        seen = set()
 
         for page in range(1, self.max_pages + 1):
             try:
@@ -61,14 +64,19 @@ class NoFluffJobsScraper(ScraperBase):
                     f"{API_URL}?page={page}&{QUERY}",
                     payload={"rawSearch": "", "criteriaSearch": {"seniority": SENIORITY}},
                 )
-            except ScraperPermanentError:
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 break
             pages_fetched += 1
             page_jobs = self.parse(payload)
             items_seen += len(page_jobs)
             if not page_jobs:
                 break
-            jobs.extend(page_jobs)
+            fresh = self.dedup_seen(seen, page_jobs)
+            if not fresh:
+                self.errors.append("nofluffjobs: repeated page identities")
+                break
+            jobs.extend(fresh)
             # The response knows how long the result set is; asking for page 8
             # of 7 returns an empty list, so stop before spending the request.
             total_pages = payload.get("totalPages") if isinstance(payload, dict) else None
@@ -77,25 +85,29 @@ class NoFluffJobsScraper(ScraperBase):
             if isinstance(total_pages, int) and page >= total_pages:
                 break
 
-        stop_reason = "max_pages_reached" if cap_hit else "exhausted"
+        metadata = await enrich_job_details(self, client, jobs, self.detail_budget)
+        metadata["listing_pages"] = pages_fetched
+        metadata["listing_complete"] = not cap_hit and not any(not e.startswith("detail:") for e in self.errors)
+        stop_reason = "max_pages_reached" if cap_hit else "detail_budget_or_failure" if metadata["richness_partial"] else "exhausted"
         self.record_telemetry(
             items_seen=items_seen,
             items_returned=len(jobs),
             pages_fetched=pages_fetched,
             page_limit=self.max_pages,
             result_limit=None,
-            cap_hit=cap_hit,
+            cap_hit=cap_hit or metadata["richness_partial"],
             stop_reason=stop_reason,
-            partial_reason="max_pages_reached" if cap_hit else None,
+            partial_reason=stop_reason if cap_hit or metadata["richness_partial"] else None,
+            metadata=metadata,
         )
         return jobs
 
     def parse(self, payload: Any) -> list[Job]:
         entries = payload
         if isinstance(payload, dict):
-            entries = payload.get("postings") or []
+            entries = payload.get("postings")
         if not isinstance(entries, list):
-            return []
+            raise ScraperPermanentError("nofluffjobs: missing postings schema")
         jobs: list[Job] = []
         for entry in entries:
             if isinstance(entry, dict):
@@ -166,7 +178,7 @@ class NoFluffJobsScraper(ScraperBase):
 
         posted_at = parse_epoch_ms(entry.get("posted"))
         renewed_at = parse_epoch_ms(entry.get("renewed"))
-        posted_at, date_source = date_source_for(posted_at, renewed_at)
+        posted_at, date_source = date_source_for(None, renewed_at or posted_at)
 
         return Job.build(
             url=url,

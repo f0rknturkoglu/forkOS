@@ -33,7 +33,8 @@ from typing import Any
 
 from ..models import Job, Layer, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_location
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from ..rich_text import enrich
+from .base import ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
 
 API_URL = "https://www.arbeitnow.com/api/job-board-api"
 DEFAULT_MAX_PAGES = 3
@@ -58,7 +59,7 @@ class ArbeitnowScraper(ScraperBase):
         for page in range(1, self.max_pages + 1):
             try:
                 payload = await client.get_json(f"{API_URL}?page={page}")
-            except ScraperPermanentError as exc:
+            except ScraperError as exc:
                 if page == 1:
                     self.record_telemetry(
                         items_seen=0,
@@ -93,7 +94,12 @@ class ArbeitnowScraper(ScraperBase):
             page_jobs = self.parse(payload)
             if not page_jobs:
                 break
-            jobs.extend(self.dedup_seen(seen, page_jobs))
+            fresh = self.dedup_seen(seen, page_jobs)
+            if page_jobs and not fresh:
+                cap_hit = True
+                partial_reason = "repeated_page"
+                break
+            jobs.extend(fresh)
             links = payload.get("links") if isinstance(payload, dict) else None
             has_next = bool(links.get("next")) if isinstance(links, dict) else False
             if not has_next:
@@ -147,6 +153,7 @@ class ArbeitnowScraper(ScraperBase):
 
         tags = [t for t in (entry.get("tags") or []) if isinstance(t, str)]
 
+        description = enrich(description, self.source, {"Technologies": ", ".join(tags), "Employment type": ", ".join(entry.get("job_types") or []), "Remote scope": location_text if work_mode is WorkMode.REMOTE else None})
         return Job.build(
             url=url,
             source=self.source,
@@ -163,5 +170,5 @@ class ArbeitnowScraper(ScraperBase):
             department=", ".join(tags[:3]) or None,
             description=description,
             posted_at=posted_at,
-            date_source=date_source_for(posted_at)[1],
+            date_source=date_source_for(None, posted_at)[1],
         )

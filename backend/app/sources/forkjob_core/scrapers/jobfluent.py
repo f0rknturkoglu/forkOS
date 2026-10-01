@@ -47,7 +47,7 @@ from selectolax.parser import HTMLParser, Node
 from ..geo import region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for
 from ..normalize import html_to_text, parse_datetime, sitemap_locations
-from .base import ScraperBase, ScraperHttpClient, ScraperPermanentError
+from .base import ScraperBase, ScraperError, ScraperHttpClient
 
 BASE_URL = "https://www.jobfluent.com"
 SITEMAP_URL = "https://www.jobfluent.com/sitemaps/jobs-{region}/offers-list.xml"
@@ -94,7 +94,8 @@ class JobFluentScraper(ScraperBase):
             try:
                 xml = await client.get_html(SITEMAP_URL.format(region=region))
                 pages_fetched += 1
-            except ScraperPermanentError:
+            except ScraperError as exc:
+                self.errors.append(str(exc))
                 continue  # one region missing must not sink the rest
 
             for url in parse_offer_sitemap(xml):
@@ -108,7 +109,8 @@ class JobFluentScraper(ScraperBase):
                 try:
                     page = await client.get_html(url)
                     pages_fetched += 1
-                except ScraperPermanentError:
+                except ScraperError as exc:
+                    self.errors.append(str(exc))
                     continue
                 job = self.parse_offer(page, url, remote_hint=region == "remote")
                 if job is not None:
