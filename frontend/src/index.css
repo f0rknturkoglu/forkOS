@@ -3,11 +3,12 @@
 @tailwind utilities;
 
 /* Boş dönen koşullu widget'lar Today'de görünmez bir dikkat sütunu bırakmasın. */
-.today-attention:not(:has([data-today-widget]:not(:empty))) {
+.today-attention:not(:has([data-today-widget]:not(:empty))),
+.today-secondary:not(:has([data-today-widget]:not(:empty))) {
   display: none;
 }
 @media (min-width: 1024px) {
-  .today-primary-grid:not(:has(.today-attention [data-today-widget]:not(:empty))) {
+  .today-primary-grid:not(:has(.today-secondary [data-today-widget]:not(:empty))) {
     grid-template-columns: minmax(0, 1fr);
   }
 }

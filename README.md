@@ -138,6 +138,9 @@ make down CO="docker compose"
 make logs CO="docker compose"
 make ps CO="docker compose"
 
+# Uçtan uca çalışma zamanı sağlık kontrolü
+make doctor CO="docker compose"
+
 # Şemayı manuel güncelle (otomatik geçit dışında gerektiğinde)
 make migrate CO="docker compose"
 

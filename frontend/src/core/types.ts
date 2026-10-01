@@ -1146,6 +1146,8 @@ export interface TodayWidget {
   placement?: TodayPlacement;
   /** Bağlam sütunu; belirtilmeyen yüzeyler ana sütunda akar. */
   contextLane?: "main" | "secondary";
+  /** Planın sağında gösterilen özet yüzeyi. */
+  besidePlan?: boolean;
   /**
    * Cekirdek iskeletteki sira; kucuk once. ZORUNLU: verilmezse cakisma
    * uretir (eski varsayilan 50 kaldirildi).

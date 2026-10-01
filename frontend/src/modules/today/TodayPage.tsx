@@ -57,7 +57,8 @@ export function HomeGrid({ views }: { views: TodayWidgetView[] }) {
   const now = by("now");
   const plan = by("plan");
   const attention = by("attention");
-  const context = by("context");
+  const companions = views.filter((view) => view.widget.besidePlan);
+  const context = by("context").filter((view) => !view.widget.besidePlan);
 
   return (
     <div className="space-y-7">
@@ -66,17 +67,22 @@ export function HomeGrid({ views }: { views: TodayWidgetView[] }) {
           {now.map(widget)}
         </section>
       )}
-      <div className="today-primary-grid grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.46fr)]">
+      <div className="today-primary-grid mx-auto grid w-full items-center gap-6 lg:grid-cols-2">
         <section aria-label="Bugünün işi" className="min-w-0 max-w-4xl space-y-4">
           {plan.map(widget)}
         </section>
-        {attention.length > 0 && (
+        {(companions.length > 0 || attention.length > 0) && (
           <aside
-            aria-label="Dikkat isteyenler"
-            className="today-attention min-w-0 space-y-4 lg:border-l lg:border-subtle lg:pl-6"
+            aria-label={attention.length > 0 ? "Dikkat isteyenler" : "Plan özeti"}
+            className="today-secondary min-w-0 space-y-4"
           >
-            <h2 className="text-meta font-medium text-secondary">Dikkat isteyenler</h2>
-            {attention.map(widget)}
+            {companions.map(widget)}
+            {attention.length > 0 && (
+              <div className="today-attention space-y-4">
+                <h2 className="text-meta font-medium text-secondary">Dikkat isteyenler</h2>
+                {attention.map(widget)}
+              </div>
+            )}
           </aside>
         )}
       </div>

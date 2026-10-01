@@ -22,7 +22,7 @@
  */
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Stethoscope } from "lucide-react";
 import { api } from "@/core/api";
 import {
   AGENT_STATUS_KEY,
@@ -219,6 +219,7 @@ interface HealthSummary {
   overall: StatusView;
   bundle: string;
   loading: boolean;
+  refreshAll: () => void;
   retryUnknown: () => void;
 }
 
@@ -534,6 +535,9 @@ export function useHealthSummary(): HealthSummary {
       executions: { state: dataState(executions), plans },
     }),
     loading: queries.some((query) => query.isLoading),
+    refreshAll: () => {
+      for (const query of queries) void query.refetch();
+    },
     retryUnknown: () => {
       for (const query of queries) {
         if (query.isError) void query.refetch();
@@ -889,6 +893,40 @@ export function SystemStatusPanel() {
 
   return (
     <div className="space-y-4">
+      <div>
+        <SectionHeader
+          label="forkOS Doctor"
+          hint="uçtan uca sağlık kontrolü"
+          action={<Chip tone={summary.overall.tone}>{summary.overall.label}</Chip>}
+        />
+        <Section bodyClassName="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 rounded-control bg-surface-sunken p-2 text-icon" aria-hidden="true">
+              <Stethoscope size={16} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-meta font-medium text-primary">Uygulama kontrolleri canlı izleniyor</p>
+              <p className="mt-1 text-micro text-muted">
+                API, worker, kaynaklar, Vault, yerel model ve yedekleme burada okunur. OrbStack ile Hermes bağlantısını
+                da doğrulayan tam kontrol terminalde çalışır.
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={summary.refreshAll} disabled={summary.loading}>
+              <RefreshCw size={13} className={summary.loading ? "animate-spin" : undefined} aria-hidden="true" />
+              {summary.loading ? "Kontrol ediliyor…" : "Şimdi kontrol et"}
+            </Button>
+            <CopyButton
+              text={'make doctor CO="docker compose"'}
+              label="Tam kontrol komutu"
+              ariaLabel="Tam sistem kontrolü komutunu kopyala"
+              toastLabel="forkOS Doctor komutu panoya kopyalandı."
+            />
+          </div>
+        </Section>
+      </div>
+
       <SystemStatusOverview summary={summary} />
       <SystemStatusAttention summary={summary} />
 

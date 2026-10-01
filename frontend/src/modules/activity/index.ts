@@ -42,7 +42,7 @@ registerModule({
       // Home kompakt surumu kullanir: ayni bilesen, ayni sorgu anahtari --
       // tam tur kirilimi ve aralik secimi Etkinlik sayfasinda kalir.
       id: "activity.heatmap",
-      contextLane: "secondary",
+      besidePlan: true,
       title: "Isı haritası",
       component: HomeHeatmap,
       core: "context",

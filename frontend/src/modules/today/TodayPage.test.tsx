@@ -12,6 +12,14 @@ function view(id: string, core?: TodayPlacement, placement?: TodayPlacement): To
 const page = (views: TodayWidgetView[]) => renderToStaticMarkup(<HomeGrid views={views} />);
 
 describe("Today çalışma sırası", () => {
+  it("plan eşlikçisini bağlamdan çıkarır ve planın yanında tek kez çizer", () => {
+    const heatmap = view("activity.heatmap", "context");
+    heatmap.widget.besidePlan = true;
+    const html = page([view("plan", "plan"), heatmap, view("feed", "context")]);
+    expect(html.split('data-today-widget="activity.heatmap"')).toHaveLength(2);
+    expect(html.indexOf('data-today-widget="plan"')).toBeLessThan(html.indexOf('data-today-widget="activity.heatmap"'));
+    expect(html.indexOf('data-today-widget="activity.heatmap"')).toBeLessThan(html.indexOf('aria-label="Bağlam"'));
+  });
   it("bağlamı bağımsız anlamsal sütunlarda birer kez çizer; tanımsız yüzeyi ana sütunda tutar", () => {
     const views = ["today.career", "today.feed-stream", "learning.widget", "activity.heatmap", "optional"].map((id) => {
       const item = view(id, "context");

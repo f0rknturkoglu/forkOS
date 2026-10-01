@@ -694,6 +694,9 @@ describe("SettingsPage Durum & Kaynaklar ve Kariyer Profili", () => {
     // Saglik/Kaynaklar icin ikinci bir uygulama yok: ozet ve tanilama paketi
     // Sistem Durumu sayfasinin bilesenleridir.
     expect(await screen.findByText("Genel bakış")).toBeTruthy();
+    expect(screen.getByText("forkOS Doctor")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Şimdi kontrol et" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tam sistem kontrolü komutunu kopyala" })).toBeTruthy();
     expect(screen.getByText("İlgi gerekenler")).toBeTruthy();
     expect(screen.getByText("Kaynak sağlığı")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Teşhisi kopyala" })).toBeTruthy();

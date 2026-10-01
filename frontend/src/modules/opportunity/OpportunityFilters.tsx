@@ -3,13 +3,14 @@
  *
  * Tasarım kuralı: filtreler sonuçların önünü kapatmaz. Varsayılan durumda
  * yalnızca tek satırlık bir araç çubuğu görünür; gelişmiş filtreler ayrı bir
- * panelde (masaüstünde popover, mobilde drawer) açılır. Aktif olan her filtre
+ * ortalanmış bir modalda açılır. Aktif olan her filtre
  * mutlaka bir chip olarak görünür ve tek başına kaldırılabilir.
  */
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { LayoutGrid, Kanban, List, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
-import { Button, Chip, FilterChip, IconButton, Input, Popover, Select, Section, cx } from "@/core/ui";
+import { Button, Chip, FilterChip, IconButton, Input, Modal, Select, Section, cx } from "@/core/ui";
 import { sourceLabel } from "@/core/labels";
 import { ARCHETYPE_LABELS, RECOMMENDATION_LABELS, REMOTE_LABELS, STATUS_LABELS, jobCategoryLabel } from "./labels";
 import type { OpportunityBrowseFilters } from "./opportunityBrowse";
@@ -79,7 +80,6 @@ export function OpportunityFilterBar({
   liveMessage,
 }: FilterBarProps) {
   const [panelOpen, setPanelOpen] = useState(false);
-  const panelAnchor = useRef<HTMLSpanElement>(null);
   const chips = useMemo(() => activeFilterChips(filters), [filters]);
   const update = (changes: Partial<OpportunityBrowseFilters>) => onChange({ ...filters, ...changes, offset: 0 });
   const sourceStatus = filters.source_status ?? "active";
@@ -125,7 +125,7 @@ export function OpportunityFilterBar({
           {filters.section === "jobs" && <option value="newest">En yeni</option>}
         </Select>
 
-        <span className="relative inline-flex" ref={panelAnchor}>
+        <span className="inline-flex">
           <Button
             size="sm"
             variant={panelOpen || chips.length > 0 ? "secondary" : "ghost"}
@@ -139,10 +139,9 @@ export function OpportunityFilterBar({
               </span>
             )}
           </Button>
-          <FilterPanelPopover
+          <FilterPanelModal
             open={panelOpen}
             onClose={() => setPanelOpen(false)}
-            anchorRef={panelAnchor}
             filters={filters}
             facets={facets}
             onChange={onChange}
@@ -208,10 +207,9 @@ export function OpportunityFilterBar({
   );
 }
 
-function FilterPanelPopover({
+function FilterPanelModal({
   open,
   onClose,
-  anchorRef,
   filters,
   facets,
   onChange,
@@ -219,7 +217,6 @@ function FilterPanelPopover({
 }: {
   open: boolean;
   onClose: () => void;
-  anchorRef: { current: HTMLElement | null };
   filters: OpportunityBrowseFilters;
   facets: Record<string, Record<string, number>>;
   onChange: (next: OpportunityBrowseFilters) => void;
@@ -231,22 +228,25 @@ function FilterPanelPopover({
   const jobs = filters.section === "jobs";
   const announcements = filters.section === "announcements";
 
-  return (
-    <Popover
+  if (!open) return null;
+
+  return createPortal(
+    <Modal
       open={open}
       onClose={onClose}
-      anchorRef={anchorRef}
-      role="dialog"
-      ariaLabel="Filtreler"
-      className="left-0 top-[calc(100%+0.375rem)] max-h-[70vh] w-[min(30rem,calc(100vw-2rem))] overflow-y-auto p-4"
-    >
-      <div className="space-y-4">
-        <header className="flex items-center justify-between">
-          <h3 className="text-heading text-primary">Filtreler</h3>
+      title="Filtreler"
+      hint="Seçimler sonuçlara anında uygulanır."
+      className="flex flex-col !overflow-hidden sm:max-w-2xl [&>header]:shrink-0 [&>footer]:shrink-0 [&>[data-modal-body]]:min-h-0 [&>[data-modal-body]]:overflow-y-auto"
+      footer={
+        <div className="flex items-center justify-between gap-3">
           <Button size="sm" variant="ghost" onClick={onClear}>
             <RotateCcw size={12} /> Temizle
           </Button>
-        </header>
+          <Button size="sm" onClick={onClose}>Sonuçları göster</Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
 
         {jobs && (
           <Section title="Profil / beceri uyumu">
@@ -500,6 +500,7 @@ function FilterPanelPopover({
           yazılmadığı kayıtları toplar.
         </p>
       </div>
-    </Popover>
+    </Modal>,
+    document.body,
   );
 }

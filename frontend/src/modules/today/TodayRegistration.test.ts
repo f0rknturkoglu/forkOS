@@ -37,9 +37,9 @@ describe("Today module registrations", () => {
       ["today.career", "main"],
       ["learning.widget", "main"],
       ["today.feed-stream", "secondary"],
-      ["activity.heatmap", "secondary"],
     ]) {
       expect(widgets.find((widget) => widget.id === id)?.contextLane).toBe(lane);
     }
+    expect(widgets.find((widget) => widget.id === "activity.heatmap")?.besidePlan).toBe(true);
   });
 });
