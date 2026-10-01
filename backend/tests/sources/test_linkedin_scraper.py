@@ -25,9 +25,24 @@ class Frame:
 def scraper_factory(monkeypatch):
     monkeypatch.setattr(linkedin, "_merge_user_profiles", lambda defaults: defaults)
 
+    from datetime import UTC, datetime
+
+    from app.sources.forkjob_core.scrapers.linkedin_policy import LinkedInPolicyState
+
+    class SyntheticAllow:
+        async def check(self, client):
+            return LinkedInPolicyState(True, datetime.now(UTC), None)
+
+        async def require(self, client, url=None):
+            return await self.check(client)
+
     def build(searches, runner, *, direct=True):
         return linkedin.LinkedInScraper(
-            searches=searches, runner=runner, allow_direct=direct
+            searches=searches,
+            runner=runner,
+            allow_direct=direct,
+            transport="jobspy",
+            policy_gate=SyntheticAllow(),
         )
 
     return build
@@ -69,7 +84,7 @@ async def test_successful_profiles_survive_another_profile_failure(scraper_facto
     assert len(result.jobs) == 1
     assert result.jobs[0].url == "https://acme.example/jobs/111"
     assert result.jobs[0].external_id == "111"
-    assert result.jobs[0].description is None
+    assert "Application URL: https://acme.example/jobs/111" in result.jobs[0].description
     assert calls[0]["linkedin_fetch_description"] is False
     assert calls[0]["hours_old"] == 72
     assert calls[1]["is_remote"] is True
@@ -112,10 +127,20 @@ def test_dedup_by_linkedin_id_and_canonical_url():
         {"id": "111", "title": "Engineer", "job_url": "https://linkedin.com/jobs/view/111"},
         {"id": "111", "title": "Engineer", "job_url": "https://linkedin.com/jobs/view/111?trk=x"},
         {"id": "222", "title": "Engineer", "job_url": "https://linkedin.com/jobs/view/222"},
-        {"id": "333", "title": "Engineer", "job_url": "https://linkedin.com/jobs/view/333", "job_url_direct": "https://acme.example/jobs/a?utm_source=x"},
-        {"id": "444", "title": "Engineer", "job_url": "https://linkedin.com/jobs/view/444", "job_url_direct": "https://acme.example/jobs/a?utm_source=y"},
+        {
+            "id": "333",
+            "title": "Engineer",
+            "job_url": "https://linkedin.com/jobs/view/333",
+            "job_url_direct": "https://acme.example/jobs/a?utm_source=x",
+        },
+        {
+            "id": "444",
+            "title": "Engineer",
+            "job_url": "https://linkedin.com/jobs/view/444",
+            "job_url_direct": "https://acme.example/jobs/a?utm_source=y",
+        },
     ]
-    jobs = [linkedin.job_from_row(row) for row in rows]
+    jobs = [linkedin.job_from_row({**row, "company": "Acme"}) for row in rows]
     assert len(linkedin._deduplicate([job for job in jobs if job])) == 3
 
 
@@ -151,3 +176,64 @@ async def test_isolated_runner_kills_child_on_cancellation(monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await asyncio.wait_for(task, timeout=3)
     assert child is not None and child.returncode is not None
+
+
+@pytest.mark.no_database
+async def test_isolated_runner_timeout_kills_child(monkeypatch):
+    from app.sources.forkjob_core.scrapers import linkedin_jobspy
+
+    original_wait = asyncio.wait_for
+    create_process = asyncio.create_subprocess_exec
+    child = None
+
+    async def launch(*args, **kwargs):
+        nonlocal child
+        child = await create_process(sys.executable, "-c", "import time; time.sleep(60)", **kwargs)
+        return child
+
+    async def short_wait(awaitable, timeout):
+        return await original_wait(awaitable, timeout=0.05)
+
+    monkeypatch.setattr(linkedin_jobspy.asyncio, "create_subprocess_exec", launch)
+    monkeypatch.setattr(linkedin_jobspy.asyncio, "wait_for", short_wait)
+    with pytest.raises(TimeoutError):
+        await linkedin_jobspy._run_jobspy_isolated({})
+    assert child.returncode is not None
+
+
+@pytest.mark.no_database
+async def test_malformed_jobspy_identity_and_unverified_empty_are_errors(scraper_factory):
+    for rows in [
+        [],
+        [{"title": "Engineer", "company": "Acme", "job_url": "https://evil.example/jobs/view/111"}],
+    ]:
+        result = await scraper_factory(
+            [{"term": "Engineer"}], lambda rows=rows, **kwargs: Frame(rows)
+        ).scrape(None)
+        assert result.errors and result.succeeded == 0 and not result.jobs
+        assert result.telemetry.stop_reason != "exhausted"
+
+
+@pytest.mark.no_database
+def test_proxy_secret_redaction_and_dedup_keep_richer_prose():
+    secret = "https://private-user:private-password@proxy.example:443"
+    clean = linkedin.redact_proxy_secrets(secret + " private-user private-password", [secret])
+    assert "private-user" not in clean and "private-password" not in clean
+    first = linkedin.job_from_row(
+        {
+            "title": "Engineer",
+            "company": "Acme",
+            "job_url": "https://www.linkedin.com/jobs/view/111",
+            "description": "preview",
+        }
+    )
+    richer = linkedin.job_from_row(
+        {
+            "title": "Engineer",
+            "company": "Acme",
+            "job_url": "https://www.linkedin.com/jobs/view/111",
+            "description": "Full description with Python and visa sponsorship available.",
+        }
+    )
+    assert len(linkedin._deduplicate([first, richer])) == 1
+    assert "Full description" in first.description

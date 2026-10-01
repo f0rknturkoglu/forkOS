@@ -50,6 +50,7 @@ export interface SourceCatalogEntry {
   timeout_seconds?: number | null;
   opt_in?: boolean | null;
   runnable?: boolean;
+  diagnostics?: Record<string, unknown> | null;
   unavailable_reason?: string | null;
   circuit_open?: boolean | null;
   consecutive_failures?: number | null;

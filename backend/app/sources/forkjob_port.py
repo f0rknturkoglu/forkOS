@@ -117,6 +117,13 @@ class PortalSource:
         return self.portal.category
 
     @property
+    def diagnostics(self):
+        if self.portal.key == "linkedin":
+            from app.sources.forkjob_core.scrapers.linkedin import linkedin_diagnostics
+            return linkedin_diagnostics()
+        return None
+
+    @property
     def runnable(self) -> bool:
         return self.portal.enabled
 

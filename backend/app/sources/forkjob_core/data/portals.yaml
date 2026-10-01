@@ -71,9 +71,9 @@ sources:
     url: https://www.linkedin.com/jobs
     enabled: false
     status: >-
-      Batch 2 audit 2026-10-01: robots.txt denies all forkjob crawling,
-      explicitly including /jobs-guest/. Native guest and JobSpy network
-      acquisition disabled; fallback implementation retained, no bypass.
+      V1 JobSpy retained; V2 native guest implemented with a shared runtime
+      policy gate. Current 2026-10-01 robots.txt denies acquisition routes;
+      catalogued but non-runnable. Neither transport may bypass the denial.
     config:
       proxy_file_env: FORKJOB_LINKEDIN_PROXIES_FILE
       # Direct (proxy'siz) erisim YALNIZCA FORKJOB_LINKEDIN_ALLOW_DIRECT ile

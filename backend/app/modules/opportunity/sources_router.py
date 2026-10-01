@@ -240,6 +240,7 @@ async def source_catalog(session: AsyncSession = Depends(get_session)):
             "timeout_seconds": source_timeout_seconds(source),
             "opt_in": is_opt_in(source),
             "runnable": is_runnable(source),
+            "diagnostics": getattr(source, "diagnostics", None),
             "unavailable_reason": getattr(source, "unavailable_reason", None),
             "circuit_open": states.get(source.id, {}).get("open", False),
             "consecutive_failures": states.get(source.id, {}).get("consecutive_failures", 0),

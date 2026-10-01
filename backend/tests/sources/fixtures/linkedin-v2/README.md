@@ -1,0 +1,3 @@
+# LinkedIn V2 fixture provenance
+
+All HTML, geo JSON and allow-policy fixtures in this directory are **SYNTHETIC CONTRACT FIXTURES**, created for offline implementation tests. They are not captured live LinkedIn responses. Search/remote/hour parameter names and the search endpoint are corroborated by the installed upstream python-jobspy 1.1.82 code. Geo endpoint/response contract and empty/detail selectors are provisional historical guest conventions; they require a permitted future smoke before runtime activation. Current robots denies access, so no guest endpoint was fetched. Actual current robots is kept separately in ../batch2/linkedin-robots.txt. No personal account/profile data is included.

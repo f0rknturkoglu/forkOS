@@ -262,6 +262,9 @@ async def test_linkedin_denial_cannot_start_jobspy(monkeypatch):
     c = AsyncMock()
     c._check_robots.side_effect = ScraperPermanentError("robots disallows")
     runner = AsyncMock()
+    from app.sources.forkjob_core.scrapers.linkedin_policy import LinkedInPolicyGate
+    s.policy = LinkedInPolicyGate()
+    c._read_bounded_response.return_value = httpx.Response(200, text=read("linkedin-robots.txt"), headers={"content-type": "text/plain"})
     monkeypatch.setattr(linkedin, "_run_jobspy_isolated", runner)
     with pytest.raises(ScraperPermanentError):
         await s.scrape(c)

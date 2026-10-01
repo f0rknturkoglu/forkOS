@@ -1,0 +1,3 @@
+# SYNTHETIC future policy fixture, not LinkedIn's current policy
+User-agent: *
+Allow: /
