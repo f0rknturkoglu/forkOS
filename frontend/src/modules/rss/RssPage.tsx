@@ -524,8 +524,7 @@ export function RssPage() {
       <Surface className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-workspace-rail xl:grid-cols-workspace-reader">
         {/* ── Sol: akıllı görünümler + beslemeler ── */}
         <aside className="flex max-h-[380px] min-w-0 flex-col overflow-y-auto border-b border-subtle p-3 md:max-h-[560px] md:border-b-0 md:border-r xl:max-h-none">
-          <div className="mb-2 flex items-center justify-between px-1">
-            <span className="label-caps">Görünümler</span>
+          <div className="mb-2 flex items-center justify-end px-1">
             <button
               type="button"
               disabled={!online}
@@ -674,16 +673,16 @@ export function RssPage() {
         {/* ── Orta: yazı listesi ── */}
         <section className="flex min-h-[420px] min-w-0 flex-col border-b border-subtle md:border-b-0 xl:border-r">
           <div className="border-b border-subtle px-4 py-2.5">
-            <div className="flex items-center gap-2">
-              <h2 className="min-w-0 flex-1 truncate  text-heading text-primary">{title}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="w-full text-heading text-primary">{title}</h2>
               {(feedId || categorySel || smart === "all") && (
                 <Button
                   size="sm"
                   variant={unreadOnly ? "primary" : "ghost"}
                   onClick={() => setUnreadOnly((v) => !v)}
-                  title="Sadece okunmamışlar"
+                  title={unreadOnly ? "Tüm yazıları göster" : "Yalnızca okunmamış yazıları göster"}
                 >
-                  {unreadOnly ? "okunmamış" : "hepsi"}
+                  {unreadOnly ? "Tüm yazıları göster" : "Sadece okunmamışları göster"}
                 </Button>
               )}
               <Button
@@ -692,7 +691,7 @@ export function RssPage() {
                 onClick={() => readAll.mutate()}
                 title="Listedekileri okundu işaretle"
               >
-                okundu
+                Listedekileri okundu işaretle
               </Button>
             </div>
             {feedId && selectedFeed?.last_fetched_at == null && (

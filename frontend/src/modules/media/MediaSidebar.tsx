@@ -18,7 +18,7 @@ export function MediaSidebar({ onNavigate }: { collapsed: boolean; onNavigate: (
   const activePath = route.path === "/media/library" ? "/media" : route.path;
 
   return (
-    <div className="ml-6 mt-1 space-y-0.5 border-l border-subtle pl-2">
+    <div className="ml-6 mt-1 space-y-0.5 pl-2">
       {VIEWS.map(({ path, label, icon: Icon }) => {
         const active = activePath === path || activePath.startsWith(`${path}/`);
         return (

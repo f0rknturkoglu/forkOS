@@ -146,7 +146,7 @@ export function ActivityPage() {
         <WorkspaceScrollArea className="space-y-4 p-3">
           {/* Katman 1: Ritim -- bugun nerede oldugun ve son bir yilin. */}
           <SectionHeader label="Ritim" />
-          <MetricStrip>
+          <MetricStrip className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
             <Metric
               label="Kesintisiz seri"
               value={

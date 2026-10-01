@@ -81,7 +81,12 @@ export function FeedStreamList({ items, empty }: { items: StreamItem[]; empty?: 
               )}
               {item.subtitle && <p className="mt-0.5 line-clamp-1 text-meta text-secondary">{item.subtitle}</p>}
               <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-meta text-muted">
-                <span className={cx("rounded border border-subtle px-1.5 py-0.5 text-micro leading-4", skin.text)}>
+                <span
+                  className={cx(
+                    "rounded border border-subtle px-1.5 py-0.5 text-micro leading-4",
+                    item.origin === "gh" ? technologyChip(item.source) : skin.text,
+                  )}
+                >
                   {item.source}
                 </span>
                 {item.host && <span className="max-w-[40%] truncate">{item.host}</span>}
@@ -104,4 +109,32 @@ export function FeedStreamList({ items, empty }: { items: StreamItem[]; empty?: 
       })}
     </RowList>
   );
+}
+
+function technologyChip(language: string): string {
+  const key = language
+    .toLowerCase()
+    .replace(/\+/g, "p")
+    .replace(/#/g, "sharp")
+    .replace(/[^a-z0-9]/g, "");
+  const palette: Record<string, string> = {
+    typescript: "typescript",
+    javascript: "javascript",
+    python: "python",
+    swift: "swift",
+    rust: "rust",
+    go: "go",
+    java: "java",
+    kotlin: "kotlin",
+    c: "c",
+    cpp: "cpp",
+    csharp: "csharp",
+    ruby: "ruby",
+    php: "php",
+    dart: "dart",
+    html: "html",
+    css: "css",
+    shell: "shell",
+  };
+  return palette[key] ? `technology-chip technology-chip-${palette[key]}` : "text-feed-gh";
 }
