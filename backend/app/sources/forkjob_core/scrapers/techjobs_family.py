@@ -13,6 +13,7 @@ from ..geo import region_for
 from ..models import Job, Layer, WorkMode, canonical_url, date_source_for
 from ..normalize import html_to_text, parse_datetime
 from ..rich_text import enrich, merge_descriptions
+from .detail_evidence import richness_metadata
 from .base import ScrapeBatch, ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
 
 
@@ -190,14 +191,8 @@ class TechJobsFamilyScraper(ScraperBase):
                 detail_success += 1
             except (ScraperError, ValueError) as exc:
                 errors.append(f"{job.url}: {exc}")
-        stop = (
-            "max_offers_reached"
-            if total > self.max_offers
-            else "detail_budget_reached"
-            if len(pending) > self.detail_budget
-            else "exhausted"
-        )
-        cap = stop != "exhausted"
+        cap = total > self.max_offers
+        stop = "max_offers_reached" if cap else "exhausted"
         telemetry = self.record_telemetry(
             items_seen=len(rows),
             items_returned=len(jobs),
@@ -205,7 +200,7 @@ class TechJobsFamilyScraper(ScraperBase):
             result_limit=self.max_offers,
             cap_hit=cap,
             stop_reason=stop,
-            partial_reason=stop if cap else "; ".join(errors) or None,
+            partial_reason=stop if cap else None,
             metadata={
                 "transport": "public_frontend_json_rss",
                 "detail_budget": self.detail_budget,
@@ -213,6 +208,8 @@ class TechJobsFamilyScraper(ScraperBase):
                 "details_succeeded": detail_success,
                 "rss_enriched": len(jobs) - len(pending),
                 "listing_jobs": total,
+                "listing_complete": not cap,
+                **richness_metadata(len(pending), detail_success, self.detail_budget, errors),
             },
         )
         return ScrapeBatch(jobs, errors, attempted, succeeded, telemetry)

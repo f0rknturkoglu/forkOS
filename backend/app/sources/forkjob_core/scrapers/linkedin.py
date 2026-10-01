@@ -252,6 +252,11 @@ class LinkedInScraper(ScraperBase):
             profiles_failed=attempted - succeeded,
             deduped_items=len(jobs),
         )
+        if all(isinstance(r.telemetry.metadata.get("listing_complete"), bool) for r in contributions):
+            metadata["listing_complete"] = all(r.telemetry.metadata["listing_complete"] for r in contributions)
+            metadata["richness_partial"] = any(r.telemetry.metadata.get("richness_partial", False) for r in contributions)
+            metadata["richness_partial_reason"] = primary.telemetry.metadata.get("richness_partial_reason")
+            metadata["enrichment_errors"] = [e for r in contributions for e in r.telemetry.metadata.get("enrichment_errors", [])]
         telemetry = self.record_telemetry(
             items_seen=sum(r.telemetry.items_seen or 0 for r in contributions),
             items_returned=len(jobs),
@@ -266,11 +271,11 @@ class LinkedInScraper(ScraperBase):
                         for r in contributions
                         if r.telemetry.partial_reason
                     ),
-                    *errors,
+                    *(error for error in errors if not error.startswith("detail:")),
                 ]
             )
             or None,
-            stop_reason="transport_degraded" if errors else primary.telemetry.stop_reason,
+            stop_reason="transport_degraded" if any(not e.startswith("detail:") for e in errors) else primary.telemetry.stop_reason,
             metadata=metadata,
         )
         LAST_DIAGNOSTICS.update(metadata)

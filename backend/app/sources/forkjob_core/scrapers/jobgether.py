@@ -127,12 +127,12 @@ class JobgetherScraper(ScraperBase):
             for page in range(1, self.max_pages + 1):
                 try:
                     payload = await client.get_json(self.query_url(keyword, page))
+                    page_jobs = self.parse(payload)
                 except ScraperError as exc:
                     self.errors.append(str(exc))
                     break  # a rejected filter must not sink the rest
 
                 pages_fetched += 1
-                page_jobs = self.parse(payload)
                 items_seen += len(page_jobs)
                 keys = {j.external_id or j.url for j in page_jobs}
                 if page > 1 and keys and not (keys - profile_seen):
@@ -145,26 +145,30 @@ class JobgetherScraper(ScraperBase):
 
                 # `pagination.hasMore` is authoritative — the docs say so.
                 pagination = payload.get("pagination") if isinstance(payload, dict) else None
-                has_more = isinstance(pagination, dict) and bool(pagination.get("hasMore"))
+                if not isinstance(pagination, dict) or not isinstance(pagination.get("hasMore"), bool):
+                    self.errors.append("jobgether: unknown pagination coverage")
+                    break
+                has_more = pagination["hasMore"]
                 if page == self.max_pages and has_more:
                     cap_hit = True
 
                 if not page_jobs or not has_more:
                     break
 
+        listing_errors = list(self.errors)
         metadata = await enrich_job_details(self, client, jobs, self.detail_budget)
         metadata["listing_pages"] = pages_fetched
-        metadata["listing_complete"] = not cap_hit and not any(not e.startswith("detail:") for e in self.errors)
-        stop_reason = "max_pages_reached" if cap_hit else "detail_budget_or_failure" if metadata["richness_partial"] else "exhausted"
+        metadata["listing_complete"] = not cap_hit and not listing_errors
+        stop_reason = "max_pages_reached" if cap_hit else "listing_request_failed" if listing_errors else "exhausted"
         self.record_telemetry(
             items_seen=items_seen,
             items_returned=len(jobs),
             pages_fetched=pages_fetched,
             page_limit=page_limit,
             result_limit=None,
-            cap_hit=cap_hit or metadata["richness_partial"],
+            cap_hit=cap_hit,
             stop_reason=stop_reason,
-            partial_reason=stop_reason if cap_hit or metadata["richness_partial"] else None,
+            partial_reason="; ".join(listing_errors + (["max_pages_reached"] if cap_hit else [])) or None,
             metadata=metadata,
         )
         return jobs

@@ -36,6 +36,7 @@ class ScrapeTelemetry:
     pages_fetched: int | None = None
     page_limit: int | None = None
     result_limit: int | None = None
+    # Acquisition bounds only; detail budgets are metadata.richness_partial.
     cap_hit: bool | None = None
     partial_reason: str | None = None
     stop_reason: str | None = None
@@ -55,6 +56,19 @@ class ScrapeTelemetry:
         if self.metadata:
             data["metadata"] = self.metadata
         return data
+
+
+def telemetry_acquisition_partial(telemetry: ScrapeTelemetry | None) -> bool:
+    """Lifecycle coverage only; optional enrichment lives in metadata.
+
+    Explicit incomplete listings always block closure. Top-level bounds/reasons
+    remain conservative even if a producer reports contradictory metadata.
+    Legacy producers without listing_complete retain their existing semantics.
+    """
+    return bool(telemetry and (
+        telemetry.metadata.get("listing_complete") is False
+        or telemetry.cap_hit or telemetry.partial_reason
+    ))
 
 
 @dataclass

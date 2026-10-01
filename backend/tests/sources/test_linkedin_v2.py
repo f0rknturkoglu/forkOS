@@ -232,7 +232,8 @@ async def test_detail_budget_keeps_discovery_and_richer_evidence():
     )
     assert len(result.jobs) == 2 and result.telemetry.metadata["detail_succeeded"] == 1
     assert result.telemetry.metadata["detail_candidates"] == 2
-    assert "detail_budget_reached" in result.telemetry.partial_reason
+    assert "detail_budget_reached" not in (result.telemetry.partial_reason or "")
+    assert result.telemetry.metadata["richness_partial_reason"] == "detail_budget_reached"
 
 
 @pytest.mark.parametrize("kind", ["login", "challenge", "unknown", "403", "content_type"])

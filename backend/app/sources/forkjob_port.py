@@ -12,7 +12,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.sources.base import FetchOutcome, RawItem, source_timeout_seconds
+from app.sources.base import (
+    FetchOutcome,
+    RawItem,
+    source_timeout_seconds,
+    telemetry_acquisition_partial,
+)
 from app.sources.forkjob_core.config import load_config
 from app.sources.forkjob_core.models import Job
 from app.sources.forkjob_core.registry import Registry
@@ -92,7 +97,7 @@ class AtsBoardSource:
             telemetry = adapter.telemetry
             return FetchOutcome(
                 items=raw_items,
-                partial=bool(telemetry and (telemetry.cap_hit or telemetry.partial_reason)),
+                partial=telemetry_acquisition_partial(telemetry),
                 detail=telemetry.partial_reason or "" if telemetry else "",
                 telemetry=telemetry,
             )
@@ -147,8 +152,8 @@ class PortalSource:
         result = await scraper.collect()
         telemetry = getattr(scraper, "telemetry", None)
         if not isinstance(result, ScrapeBatch):
-            partial = bool(telemetry and telemetry.cap_hit)
-            detail = telemetry.partial_reason or "" if (telemetry and telemetry.cap_hit) else ""
+            partial = telemetry_acquisition_partial(telemetry)
+            detail = telemetry.partial_reason or "" if telemetry_acquisition_partial(telemetry) else ""
             return FetchOutcome(
                 items=[job_to_raw(job) for job in result],
                 partial=partial,
@@ -160,15 +165,17 @@ class PortalSource:
         if result.succeeded == 0 and result.errors and not result.jobs:
             # Hicbir parca basarili degil: guvenilir sonuc yok, kosum hatadir.
             raise RuntimeError("; ".join(result.errors))
-        # Yarim basari KORUNUR: bazi sayfalar/profiller alindiysa kayitlar
-        # ingest edilir ama kosum `partial` olur ve kapanma taramasi yapilmaz.
-        partial = bool(result.errors) or (
-            result.attempted > 0 and result.succeeded < result.attempted
-        ) or bool(telemetry and telemetry.cap_hit)
+        # Eksik liste kapsamı partial kalır; optional detay hataları kapsam değildir.
+        partial = telemetry_acquisition_partial(telemetry)
+        if not telemetry or not isinstance(telemetry.metadata.get("listing_complete"), bool):
+            # Legacy batch producers do not distinguish listing/detail failures.
+            partial = partial or bool(result.errors) or (
+                result.attempted > 0 and result.succeeded < result.attempted
+            )
         detail = (
             "; ".join(result.errors[:5])
-            if result.errors
-            else (telemetry.partial_reason or "" if (telemetry and telemetry.cap_hit) else "")
+            if result.errors and partial
+            else (telemetry.partial_reason or "" if telemetry_acquisition_partial(telemetry) else "")
         )
         return FetchOutcome(
             items=[job_to_raw(job) for job in result.jobs],

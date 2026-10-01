@@ -7,6 +7,21 @@ from .base import ScraperError, ScraperPermanentError
 from .schemaorg import job_posting_nodes, organisation_name, schema_job, text
 
 
+def richness_metadata(candidates, succeeded, budget, detail_errors=()):
+    """Optional enrichment status, independent of listing lifecycle coverage."""
+    partial = succeeded < candidates
+    reasons = []
+    if candidates > budget:
+        reasons.append("detail_budget_reached")
+    if detail_errors:
+        reasons.append("detail_request_failed")
+    if partial and not reasons:
+        reasons.append("enrichment_not_completed")
+    return {"richness_partial": partial,
+            "richness_partial_reason": "; ".join(reasons) if partial else None,
+            "enrichment_errors": list(detail_errors)}
+
+
 async def enrich_job_details(scraper, client, jobs, budget):
     succeeded = 0
     errors = []
@@ -33,4 +48,4 @@ async def enrich_job_details(scraper, client, jobs, budget):
             errors.append("detail: " + str(exc))
     scraper.errors.extend(errors)
     return {"detail_requests": min(len(jobs), budget), "details_succeeded": succeeded,
-            "detail_budget": budget, "richness_partial": succeeded < len(jobs)}
+            "detail_budget": budget, **richness_metadata(len(jobs), succeeded, budget, errors)}

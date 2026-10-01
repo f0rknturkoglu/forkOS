@@ -42,6 +42,7 @@ from ..geo import country_from_name, region_for
 from ..models import Job, Layer, Region, WorkMode, date_source_for, norm_text, utcnow
 from ..normalize import html_to_text
 from ..rich_text import merge_descriptions
+from .detail_evidence import richness_metadata
 from .base import ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://www.eurotechjobs.com"
@@ -105,6 +106,7 @@ class EuroTechJobsScraper(ScraperBase):
                     continue
                 seen.add(job.url)
                 jobs.append(job)
+        listing_errors = list(self.errors)
         for job in jobs[:self.detail_budget]:
             try:
                 requests += 1
@@ -122,11 +124,11 @@ class EuroTechJobsScraper(ScraperBase):
                 details += 1
             except ScraperError as exc:
                 self.errors.append("detail: " + str(exc))
-        richness_partial = details < len(jobs)
+        richness = richness_metadata(len(jobs), details, self.detail_budget, self.errors[len(listing_errors):])
         self.record_telemetry(items_seen=len(jobs), items_returned=len(jobs), pages_fetched=listing_pages,
-            cap_hit=True, partial_reason="listing_window; detail_budget_or_failure" if richness_partial else "listing_window",
-            stop_reason="detail_budget_or_failure" if richness_partial else "listing_window",
-            metadata={"requests": requests, "listing_pages": listing_pages, "details_succeeded": details, "detail_budget": self.detail_budget, "richness_partial": richness_partial, "listing_complete": False})
+            cap_hit=True, partial_reason="listing_window",
+            stop_reason="listing_window",
+            metadata={"requests": requests, "listing_pages": listing_pages, "details_succeeded": details, "detail_budget": self.detail_budget, **richness, "listing_complete": False})
         return jobs
 
     # -- pure parsing -------------------------------------------------------

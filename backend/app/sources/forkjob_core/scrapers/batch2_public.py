@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from ..models import Job, Layer, WorkMode, canonical_url, date_source_for
 from ..normalize import html_to_text, parse_datetime, parse_location
 from ..rich_text import enrich, merge_descriptions
+from .detail_evidence import richness_metadata
 from .base import ScrapeBatch, ScraperBase, ScraperConfig, ScraperError, ScraperPermanentError
 from .remotecom import flight_records, walk
 
@@ -161,6 +162,7 @@ class PublicPagedScraper(ScraperBase):
                 url = next_url
             if len(jobs) >= self.max_offers:
                 break
+        listing_errors = list(errors)
         candidates = [i for i, j in enumerate(jobs) if self.needs_detail(j)]
         for i in candidates[: self.detail_budget]:
             attempts += 1
@@ -183,8 +185,6 @@ class PublicPagedScraper(ScraperBase):
                 successes += 1
             except (ScraperError, ValueError, TypeError) as exc:
                 errors.append(f"detail: {type(exc).__name__}: {exc}")
-        if len(candidates) > self.detail_budget:
-            bounds.append("detail_budget_reached")
         bounds = list(dict.fromkeys(bounds))
         telemetry = self.record_telemetry(
             items_seen=items_seen,
@@ -193,14 +193,16 @@ class PublicPagedScraper(ScraperBase):
             page_limit=self.max_pages * len(self.listing_urls),
             result_limit=self.max_offers,
             cap_hit=bool(bounds),
-            stop_reason=bounds[0] if bounds else "request_failed" if errors else "exhausted",
-            partial_reason="; ".join([*bounds, *errors]) or None,
+            stop_reason=bounds[0] if bounds else "listing_request_failed" if listing_errors else "exhausted",
+            partial_reason="; ".join([*bounds, *listing_errors]) or None,
             metadata={
                 "transport": self.transport,
                 "listing_pages": listing_pages,
                 "details_succeeded": details,
                 "detail_budget": self.detail_budget,
                 "bounds": bounds,
+                "listing_complete": not bounds and not listing_errors,
+                **richness_metadata(len(candidates), details, self.detail_budget, errors[len(listing_errors):]),
             },
         )
         return ScrapeBatch(jobs, errors, attempts, successes, telemetry)

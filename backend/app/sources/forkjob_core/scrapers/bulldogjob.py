@@ -76,6 +76,7 @@ class BulldogjobScraper(ScraperBase):
             if payload is None:
                 break
             if not isinstance(payload, dict):
+                self.errors.append("bulldogjob: unrecognized listing schema")
                 break
             errors = payload.get("errors")
             if isinstance(errors, list) and errors:
@@ -99,24 +100,25 @@ class BulldogjobScraper(ScraperBase):
                 break
             jobs.extend(fresh)
             total = result.get("totalCount")
-            if page == self.max_pages and isinstance(total, int) and page * PAGE_SIZE < total:
+            if page == self.max_pages and (not isinstance(total, int) or page * PAGE_SIZE < total):
                 cap_hit = True
             if isinstance(total, int) and page * PAGE_SIZE >= total:
                 break
 
+        listing_errors = list(self.errors)
         metadata = await enrich_job_details(self, client, jobs, self.detail_budget)
         metadata["listing_pages"] = pages_fetched
-        metadata["listing_complete"] = not cap_hit and not any(not e.startswith("detail:") for e in self.errors)
-        stop_reason = "max_pages_reached" if cap_hit else "detail_budget_or_failure" if metadata["richness_partial"] else "exhausted"
+        metadata["listing_complete"] = not cap_hit and not listing_errors
+        stop_reason = "max_pages_reached" if cap_hit else "listing_request_failed" if listing_errors else "exhausted"
         self.record_telemetry(
             items_seen=items_seen,
             items_returned=len(jobs),
             pages_fetched=pages_fetched,
             page_limit=self.max_pages,
             result_limit=None,
-            cap_hit=cap_hit or metadata["richness_partial"],
+            cap_hit=cap_hit,
             stop_reason=stop_reason,
-            partial_reason=stop_reason if cap_hit or metadata["richness_partial"] else None,
+            partial_reason="; ".join(listing_errors + (["max_pages_reached"] if cap_hit else [])) or None,
             metadata=metadata,
         )
         return jobs

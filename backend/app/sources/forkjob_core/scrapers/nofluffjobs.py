@@ -64,11 +64,11 @@ class NoFluffJobsScraper(ScraperBase):
                     f"{API_URL}?page={page}&{QUERY}",
                     payload={"rawSearch": "", "criteriaSearch": {"seniority": SENIORITY}},
                 )
+                page_jobs = self.parse(payload)
             except ScraperError as exc:
                 self.errors.append(str(exc))
                 break
             pages_fetched += 1
-            page_jobs = self.parse(payload)
             items_seen += len(page_jobs)
             if not page_jobs:
                 break
@@ -80,24 +80,25 @@ class NoFluffJobsScraper(ScraperBase):
             # The response knows how long the result set is; asking for page 8
             # of 7 returns an empty list, so stop before spending the request.
             total_pages = payload.get("totalPages") if isinstance(payload, dict) else None
-            if page == self.max_pages and isinstance(total_pages, int) and page < total_pages:
+            if page == self.max_pages and (not isinstance(total_pages, int) or page < total_pages):
                 cap_hit = True
             if isinstance(total_pages, int) and page >= total_pages:
                 break
 
+        listing_errors = list(self.errors)
         metadata = await enrich_job_details(self, client, jobs, self.detail_budget)
         metadata["listing_pages"] = pages_fetched
-        metadata["listing_complete"] = not cap_hit and not any(not e.startswith("detail:") for e in self.errors)
-        stop_reason = "max_pages_reached" if cap_hit else "detail_budget_or_failure" if metadata["richness_partial"] else "exhausted"
+        metadata["listing_complete"] = not cap_hit and not listing_errors
+        stop_reason = "max_pages_reached" if cap_hit else "listing_request_failed" if listing_errors else "exhausted"
         self.record_telemetry(
             items_seen=items_seen,
             items_returned=len(jobs),
             pages_fetched=pages_fetched,
             page_limit=self.max_pages,
             result_limit=None,
-            cap_hit=cap_hit or metadata["richness_partial"],
+            cap_hit=cap_hit,
             stop_reason=stop_reason,
-            partial_reason=stop_reason if cap_hit or metadata["richness_partial"] else None,
+            partial_reason="; ".join(listing_errors + (["max_pages_reached"] if cap_hit else [])) or None,
             metadata=metadata,
         )
         return jobs

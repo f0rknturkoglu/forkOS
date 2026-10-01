@@ -22,6 +22,7 @@ from ..geo import country_from_name, region_for
 from ..models import DateSource, Job, Layer, Region, WorkMode, canonical_url
 from ..normalize import parse_location
 from ..rich_text import enrich, merge_descriptions
+from .detail_evidence import richness_metadata
 from .base import ScrapeBatch, ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
 
 BASE_URL = "https://www.wearedevelopers.com"
@@ -116,6 +117,7 @@ class WeAreDevelopersScraper(ScraperBase):
                 except ScraperError as exc:
                     errors.append(str(exc))
                     break
+        listing_errors = list(errors)
         for job in jobs[:self.detail_budget]:
             requests += 1
             try:
@@ -132,12 +134,12 @@ class WeAreDevelopersScraper(ScraperBase):
                 details += 1
             except ScraperError as exc:
                 errors.append("detail: " + str(exc))
-        richness_partial = len(jobs) > self.detail_budget
+        richness = richness_metadata(len(jobs), details, self.detail_budget, errors[len(listing_errors):])
         telemetry = self.record_telemetry(items_seen=len(jobs), items_returned=len(jobs), pages_fetched=pages,
-            page_limit=self.max_pages * len(self.queries), cap_hit=cap or richness_partial,
-            stop_reason="page_limit_reached" if cap else "detail_budget_reached" if richness_partial else "request_failed" if errors else "exhausted",
-            partial_reason="; ".join(errors + (["page_limit_reached"] if cap else []) + (["detail_budget_reached"] if richness_partial else [])) or None,
-            metadata={"transport": "public_markdown", "requests": requests, "listing_pages": pages, "details_succeeded": details, "detail_budget": self.detail_budget, "listing_complete": not cap and not any(not e.startswith("detail:") for e in errors), "richness_partial": richness_partial or any(e.startswith("detail:") for e in errors)})
+            page_limit=self.max_pages * len(self.queries), cap_hit=cap,
+            stop_reason="page_limit_reached" if cap else "listing_request_failed" if listing_errors else "exhausted",
+            partial_reason="; ".join(listing_errors + (["page_limit_reached"] if cap else [])) or None,
+            metadata={"transport": "public_markdown", "requests": requests, "listing_pages": pages, "details_succeeded": details, "detail_budget": self.detail_budget, "listing_complete": not cap and not listing_errors, **richness})
         return ScrapeBatch(jobs, errors, requests, pages + details, telemetry)
 
     def parse_markdown(self, body):

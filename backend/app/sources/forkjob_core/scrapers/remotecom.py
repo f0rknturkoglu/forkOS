@@ -12,6 +12,7 @@ from ..geo import country_code, region_for
 from ..models import Job, Layer, Region, WorkMode, canonical_url, date_source_for
 from ..normalize import html_to_text, parse_datetime
 from ..rich_text import enrich
+from .detail_evidence import richness_metadata
 from .base import ScrapeBatch, ScraperBase, ScraperError, ScraperPermanentError
 
 BASE = "https://remote.com"
@@ -260,6 +261,7 @@ class RemoteComScraper(ScraperBase):
                 break
             if page == self.max_pages:
                 stop = "max_pages_reached"
+        listing_errors = list(errors)
         detail_success = 0
         for index, job in enumerate(jobs[: self.detail_budget]):
             attempted += 1
@@ -278,9 +280,7 @@ class RemoteComScraper(ScraperBase):
                 detail_success += 1
             except (ScraperError, ValueError) as exc:
                 errors.append(f"{job.url}: {exc}")
-        if stop == "exhausted" and len(jobs) > self.detail_budget:
-            stop = "detail_budget_reached"
-        cap = stop in ("max_offers_reached", "max_pages_reached", "detail_budget_reached")
+        cap = stop in ("max_offers_reached", "max_pages_reached")
         telemetry = self.record_telemetry(
             items_seen=items_seen,
             items_returned=len(jobs),
@@ -289,12 +289,14 @@ class RemoteComScraper(ScraperBase):
             result_limit=self.max_offers,
             cap_hit=cap,
             stop_reason=stop,
-            partial_reason=stop if cap else "; ".join(errors) or None,
+            partial_reason=stop if cap else "; ".join(listing_errors) or None,
             metadata={
                 "transport": "ssr_flight",
                 "total_count": total,
                 "detail_budget": self.detail_budget,
                 "details_succeeded": detail_success,
+                "listing_complete": not cap and not listing_errors,
+                **richness_metadata(len(jobs), detail_success, self.detail_budget, errors[len(listing_errors):]),
             },
         )
         return ScrapeBatch(jobs, errors, attempted, succeeded, telemetry)

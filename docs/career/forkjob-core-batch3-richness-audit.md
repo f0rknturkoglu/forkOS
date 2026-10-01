@@ -294,3 +294,12 @@ Full original-employer JD coverage: **unknown / not estimable**, deliberately no
 - Self-audit: truthful field/provenance/cost improvements, no weights retune/source addition; missing signals unknown; higher-authority prose preserved; partial crawls cannot close unseen records; no denied transport probed.
 
 Cleanup verified: the forkos-batch3-test tmpfs DB container and network were removed. Owned /tmp/forkos-batch3 host captures/scripts/logs and named API /tmp Batch3 captures/scripts were removed after reduced fixtures/receipts were saved. Production api/web/db containers and personal forkos_pgdata remain intact.
+
+
+## Batch 3 final lifecycle minifix
+
+Listing completeness ve optional enrichment completeness ayrıldı. Tam liste ediniminde detay bütçesi veya detay hatası artık `FetchOutcome.partial` üretmez; `richness_partial`, `richness_partial_reason` ve `enrichment_errors` metadata alanlarında görünür kalır. Liste/sayfa/sonuç sınırı, liste hatası ve bilinen eksik upstream pencere kapanma taramasını engellemeye devam eder. Worker sweep koşulu değiştirilmedi; geçmiş telemetry kayıtları ve yukarıdaki ölçümler korunmuştur.
+
+DailyRemote, Jobgether, NoFluffJobs, BulldogJob, WeAreDevelopers ve EuroTechJobs yanında ortak Batch 2, Remote.com, startup ve TechJobs aileleri ile LinkedIn native detay akışı denetlendi ve aynı ayrım uygulandı. EuroTechJobs her zaman eksik listing window olarak kalır. Manfred ve JobFluent gibi detay çağrısıyla geçerli iş kimliği/Job kurulabilen sitemap akışlarında acquisition sınırları korunur; FreeHire description batch'i ayrı optional enrichment değildir. LinkedIn erişim politikası ve fallback kuralları değiştirilmedi.
+
+Offline regresyonlar gerçek scraper → PortalSource → worker zincirinde tam liste + sınırlı detay, yalnız detay hatası, sayfa sınırı ve sonraki liste hatası için sweep çağrısını doğrular; NoFluffJobs doğal tükenme, WeAreDevelopers sayfa sınırı ve EuroTechJobs pencere davranışı ayrıca korunur.

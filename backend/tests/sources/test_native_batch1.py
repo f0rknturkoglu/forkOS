@@ -209,7 +209,10 @@ async def test_family_detail_failure_retains_rich_listing():
     )
     assert len(result.jobs) == 2 and result.errors
     assert result.telemetry.pages_fetched == 2
-    assert result.telemetry.cap_hit and result.telemetry.metadata["details_succeeded"] == 0
+    assert not result.telemetry.cap_hit and result.telemetry.metadata["details_succeeded"] == 0
+    assert result.telemetry.partial_reason is None
+    assert result.telemetry.metadata["listing_complete"]
+    assert "detail_request_failed" in result.telemetry.metadata["richness_partial_reason"]
     assert "Visa sponsorship: No" in result.jobs[0].description
 
 
@@ -239,7 +242,7 @@ async def test_remote_natural_exhaustion_is_complete():
     result = await RemoteComScraper(max_pages=1, max_offers=30, detail_budget=30).collect(
         Replay([html, *[read("remote-detail.html")] * 20])
     )
-    # One real detail matches; mismatched details must truthfully mark partial.
+    # One real detail matches; mismatches affect enrichment only.
     assert not result.telemetry.cap_hit and result.telemetry.stop_reason == "exhausted"
     assert result.errors and result.succeeded == 2
 

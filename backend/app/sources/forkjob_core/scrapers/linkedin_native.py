@@ -8,6 +8,7 @@ import httpx
 
 from ..rich_text import merge_descriptions
 from .base import ScraperPermanentError, ScrapeTelemetry
+from .detail_evidence import richness_metadata
 from .linkedin_parsing import LinkedInResponseError, detail_job, fingerprint, parse_cards
 from .linkedin_policy import DETAIL_PATH, GEO_PATH, ROOT, SEARCH_PATH, LinkedInPolicyDenied
 from .linkedin_types import LinkedInBudgetExceeded, LinkedInTransportResult
@@ -250,6 +251,7 @@ class LinkedInNativeTransport:
                     failed.extend(range(index + 1, len(profiles)))
                     break
         self.metadata["detail_candidates"] = len(cards_by_id)
+        listing_errors = list(errors)
         for card in [] if halted else list(cards_by_id.values())[: budget.max_details]:
             try:
                 self.metadata["detail_attempted"] += 1
@@ -273,10 +275,13 @@ class LinkedInNativeTransport:
                 if kind in {"403", "429", "challenge", "login", "run_budget_or_policy"}:
                     self.metadata["fallback_forbidden"] = True
                     break
-        if len(cards_by_id) > budget.max_details:
-            caps.append("detail_budget_reached")
+        self.metadata.update(richness_metadata(
+            len(cards_by_id), self.metadata["detail_succeeded"], budget.max_details,
+            errors[len(listing_errors):],
+        ))
+        self.metadata["listing_complete"] = not caps and not listing_errors
         self.metadata["native_items"] = len(jobs)
-        partial = bool(caps or errors)
+        partial = bool(caps or listing_errors)
         telemetry = ScrapeTelemetry(
             items_seen=seen_count,
             items_returned=len(jobs),
@@ -284,8 +289,8 @@ class LinkedInNativeTransport:
             page_limit=budget.max_pages * len(profiles),
             result_limit=result_limit,
             cap_hit=bool(caps),
-            partial_reason="; ".join([*dict.fromkeys(caps), *errors]) or None,
-            stop_reason=caps[0] if caps else "native_degraded" if errors else "exhausted",
+            partial_reason="; ".join([*dict.fromkeys(caps), *listing_errors]) or None,
+            stop_reason=caps[0] if caps else "native_degraded" if listing_errors else "exhausted",
             metadata={**self.metadata, "transport": "native_v2", "partial": partial},
         )
         return LinkedInTransportResult(

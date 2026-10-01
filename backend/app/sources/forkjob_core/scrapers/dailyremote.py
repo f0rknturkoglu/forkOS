@@ -28,6 +28,7 @@ from ..models import Job, Layer, WorkMode, date_source_for
 from ..normalize import format_salary, html_to_text, parse_datetime, parse_location
 from ..rich_text import enrich, merge_descriptions
 from .base import ScraperBase, ScraperError, ScraperHttpClient, ScraperPermanentError
+from .detail_evidence import richness_metadata
 from .schemaorg import job_posting_nodes, organisation_name, schema_job, text
 
 LISTING_URL = "https://dailyremote.com/remote-jobs"
@@ -72,6 +73,7 @@ class DailyRemoteScraper(ScraperBase):
                 break
             if page == self.max_pages:
                 cap = True
+        listing_errors = list(self.errors)
         for job in jobs[:self.detail_budget]:
             try:
                 requests += 1
@@ -86,12 +88,12 @@ class DailyRemoteScraper(ScraperBase):
                 details += 1
             except ScraperError as exc:
                 self.errors.append("detail: " + str(exc))
-        richness_partial = len(jobs) > details
+        richness = richness_metadata(len(jobs), details, self.detail_budget, self.errors[len(listing_errors):])
         self.record_telemetry(items_seen=len(jobs), items_returned=len(jobs), pages_fetched=pages,
-            page_limit=self.max_pages, cap_hit=cap or richness_partial,
-            partial_reason="page_limit_reached" if cap else "detail_budget_or_failure" if richness_partial else None,
-            stop_reason="page_limit_reached" if cap else "detail_budget_or_failure" if richness_partial else "exhausted",
-            metadata={"requests": requests, "listing_pages": pages, "detail_requests": min(len(jobs), self.detail_budget), "details_succeeded": details, "detail_budget": self.detail_budget, "listing_complete": not cap and not any(not e.startswith("detail:") for e in self.errors), "richness_partial": richness_partial})
+            page_limit=self.max_pages, cap_hit=cap,
+            partial_reason="; ".join(listing_errors + (["page_limit_reached"] if cap else [])) or None,
+            stop_reason="page_limit_reached" if cap else "listing_request_failed" if listing_errors else "exhausted",
+            metadata={"requests": requests, "listing_pages": pages, "detail_requests": min(len(jobs), self.detail_budget), "details_succeeded": details, "detail_budget": self.detail_budget, "listing_complete": not cap and not listing_errors, **richness})
         return jobs
 
     def parse_listing(self, html: str) -> list[Job]:

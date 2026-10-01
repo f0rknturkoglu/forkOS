@@ -8,6 +8,7 @@ from selectolax.parser import HTMLParser
 from ..models import Job, Layer, WorkMode, canonical_url, date_source_for
 from ..normalize import format_salary, html_to_text, parse_datetime, parse_location
 from ..rich_text import enrich, merge_descriptions
+from .detail_evidence import richness_metadata
 from .base import ScrapeBatch, ScraperBase, ScraperError, ScraperPermanentError
 from .schemaorg import job_posting_nodes, organisation_name, place, text
 
@@ -161,6 +162,7 @@ class StartupBoardScraper(ScraperBase):
                 url = next_url
             if len(jobs) >= self.max_offers:
                 break
+        listing_errors = list(errors)
         details = 0
         for index, job in enumerate(jobs[: self.detail_budget]):
             attempted += 1
@@ -178,10 +180,8 @@ class StartupBoardScraper(ScraperBase):
                 details += 1
             except (ScraperError, ValueError) as exc:
                 errors.append(f"{job.url}: {exc}")
-        if len(jobs) > self.detail_budget:
-            cap_reasons.append("detail_budget_reached")
         reasons = list(dict.fromkeys(cap_reasons))
-        stop = reasons[0] if reasons else "page_failed" if errors else "exhausted"
+        stop = reasons[0] if reasons else "listing_request_failed" if listing_errors else "exhausted"
         telemetry = self.record_telemetry(
             items_seen=items_seen,
             items_returned=len(jobs),
@@ -190,13 +190,15 @@ class StartupBoardScraper(ScraperBase):
             result_limit=self.max_offers,
             cap_hit=bool(reasons),
             stop_reason=stop,
-            partial_reason="; ".join([*reasons, *errors]) or None,
+            partial_reason="; ".join([*reasons, *listing_errors]) or None,
             metadata={
                 "transport": "ssr_html_jsonld",
                 "listing_pages": listing_pages,
                 "detail_budget": self.detail_budget,
                 "details_succeeded": details,
                 "bounds": reasons,
+                "listing_complete": not reasons and not listing_errors,
+                **richness_metadata(len(jobs), details, self.detail_budget, errors[len(listing_errors):]),
             },
         )
         return ScrapeBatch(jobs, errors, attempted, succeeded, telemetry)
