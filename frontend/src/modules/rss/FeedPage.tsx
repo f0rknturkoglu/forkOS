@@ -4,7 +4,6 @@ import { FeedStreamList, FeedSourceFailures } from "@/core/FeedStreamList";
 import { FEED_FILTERS, useFeedStream, type FeedFilter } from "@/core/feedStream";
 import { Button, PageFrame, Tabs } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
-import { ReaderViews } from "./ReaderViews";
 
 /**
  * Okuma Akışı (`/feed`) — kendi başına açılabilen okuma yüzeyi.
@@ -24,8 +23,6 @@ export function FeedPage() {
         <WorkspacePaneHeader
           eyebrow="Kütüphane"
           title="RSS & Akış"
-          hint="RSS · Reddit · Hacker News · GitHub"
-          action={<ReaderViews view="feed" />}
         >
           <Tabs
             value={filter}
@@ -36,27 +33,15 @@ export function FeedPage() {
         </WorkspacePaneHeader>
 
         <WorkspaceScrollArea className="min-w-0 overflow-x-hidden p-3">
-          <div className="mb-2 flex flex-wrap items-center gap-2 text-meta text-muted">
-            {/* Kaynak kimliği açıkça görünür: hangi kaynağın canlı olduğu belli olsun. */}
-            {stream.sources.map((source) => (
-              <span
-                key={source.origin}
-                className={
-                  source.failed
-                    ? "rounded-chip border border-warn-border px-2 py-0.5 text-warn"
-                    : "rounded-chip border border-subtle px-2 py-0.5"
-                }
-              >
-                {source.label}
-                {source.failed ? " · alınamadı" : ""}
-              </span>
-            ))}
-            {stream.unread !== null && <span className="ml-auto">{stream.unread} okunmamış RSS yazısı</span>}
-          </div>
+          {stream.unread !== null && (
+            <div className="mb-2 flex justify-end text-meta text-muted">
+              <span>{stream.unread} okunmamış RSS yazısı</span>
+            </div>
+          )}
 
           <FeedSourceFailures failures={stream.failures} />
 
-          <div className="min-w-0 max-w-full overflow-hidden rounded-card border border-subtle bg-surface">
+          <div className="min-w-0 max-w-full overflow-hidden rounded-card border border-subtle bg-surface px-3">
             {stream.items.length === 0 && stream.loading ? (
               <p className="px-3 py-8 text-center text-meta text-muted">Akış yükleniyor…</p>
             ) : (

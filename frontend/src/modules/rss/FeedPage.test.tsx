@@ -152,7 +152,6 @@ describe("Okuma Akışı sayfası", () => {
 
     expect(await screen.findByText("RSS yazısı")).toBeTruthy();
     expect(await screen.findByText(/Hacker News alınamadı/, {}, { timeout: 4000 })).toBeTruthy();
-    expect(screen.getByText(/Hacker News · alınamadı/)).toBeTruthy();
     // Ekran çökmedi: diğer kaynaklar yerinde.
     expect(screen.getByText("owner/repo")).toBeTruthy();
   });
