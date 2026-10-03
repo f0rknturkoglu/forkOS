@@ -22,8 +22,9 @@ import { Check, Copy, FileUp, Eye, Upload, X } from "lucide-react";
 import type { components } from "@/generated/api-schema";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
-import { Button, Checkbox, Chip, Field, FileInput, Input, Modal, Select, Textarea, cx } from "@/core/ui";
+import { Button, Checkbox, Chip, Field, FileInput, Input, Modal, Select, Textarea, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
+import { normalizeImportTree } from "./importTree";
 
 type StudyArea = components["schemas"]["StudyAreaOut"];
 type ImportPreview = components["schemas"]["ImportPreviewOut"];
@@ -84,6 +85,7 @@ export function ImportDialog({
   onDone: (areaId: string) => void;
 }) {
   const online = useOnline();
+  const toast = useToast();
   const file = useRef<HTMLInputElement | null>(null);
 
   const [text, setText] = useState("");
@@ -96,6 +98,7 @@ export function ImportDialog({
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [fileNotice, setFileNotice] = useState<string | null>(null);
 
   const areas = useQuery({
     queryKey: ["study-areas", "import"],
@@ -112,7 +115,7 @@ export function ImportDialog({
   const payload = (): Record<string, unknown> => {
     let parsed: Record<string, unknown>;
     try {
-      parsed = JSON.parse(text) as Record<string, unknown>;
+      parsed = normalizeImportTree(JSON.parse(text));
     } catch (cause) {
       throw new Error(`JSON okunamadı: ${(cause as Error).message}`);
     }
@@ -140,8 +143,12 @@ export function ImportDialog({
       setPreview({ data, signature: variables.signature });
       setResult(null);
       setError(null);
+      toast.push(`Önizleme hazır: ${data.totals.nodes} konu. Eklemek için Uygula’ya bas.`, { tone: "ok" });
     },
-    onError: (cause: Error) => setError(cause.message),
+    onError: (cause: Error) => {
+      setError(cause.message);
+      toast.push(`Önizleme başarısız: ${cause.message}`, { tone: "danger" });
+    },
   });
 
   const runImport = useMutation({
@@ -149,9 +156,25 @@ export function ImportDialog({
     onSuccess: (data) => {
       setResult(data);
       setError(null);
+      setFileNotice(null);
       invalidateAfter("study.write");
+      toast.push(
+        data.topics_created +
+          data.resources_created +
+          data.topics_updated +
+          data.resources_updated +
+          data.topics_archived +
+          data.resources_archived ===
+          0
+          ? `${data.area_title}: tüm konular ve kaynaklar zaten mevcut; kopya oluşturulmadı.`
+          : `${data.area_title}: ${data.topics_created} yeni konu, ${data.resources_created} yeni kaynak; ${data.topics_updated} konu ve ${data.resources_updated} kaynak güncellendi.`,
+        { tone: "ok" },
+      );
     },
-    onError: (cause: Error) => setError(cause.message),
+    onError: (cause: Error) => {
+      setError(cause.message);
+      toast.push(`İçe aktarma başarısız: ${cause.message}`, { tone: "danger" });
+    },
   });
 
   const startPreview = () => {
@@ -172,16 +195,32 @@ export function ImportDialog({
   };
 
   const readFile = (event: ChangeEvent<HTMLInputElement>) => {
+    if (runPreview.isPending || runImport.isPending) return;
     const picked = event.target.files?.[0];
     if (!picked) return;
+    event.target.value = "";
+    setFileNotice(`${picked.name} okunuyor…`);
     picked
       .text()
       .then((content) => {
+        normalizeImportTree(JSON.parse(content));
         setText(content);
+        setPreview(null);
         setResult(null);
         setError(null);
+        const message = `${picked.name} okundu. Henüz eklenmedi; önce Önizle, ardından Uygula’ya bas.`;
+        setFileNotice(message);
+        toast.push(message, { tone: "ok" });
       })
-      .catch((cause: Error) => setError(`Dosya okunamadı: ${cause.message}`));
+      .catch((cause: Error) => {
+        setText("");
+        setPreview(null);
+        setResult(null);
+        setFileNotice(null);
+        const message = `Dosya okunamadı: ${cause.message}`;
+        setError(message);
+        toast.push(message, { tone: "danger" });
+      });
   };
 
   const copyPrompt = () => {
@@ -202,18 +241,30 @@ export function ImportDialog({
       onClose={onClose}
       title="JSON ile konu ağacı yükle"
       hint="Önizlemeden sonra uygula; aynı dosyayı tekrar yüklemek kopya oluşturmaz"
-      className="sm:max-w-3xl"
+      className="sm:max-w-5xl [&>footer]:sticky [&>footer]:bottom-0 [&>footer]:z-10 [&>footer]:bg-surface"
       footer={
         result ? (
-          <div className="flex justify-end gap-2">
+          <div className="sticky bottom-0 flex justify-end gap-2 bg-surface">
+            <span role="status" className="mr-auto text-meta text-ok">
+              İçe aktarma tamamlandı · {result.area_title}
+            </span>
             <Button variant="primary" onClick={() => onDone(result.area_id)}>
               Tamam
             </Button>
           </div>
         ) : (
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 bg-surface">
+            <span role="status" className="mr-auto text-meta text-secondary">
+              {busy
+                ? "İşlem sürüyor…"
+                : error
+                  ? "İşlem tamamlanmadı; hata ayrıntısını kontrol et."
+                  : freshPreview
+                    ? "Önizleme hazır. Uygula ile ekle."
+                    : "1. JSON seç · 2. Önizle · 3. Uygula"}
+            </span>
             <Button onClick={onClose}>Kapat</Button>
-            <Button disabled={!text.trim() || busy} onClick={startPreview}>
+            <Button disabled={!online || !text.trim() || busy} onClick={startPreview}>
               <Eye size={14} /> Önizle
             </Button>
             <Button variant="primary" disabled={!online || !freshPreview || busy} onClick={startImport}>
@@ -223,8 +274,16 @@ export function ImportDialog({
         )
       }
     >
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="space-y-3">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="min-w-0 space-y-3 lg:col-span-2">
+          {fileNotice && (
+            <p
+              role="status"
+              className="rounded-control border border-accent bg-accent-surface p-3 text-meta text-primary"
+            >
+              {fileNotice}
+            </p>
+          )}
           <Field label="JSON" hint="Ya da dosya seç">
             <Textarea
               value={text}
@@ -232,10 +291,12 @@ export function ImportDialog({
                 // Onizleme SILINMEZ: eski diff "gecersiz" olarak gorunur ve
                 // "Uygula" kapanir; kullanici neyi yeniden onizleyecegini gorur.
                 setText(next);
+                setFileNotice(null);
                 setResult(null);
                 setError(null);
               }}
-              rows={10}
+              rows={14}
+              disabled={busy}
               placeholder={EXAMPLE}
               ariaLabel="İçe aktarılacak JSON"
               className="font-mono"
@@ -244,7 +305,7 @@ export function ImportDialog({
 
           <div className="flex flex-wrap items-center gap-2">
             <FileInput ref={file} accept="application/json,.json" onChange={readFile} />
-            <Button size="sm" onClick={() => file.current?.click()}>
+            <Button size="sm" disabled={busy} onClick={() => file.current?.click()}>
               <FileUp size={13} /> Dosya seç
             </Button>
             {runPreview.isPending && (
@@ -333,7 +394,7 @@ export function ImportDialog({
           )}
         </div>
 
-        <aside className="space-y-2 rounded-card border border-subtle bg-surface-sunken p-3">
+        <aside className="min-w-0 space-y-2 self-start rounded-card border border-subtle bg-surface-sunken p-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="label-caps text-secondary">Yapay zekaya sor</span>
             <Button size="sm" onClick={copyPrompt} className={cx(copied && "border-ok text-ok")}>
@@ -344,6 +405,10 @@ export function ImportDialog({
           <p className="text-meta text-secondary">
             İstemi kopyala, bir dil modeline ver, dönen JSON'u sol tarafa yapıştır. Uygulama bu metni yalnızca panoya
             kopyalar; hiçbir yere göndermez.
+          </p>
+          <p className="text-meta text-secondary">
+            Zenginleştirilmiş JSON desteklenir: kaynak türü, dil ve doğrulama bilgileri notlarda; uygulama ve tamamlama
+            ölçütleri alıştırma kaynağında korunur.
           </p>
           <div className="flex flex-wrap gap-1.5 pt-1">
             <Chip size="xs">title zorunlu</Chip>

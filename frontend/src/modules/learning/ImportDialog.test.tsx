@@ -18,6 +18,7 @@ const harness = vi.hoisted(() => ({
   invalidate: vi.fn(),
   onClose: vi.fn(),
   onDone: vi.fn(),
+  toast: vi.fn(),
 }));
 
 vi.mock("@/core/api", async (importOriginal) => {
@@ -27,6 +28,11 @@ vi.mock("@/core/api", async (importOriginal) => {
 vi.mock("@/core/invalidation", () => ({
   invalidateAfter: (...events: string[]) => harness.invalidate(...events),
 }));
+
+vi.mock("@/core/ui", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/core/ui")>();
+  return { ...actual, useToast: () => ({ push: harness.toast }) };
+});
 
 const AREA_TITLE = "Makine Öğrenmesi";
 const TREE = JSON.stringify({
@@ -88,10 +94,45 @@ beforeEach(() => {
   harness.invalidate.mockReset();
   harness.onClose.mockReset();
   harness.onDone.mockReset();
+  harness.toast.mockReset();
 });
 afterEach(cleanup);
 
 describe("ImportDialog", () => {
+  it("dosya seçildiğinde açık bildirim verir ve henüz yazmaz", async () => {
+    renderDialog();
+    const file = document.querySelector('input[type="file"]')!;
+    fireEvent.change(file, { target: { files: [{ name: "python.json", text: async () => TREE }] } });
+    await screen.findByText(/python.json okundu/);
+    expect(harness.toast).toHaveBeenCalledWith(expect.stringContaining("Henüz eklenmedi"), { tone: "ok" });
+    expect(harness.apiPost).not.toHaveBeenCalled();
+    expect(applyButton().disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: /Önizle/ }));
+    await screen.findByText("Yeni alan");
+    expect(harness.toast).toHaveBeenCalledWith(expect.stringContaining("Önizleme hazır"), { tone: "ok" });
+  });
+
+  it("bozuk dosyayı bildirir ve önceki önizlemeyi temizler", async () => {
+    renderDialog();
+    fireEvent.change(screen.getByLabelText("İçe aktarılacak JSON"), { target: { value: TREE } });
+    fireEvent.click(screen.getByRole("button", { name: /Önizle/ }));
+    await screen.findByText("Yeni alan");
+    fireEvent.change(document.querySelector('input[type="file"]')!, {
+      target: { files: [{ name: "broken.json", text: async () => "{bad" }] },
+    });
+    await screen.findByRole("alert");
+    expect(applyButton().disabled).toBe(true);
+    expect(harness.toast).toHaveBeenCalledWith(expect.stringContaining("Dosya okunamadı"), { tone: "danger" });
+  });
+
+  it("sunucu hatasını hem modalda hem bildirimde gösterir", async () => {
+    harness.apiPost.mockRejectedValue(new Error("Konu sınırı aşıldı"));
+    renderDialog();
+    fireEvent.change(screen.getByLabelText("İçe aktarılacak JSON"), { target: { value: TREE } });
+    fireEvent.click(screen.getByRole("button", { name: /Önizle/ }));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(harness.toast).toHaveBeenCalledWith(expect.stringContaining("Konu sınırı aşıldı"), { tone: "danger" });
+  });
   it("onizleme gorulmeden uygulanmaz; onizleme diff'i cizer", async () => {
     renderDialog();
     const json = screen.getByLabelText("İçe aktarılacak JSON");
