@@ -5,6 +5,8 @@ import json
 import os
 from pathlib import Path
 import shlex
+import signal
+import socket
 import shutil
 import subprocess
 import sys
@@ -88,12 +90,141 @@ def install():
     print('✓ forkos aliası kuruldu. Bu terminalde: source ~/.zshrc')
 
 
+
+def project_processes():
+    """Keep command lines private; match installed assets, never generic process names."""
+    found = {}
+    hermes_root = str(Path.home() / '.hermes') + '/'
+    for line in run(['ps', '-axo', 'pid=,command=']).splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) != 2:
+            continue
+        pid, command = parts
+        if int(pid) == os.getpid():
+            continue
+        is_model = command.startswith(hermes_root + 'tools/') and '/llama-server ' in command
+        is_server = command.startswith(hermes_root) and 'hermes_cli.main' in command and ' serve ' in command
+        is_dev = command.startswith(str(ROOT) + '/') and ('/vite' in command or 'uvicorn ' in command)
+        if is_model or is_server or is_dev:
+            found[int(pid)] = command
+    return found
+
+
+def quit_app(bundle_id):
+    # Native quit allows apps to save state; never force-kill a desktop app.
+    script = f'if application id "{bundle_id}" is running then tell application id "{bundle_id}" to quit'
+    run(['osascript', '-e', script], timeout=45)
+    wait(lambda: run(['osascript', '-e', f'application id "{bundle_id}" is running']) == 'false', seconds=30)
+    return 'kapanış isteği tamamlandı'
+
+
+def stop_processes():
+    processes = project_processes()
+    for pid, command in processes.items():
+        # Recheck identity immediately before signalling (the PID may have been reused).
+        if project_processes().get(pid) != command:
+            continue
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    wait(lambda: not project_processes(), seconds=45)
+    return 'Hermes servisleri, model ve yerel geliştirme süreçleri kapalı'
+
+
+def stop_containers():
+    docker = ['docker', '--context', 'orbstack']
+    try:
+        run(docker + ['info', '--format', '{{.ServerVersion}}'], timeout=10)
+    except subprocess.CalledProcessError:
+        return 'container motoru zaten kapalı; son adımda yerel portlar kontrol edilecek'
+    ids = run(docker + ['ps', '-q', '--filter', 'label=com.docker.compose.project=forkos']).splitlines()
+    groups = {'writers': [], 'db': []}
+    for container in ids:
+        workdir = run(docker + ['inspect', '--format', '{{index .Config.Labels "com.docker.compose.project.working_dir"}}', container])
+        if Path(workdir).resolve() != ROOT:
+            raise RuntimeError('forkos adı başka bir checkout tarafından kullanılıyor; otomatik kapanış durdu')
+        service = run(docker + ['inspect', '--format', '{{index .Config.Labels "com.docker.compose.service"}}', container])
+        groups['db' if service == 'db' else 'writers'].append(container)
+    for group in ('writers', 'db'):
+        if groups[group]:
+            # Infinite daemon grace period: the client deadline reports a failure
+            # without allowing Docker to escalate to SIGKILL on the database.
+            run(docker + ['stop', '--time', '-1', *groups[group]], timeout=180)
+    if run(docker + ['ps', '-q', '--filter', 'label=com.docker.compose.project=forkos']):
+        raise RuntimeError('Bazı forkOS container’ları hâlâ çalışıyor')
+    return 'web, API, worker/migration ve DB kapalı; volume’ler korundu'
+
+
+def stop_engine(keep_engine=False):
+    if keep_engine:
+        return 'isteğin doğrultusunda açık bırakıldı'
+    if not shutil.which('orb'):
+        return 'OrbStack CLI yok; motor açık bırakıldı'
+    try:
+        others = run(['docker', '--context', 'orbstack', 'ps', '-q'], timeout=10)
+    except subprocess.CalledProcessError:
+        # Querying orb list while the engine is down can wait for its daemon.
+        # An idempotent stop must not wake the engine just to stop it again.
+        return 'Docker motoruna bağlantı yok; ek kapatma uygulanmadı'
+    machines = run(['orb', 'list', '--running', '--quiet'], timeout=10)
+    if others or machines:
+        return 'başka container/sanal makine kullanıyor; açık bırakıldı'
+    run(['orb', 'stop'], timeout=90)
+    quit_app('dev.kdrag0n.MacVirt')
+    return 'motor ve uygulama kapalı'
+
+
+def ports_closed():
+    for port in (5173, 8787, 5433, 18434):
+        with socket.socket() as connection:
+            connection.settimeout(1)
+            if connection.connect_ex(('127.0.0.1', port)) == 0:
+                raise RuntimeError(f'{port} portu hâlâ açık; otomatik zorla kapatma yapılmadı')
+    if project_processes():
+        raise RuntimeError('Projeye bağlı süreçler hâlâ çalışıyor')
+    return 'web, backend, DB ve model portları kapalı'
+
+
+def stop(keep_engine=False):
+    print('\nforkOS · Güvenli kapanış checklist’i\n')
+    failures = []
+    actions = [
+        ('Hermes Desktop', lambda: quit_app('com.nousresearch.hermes')),
+        ('Obsidian', lambda: quit_app('md.obsidian')),
+        ('Model ve arka plan süreçleri', stop_processes),
+        ('forkOS container’ları', stop_containers),
+    ]
+    for label, action in actions:
+        try:
+            step(label, action)
+        except SystemExit:
+            failures.append(label)
+    # Do not shut the VM down if a container could not stop gracefully.
+    if 'forkOS container’ları' not in failures:
+        try:
+            step('OrbStack', lambda: stop_engine(keep_engine))
+        except SystemExit:
+            failures.append('OrbStack')
+    try:
+        step('Son kontrol', ports_closed)
+    except SystemExit:
+        failures.append('Son kontrol')
+    if failures:
+        print('\n✗ Kapanış tamamlanamadı: ' + ', '.join(failures) + '. Komutu tekrar çalıştırabilirsin.')
+        raise SystemExit(1)
+    print('\n✓ forkOS kapalı. Veriler korundu. Yeniden açmak için: forkos\n')
+
 def main():
-    parser = argparse.ArgumentParser(description='forkOS başlangıç checklist’i')
-    parser.add_argument('command', nargs='?', default='start', choices=['start', 'doctor', 'install'])
+    parser = argparse.ArgumentParser(description='forkOS başlangıç ve güvenli kapanış checklist’i')
+    parser.add_argument('command', nargs='?', default='start', choices=['start', 'stop', 'doctor', 'install'])
     parser.add_argument('--stable', action='store_true', help='Vite yerine günlük runtime')
     parser.add_argument('--no-open', action='store_true', help='Web sekmesini açma')
+    parser.add_argument('--keep-engine', action='store_true', help='Kapanışta OrbStack’i açık bırak')
     args = parser.parse_args()
+    if args.command == 'stop':
+        stop(args.keep_engine)
+        return
     if args.command == 'install':
         install()
         return
@@ -180,8 +311,8 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print('\nBaşlangıç iptal edildi; başlamış servisler korunuyor.')
+        print('\nİşlem iptal edildi; mevcut servis durumu korunuyor.')
         sys.exit(130)
     except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
-        print(f'✗ Başlangıç tamamlanamadı: {type(exc).__name__}. forkos doctor ile kontrol et.')
+        print(f'✗ İşlem tamamlanamadı: {type(exc).__name__}. forkos doctor ile kontrol et.')
         sys.exit(1)

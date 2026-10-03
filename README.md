@@ -153,6 +153,8 @@ başlatılmış servisler ve kişisel veriler korunur. Worker açılmaz.
 forkos --stable     # Günlük runtime; Vite/HMR kapalı
 forkos --no-open    # Web sekmesi açılmasın
 forkos doctor      # Başlatmadan mevcut sistemi kontrol et
+forkos stop        # Uygulamaları, model sunucusunu ve forkOS servislerini güvenle kapat
+forkos stop --keep-engine # OrbStack açık kalsın
 ```
 
 Python 3, OrbStack, Hermes CLI/Desktop ve Obsidian kurulu olmalıdır. Komut
@@ -161,6 +163,15 @@ Container imajları eksikse Compose’un normal build/pull davranışı geçerli
 Alias `.zshrc` içinde işaretli tek bir blokta tutulur; yeniden kurulum diğer
 ayarları korur. Repository taşınırsa `make install-launcher` tekrar çalıştır.
 Renksiz çıktı için `NO_COLOR=1 forkos` kullanabilirsin.
+
+`forkos stop`, Hermes ve Obsidian’a normal kapanış isteği gönderir; Hermes’in
+yerel model/arka plan süreçlerine SIGTERM gönderip kapanmalarını bekler.
+Çalışan forkOS container’ları repository etiketiyle seçilir; web/API/worker ve
+migration durduktan sonra PostgreSQL kapatılır. Container ve volume silinmez.
+Kapanış uzarsa zorla öldürülmez; hata bildirilir ve diğer kapanış adımları devam eder.
+OrbStack başka çalışan container veya sanal makine varsa açık kalır; yalnız
+kullanılıyorsa motor ve uygulama kapanır. Son adımda servis portlarının kapandığı
+doğrulanır. Zaten kapalı sistemde aynı komut tekrar kullanılabilir.
 
 ```bash
 # Günlük (stable) runtime — Vite, HMR ve `uvicorn --reload` YOKTUR.
