@@ -129,6 +129,39 @@ hangi runtime'ı istediğini komut söyler.
 
 ## Günlük kullanım
 
+### Terminalden tek komut
+
+macOS + OrbStack için bir kez repository içinden çalıştır:
+
+```bash
+make install-launcher
+source ~/.zshrc
+forkos
+```
+
+`forkos`, OrbStack’i ve geliştirme container’larını açar; migration geçidini,
+PostgreSQL’i, backend’i, web’i ve container sağlık kontrollerini sırayla bekler.
+Obsidian ve Hermes Desktop açılır; `.env` içindeki Vault bağlanır. Hermes’in
+yerel model sağlayıcısı kontrol edilir: llama.cpp kullanılıyorsa Ollama ayrıca
+başlatılmaz. Qwen dosyası, model sunucusu ve kısa bir yerel üretim isteği
+doğrulanır; ardından Hermes MCP bağlantısı ve uçtan uca doctor çalışır.
+Her adım terminalde bekliyor / başarılı / başarısız olarak görünür; uzun adımlar
+10 saniyede bir ilerleme mesajı verir. Hata durumunda komut başarısız çıkar,
+başlatılmış servisler ve kişisel veriler korunur. Worker açılmaz.
+
+```bash
+forkos --stable     # Günlük runtime; Vite/HMR kapalı
+forkos --no-open    # Web sekmesi açılmasın
+forkos doctor      # Başlatmadan mevcut sistemi kontrol et
+```
+
+Python 3, OrbStack, Hermes CLI/Desktop ve Obsidian kurulu olmalıdır. Komut
+masaüstü uygulaması veya model indirmez; eksik kurulum hata olarak gösterilir.
+Container imajları eksikse Compose’un normal build/pull davranışı geçerlidir.
+Alias `.zshrc` içinde işaretli tek bir blokta tutulur; yeniden kurulum diğer
+ayarları korur. Repository taşınırsa `make install-launcher` tekrar çalıştır.
+Renksiz çıktı için `NO_COLOR=1 forkos` kullanabilirsin.
+
 ```bash
 # Günlük (stable) runtime — Vite, HMR ve `uvicorn --reload` YOKTUR.
 make up CO="docker compose"

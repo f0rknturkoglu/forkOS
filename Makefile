@@ -28,6 +28,8 @@ config-dev: ; $(DEV) config --quiet && echo "compose.yaml + compose.dev.yaml: OK
 config-obsidian: ; $(OBS) config --quiet && echo "compose.yaml + compose.obsidian.yaml: OK"
 config-obsidian-dev: ; $(OBS_DEV) config --quiet && echo "compose.yaml + compose.obsidian.yaml + compose.dev.yaml: OK"
 doctor:     ; ./scripts/forkos_doctor.sh "$(CO)"
+launch:     ; python3 scripts/forkos.py
+install-launcher: ; python3 scripts/forkos.py install
 sh:        ; $(CO) exec api bash
 psql:      ; $(CO) exec db psql -U lifeos -d lifeos
 migrate:   ; $(CO) exec api alembic upgrade head
