@@ -37,6 +37,7 @@ design-audit-*
 design-reference-*
 design-qa-*
 *.png
+!frontend/public/technology/lean.png
 .serena/
 .vendor/career-ops/
 backend/data/runtime/career-ops/
