@@ -9,27 +9,73 @@
     <!-- Üst Bar -->
     <header class="app-header">
       <div class="brand">
-        <svg class="brand-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          class="brand-icon"
+          viewBox="0 0 24 24"
+          width="18"
+          height="18"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
         </svg>
         <span class="brand-title">fork<span class="brand-os">OS</span></span>
       </div>
       <div class="header-actions">
-        <span id="connection-badge" class="badge badge-offline" title="Sunucu bağlantı durumu">
+        <span
+          id="connection-badge"
+          class="badge badge-offline"
+          title="Sunucu bağlantı durumu"
+        >
           <span class="dot"></span>
           <span id="connection-text">Offline</span>
         </span>
-        <button id="open-dashboard" class="icon-btn" title="forkOS Web Paneli (127.0.0.1:5173)" aria-label="Web Paneli">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        <button
+          id="open-dashboard"
+          class="icon-btn"
+          title="forkOS Web Paneli"
+          aria-label="Web Paneli"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+            />
             <polyline points="15 3 21 3 21 9" />
             <line x1="10" y1="14" x2="21" y2="3" />
           </svg>
         </button>
-        <button id="open-options" class="icon-btn" title="Eklenti Ayarları" aria-label="Ayarlar">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button
+          id="open-options"
+          class="icon-btn"
+          title="Eklenti Ayarları"
+          aria-label="Ayarlar"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+            />
           </svg>
         </button>
       </div>
@@ -47,7 +93,7 @@
         <span>Not</span>
       </button>
       <button id="tab-job" class="tab-btn" type="button">
-        <span>İş İlanı</span>
+        <span>Kariyer / Akademi</span>
       </button>
     </nav>
 
@@ -63,7 +109,11 @@
       </div>
       <div class="field">
         <label for="note">Kişisel Not</label>
-        <textarea id="note" rows="2" placeholder="Önemli notlar, alıntılar…"></textarea>
+        <textarea
+          id="note"
+          rows="2"
+          placeholder="Önemli notlar, alıntılar…"
+        ></textarea>
       </div>
       <div class="row">
         <div class="field flex-1">
@@ -81,14 +131,23 @@
           </select>
         </div>
       </div>
-      <button id="save" class="btn btn-primary" type="submit">Kütüphaneye Kaydet</button>
+      <button id="save" class="btn btn-primary" type="submit">
+        Kütüphaneye Kaydet
+      </button>
     </form>
 
     <!-- Panel 2: Görev (Todo) -->
     <form id="panel-todo" class="tab-panel" hidden>
       <div class="field">
-        <label for="todo-title">Görev Başlığı <span class="required">*</span></label>
-        <input id="todo-title" type="text" required placeholder="ör. Dokümantasyonu incele" />
+        <label for="todo-title"
+          >Görev Başlığı <span class="required">*</span></label
+        >
+        <input
+          id="todo-title"
+          type="text"
+          required
+          placeholder="ör. Dokümantasyonu incele"
+        />
       </div>
       <div class="row">
         <div class="field flex-1">
@@ -104,39 +163,100 @@
           <input id="todo-day" type="date" />
         </div>
       </div>
-      <button id="todo-save" class="btn btn-accent" type="submit">Görev Olarak Ekle</button>
+      <button id="todo-save" class="btn btn-accent" type="submit">
+        Görev Olarak Ekle
+      </button>
     </form>
 
     <!-- Panel 3: Not (Note) -->
     <form id="panel-note" class="tab-panel" hidden>
       <div class="field">
-        <label for="note-title">Not Başlığı <span class="required">*</span></label>
-        <input id="note-title" type="text" required placeholder="ör. Hızlı Not veya Alıntı" />
+        <label for="note-title"
+          >Not Başlığı <span class="required">*</span></label
+        >
+        <input
+          id="note-title"
+          type="text"
+          required
+          placeholder="ör. Hızlı Not veya Alıntı"
+        />
       </div>
       <div class="field">
         <label for="note-body">Not İçeriği</label>
-        <textarea id="note-body" rows="4" placeholder="Metin, düşünceler, sayfa alıntıları…"></textarea>
+        <textarea
+          required
+          maxlength="30000"
+          id="note-body"
+          rows="4"
+          placeholder="Metin, düşünceler, sayfa alıntıları…"
+        ></textarea>
       </div>
       <div class="field">
         <label for="note-folder">Klasör</label>
-        <input id="note-folder" type="text" placeholder="general" value="general" />
+        <input
+          id="note-folder"
+          type="text"
+          placeholder="general"
+          value="general"
+        />
       </div>
-      <button id="note-save" class="btn btn-accent" type="submit">Not Olarak Kaydet</button>
+      <button id="note-save" class="btn btn-accent" type="submit">
+        Not Olarak Kaydet
+      </button>
     </form>
 
     <!-- Panel 4: İş İlanı (Opportunity) -->
     <form id="panel-job" class="tab-panel" hidden>
-      <div id="extraction-badge" class="extraction-card" hidden>
+      <div id="extraction-badge" class="extraction-card">
         <div class="extraction-header">
           <span class="extraction-icon">[bilgi]</span>
-          <span id="extraction-text" class="extraction-text">Sayfadan tespit edildi</span>
-          <button id="reextract-btn" class="extraction-btn" type="button" title="Sayfayı yeniden tara">Yenile</button>
+          <span id="extraction-text" class="extraction-text"
+            >Sayfadan tespit edildi</span
+          >
+          <button
+            id="reextract-btn"
+            class="extraction-btn"
+            type="button"
+            title="Sayfayı yeniden tara"
+          >
+            Yenile
+          </button>
         </div>
       </div>
-      <input id="job-deadline" type="hidden" />
       <div class="field">
-        <label for="job-title">Pozisyon / Başlık <span class="required">*</span></label>
-        <input id="job-title" type="text" required placeholder="ör. Senior Platform Engineer" />
+        <label for="job-kind">Kayıt türünü seç</label
+        ><select id="job-kind">
+          <option value="job">İş fırsatı</option>
+          <option value="announcement">Akademik / kamu duyurusu</option>
+        </select>
+      </div>
+      <p id="source-confidence">
+        Sayfa başlığı · kullanıcı seçimi. Eksik alanlar bilinmiyor.
+      </p>
+      <div class="field">
+        <label for="job-published"
+          >Yayın tarihi (biliniyorsa, saat dilimli ISO)</label
+        ><input id="job-published" type="text" placeholder="Bilinmiyor" />
+      </div>
+      <div class="field">
+        <label for="job-deadline"
+          >Son başvuru (biliniyorsa, saat dilimli ISO)</label
+        ><input id="job-deadline" type="text" placeholder="Bilinmiyor" />
+      </div>
+      <div class="field">
+        <label for="job-document">Resmî belge bağlantısı (biliniyorsa)</label
+        ><input id="job-document" type="url" placeholder="Bilinmiyor" />
+      </div>
+      <div class="field">
+        <label for="job-title"
+          >Pozisyon / Başlık <span class="required">*</span></label
+        >
+        <input
+          id="job-title"
+          type="text"
+          required
+          placeholder="ör. Senior Platform Engineer"
+        />
       </div>
       <div class="row">
         <div class="field flex-1">
@@ -160,22 +280,25 @@
       <div class="row">
         <div class="field flex-1">
           <label for="job-location">Konum / Şehir</label>
-          <input id="job-location" type="text" placeholder="ör. İstanbul, Berlin" />
+          <input
+            id="job-location"
+            type="text"
+            placeholder="ör. İstanbul, Berlin"
+          />
         </div>
         <div class="field flex-1">
           <label for="job-compensation">Ücret / Maaş</label>
-          <input id="job-compensation" type="text" placeholder="ör. €80k - €100k" />
+          <input
+            id="job-compensation"
+            type="text"
+            placeholder="ör. €80k - €100k"
+          />
         </div>
       </div>
       <div class="row">
         <div class="field flex-1">
           <label for="job-status">Başlangıç Durumu</label>
-          <select id="job-status">
-            <option value="discovered">Keşfedildi</option>
-            <option value="considering">Değerlendiriliyor</option>
-            <option value="preparing">Hazırlanıyor</option>
-            <option value="applied">Başvuruldu</option>
-          </select>
+          <select id="job-status"></select>
         </div>
         <div class="field flex-1">
           <label for="job-priority">Öncelik</label>
@@ -188,14 +311,20 @@
       </div>
       <div class="field">
         <label for="job-notes">İlan Notları</label>
-        <textarea id="job-notes" rows="2" placeholder="Gereksinimler veya değerlendirme notları…"></textarea>
+        <textarea
+          id="job-notes"
+          rows="2"
+          placeholder="Gereksinimler veya değerlendirme notları…"
+        ></textarea>
       </div>
-      <button id="job-save" class="btn btn-accent" type="submit">Fırsatlar'a Ekle</button>
+      <button id="job-save" class="btn btn-accent" type="submit">
+        Fırsatlar'a Ekle
+      </button>
     </form>
 
     <!-- Durum ve Kuyruk Bilgisi -->
     <footer class="app-footer">
-      <p id="status" class="status-msg"></p>
+      <p id="status" role="status" aria-live="polite" class="status-msg"></p>
       <div id="queue-status" class="queue-meta">
         <span id="pending-count">0 bekleyen</span>
         <span id="failed-count">0 başarısız</span>
@@ -203,14 +332,18 @@
     </footer>
 
     <div id="failed-actions" class="failed-box" hidden>
-      <button id="retry-failed" class="btn btn-secondary btn-sm" type="button">Başarısızları yeniden dene</button>
-      <button id="clear-failed" class="btn btn-danger btn-sm" type="button">Temizle</button>
+      <button id="retry-failed" class="btn btn-secondary btn-sm" type="button">
+        Başarısızları yeniden dene
+      </button>
+      <button id="clear-failed" class="btn btn-danger btn-sm" type="button">
+        Temizle
+      </button>
     </div>
 
-    <div id="duplicate" class="alert-box" hidden>
-      <p>Bu sayfa zaten kütüphanenizde kayıtlı.</p>
-      <button id="move-learning" class="btn btn-secondary btn-sm" type="button">Learning'e taşı</button>
-    </div>
+    <details id="failure-inspector">
+      <summary>Başarısız kayıtları incele / düzelt</summary>
+      <div id="failure-list"></div>
+    </details>
 
     <script type="module" src="popup.js"></script>
   </body>

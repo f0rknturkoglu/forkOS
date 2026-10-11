@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "forkOS Capture",
-  "version": "0.1.0",
-  "description": "Sayfa, secim ve linkleri forkOS Universal Inbox'a kaydeder.",
+  "version": "0.2.0",
+  "description": "Inbox, Obsidian, görev ve kariyer/akademi için kullanıcı kontrollü yakalama.",
   "permissions": [
     "storage",
     "alarms",
@@ -10,13 +10,8 @@
     "activeTab",
     "scripting"
   ],
-  "host_permissions": [
-    "http://127.0.0.1:8787/*"
-  ],
-  "optional_host_permissions": [
-    "http://*/*",
-    "https://*/*"
-  ],
+  "host_permissions": ["http://127.0.0.1:8787/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"

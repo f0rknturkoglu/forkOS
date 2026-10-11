@@ -1,305 +1,309 @@
 import {
-  clearFailed,
   enqueue,
+  enqueueTodo,
   enqueueNote,
   enqueueOpportunity,
-  enqueueTodo,
-  failedCount,
-  moveTo,
-  pendingCount,
-  ping,
   retryFailed,
-} from "../outbox.js";
-import { collectPageDom, extractJobDetails, extractPageMetadata } from "../extractor.js";
-
+  clearFailed,
+  replaceFailed,
+} from "../capture-client.js";
+import { pendingCount, failedCount, failedCaptures, ping } from "../outbox.js";
+import { getWebBase, getApiBase } from "../config.js";
+import { deliveryText } from "../delivery.js";
+import {
+  collectPageDom,
+  extractJobDetails,
+  extractPageMetadata,
+  extractAnnouncement,
+} from "../extractor.js";
 const $ = (id) => document.getElementById(id);
-
-// Sekme sorgusu ve alanları doldurma
 const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-const activeTitle = tab?.title ?? "";
-const activeUrl = tab?.url ?? "";
-
-// Form varsayılanlarını doldur
-$("title").value = activeTitle;
-$("url").value = activeUrl;
-$("job-url").value = activeUrl;
-$("todo-title").value = activeTitle;
-$("note-title").value = activeTitle;
-
-let lastExtracted = null;
-let lastPageMeta = null;
-
-// 4 Sekmeli geçiş fonksiyonları
+const activeUrl = tab?.url ?? "",
+  activeTitle = tab?.title ?? "";
+for (const id of ["title", "todo-title", "note-title", "job-title"])
+  $(id).value = activeTitle.slice(0, 300);
+for (const id of ["url", "job-url"]) $(id).value = activeUrl;
+let meta = null,
+  lifecycle = null;
 const tabs = ["bookmark", "todo", "note", "job"];
-
-function switchTab(activeName) {
-  for (const name of tabs) {
-    const tabBtn = $(`tab-${name}`);
-    const panel = $(`panel-${name}`);
-    if (!tabBtn || !panel) continue;
-    if (name === activeName) {
-      tabBtn.classList.add("active");
-      panel.hidden = false;
-    } else {
-      tabBtn.classList.remove("active");
-      panel.hidden = true;
+async function switchTab(name) {
+  for (const mode of tabs) {
+    $(`panel-${mode}`).hidden = mode !== name;
+    $(`tab-${mode}`).classList.toggle("active", mode === name);
+    $(`tab-${mode}`).setAttribute("aria-pressed", String(mode === name));
+  }
+  await chrome.storage.local.set({ captureTab: name });
+  if (name === "job") await loadLifecycle();
+}
+for (const name of tabs)
+  $(`tab-${name}`).addEventListener("click", () => void switchTab(name));
+const { captureTab, captureCollection } = await chrome.storage.local.get([
+  "captureTab",
+  "captureCollection",
+]);
+if (tabs.includes(captureTab)) await switchTab(captureTab);
+if (captureCollection) $("collection").value = captureCollection;
+// Selection only: no expensive page-wide extraction until the user requests metadata.
+if (tab?.id && /^https?:\/\//.test(activeUrl)) {
+  try {
+    const [r] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => String(window.getSelection() ?? "").slice(0, 6000),
+    });
+    $("note").value = r?.result ?? "";
+    $("note-body").value = r?.result ?? "";
+  } catch {
+    $("status").textContent =
+      "Bu sayfada metin seçimi okunamıyor; alanları elle doldurabilirsin.";
+  }
+} else
+  $("status").textContent =
+    "Bu tarayıcı sayfası yakalanamaz; bir HTTP(S) sayfası aç.";
+const labels = {
+  discovered: "Keşfedildi",
+  shortlisted: "Kısa listede",
+  new: "Yeni",
+  reviewed: "İncelendi",
+  watching: "Takipte",
+  action_required: "Aksiyon gerekli",
+  ignored: "Yoksayıldı",
+  archived: "Arşivlendi",
+};
+async function loadLifecycle() {
+  try {
+    if (!lifecycle) {
+      const r = await fetch(`${await getApiBase()}/opportunities/lifecycle`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!r.ok) throw new Error();
+      lifecycle = await r.json();
     }
+    const kind = $("job-kind").value;
+    const flow =
+      lifecycle[kind === "job" ? "job_discovery" : "announcement"]?.flow ?? [];
+    $("job-status").replaceChildren(
+      ...flow
+        .filter(
+          (x) =>
+            !["archived", "ignored", "dismissed", "closed", "expired"].includes(
+              x,
+            ),
+        )
+        .map((x) => {
+          const o = document.createElement("option");
+          o.value = x;
+          o.textContent = labels[x] ?? x;
+          return o;
+        }),
+    );
+    $("job-save").disabled = !$("job-status").options.length;
+  } catch {
+    $("job-status").replaceChildren();
+    $("job-save").disabled = true;
+    $("status").textContent =
+      "Fırsat durumları alınamadı; bağlantı gelince tekrar Kariyer / Akademi sekmesine bas.";
   }
 }
-
-$("tab-bookmark").addEventListener("click", () => switchTab("bookmark"));
-$("tab-todo").addEventListener("click", () => switchTab("todo"));
-$("tab-note").addEventListener("click", () => switchTab("note"));
-$("tab-job").addEventListener("click", () => {
-  switchTab("job");
-  if (!lastExtracted) {
-    inspectPageForJob();
-  }
+$("job-kind").addEventListener("change", async () => {
+  for (const id of [
+    "job-org",
+    "job-location",
+    "job-compensation",
+    "job-deadline",
+    "job-published",
+    "job-document",
+    "job-notes",
+  ])
+    $(id).value = "";
+  $("job-remote").value = "";
+  $("source-confidence").textContent =
+    "Kayıt türü kullanıcı tarafından seçildi; eksik alanlar bilinmiyor.";
+  await loadLifecycle();
 });
-
 $("reextract-btn").addEventListener("click", async () => {
-  $("extraction-text").textContent = "Sayfa taranıyor…";
-  await inspectPageForJob();
-});
-
-// Sayfayı deterministik olarak tara (JSON-LD, ATS, Meta)
-async function inspectPageForJob() {
-  if (!tab?.id || !activeUrl || (!activeUrl.startsWith("http://") && !activeUrl.startsWith("https://"))) {
-    return;
-  }
-
+  if (!tab?.id || !/^https?:\/\//.test(activeUrl)) return;
   try {
-    const [injection] = await chrome.scripting.executeScript({
+    const [r] = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: collectPageDom,
     });
-
-    if (injection?.result) {
-      // Sayfa meta verilerini çıkar ve not/alıntı alanlarına yerleştir
-      const pageMeta = extractPageMetadata(injection.result, activeUrl);
-      lastPageMeta = pageMeta;
-      if (pageMeta.selectedText) {
-        if (!$("note").value) $("note").value = pageMeta.selectedText;
-        if (!$("note-body").value) $("note-body").value = pageMeta.selectedText;
-      } else if (pageMeta.description && !$("note").value) {
-        $("note").placeholder = pageMeta.description.slice(0, 150) + "…";
-      }
-
-      const details = extractJobDetails(injection.result, activeUrl);
-      if (details.found) {
-        lastExtracted = details;
-        if (details.title) $("job-title").value = details.title;
-        if (details.organization) $("job-org").value = details.organization;
-        if (details.location) $("job-location").value = details.location;
-        if (details.remote) $("job-remote").value = details.remote;
-        if (details.compensation) $("job-compensation").value = details.compensation;
-        if (details.deadline_at) $("job-deadline").value = details.deadline_at;
-        if (details.notes) $("job-notes").value = details.notes;
-
-        $("extraction-badge").hidden = false;
-        $("extraction-text").textContent = `[${details.sourceLabel}] ile tespit edildi`;
-
-        // Güçlü bir iş ilanı kaynağı (JSON-LD veya ATS) tespit edildiyse otomatik iş ilanı sekmesine geç
-        if (details.sourceType === "schema_org" || details.sourceType === "ats") {
-          switchTab("job");
-        }
-      }
-    }
-  } catch (err) {
-    console.debug("forkOS: Sayfa script analizi yapılamadı (izin veya sayfa kısıtı)", err);
+    meta = extractPageMetadata(r.result, activeUrl);
+    const data =
+      $("job-kind").value === "job"
+        ? extractJobDetails(r.result, activeUrl)
+        : extractAnnouncement(r.result, activeUrl);
+    for (const [key, id] of Object.entries({
+      title: "job-title",
+      organization: "job-org",
+      location: "job-location",
+      remote: "job-remote",
+      compensation: "job-compensation",
+      deadline_at: "job-deadline",
+      published_at: "job-published",
+      official_document_url: "job-document",
+      notes: "job-notes",
+    }))
+      $(id).value = data[key] ?? "";
+    $("source-confidence").textContent =
+      `${data.sourceLabel ?? "Sayfa metaverisi"} · alanları doğrula; boş değerler bilinmiyor.`;
+  } catch {
+    $("status").textContent =
+      "Sayfa metaverisi okunamadı; elle doldurabilirsin.";
   }
-}
-
-// İlk açılışta sayfayı tara
-await inspectPageForJob();
-
-// Kuyruk ve Bağlantı Durumu
-async function refreshCounts() {
+});
+async function refresh() {
   const [pending, failed] = await Promise.all([pendingCount(), failedCount()]);
   $("pending-count").textContent = `${pending} bekleyen`;
   $("failed-count").textContent = `${failed} başarısız`;
-  $("failed-actions").hidden = failed === 0;
-  return { failed, pending };
-}
-
-async function checkConnection() {
-  const online = await ping();
-  const badge = $("connection-badge");
-  const text = $("connection-text");
-  if (online) {
-    badge.className = "badge badge-online";
-    text.textContent = "Bağlı";
-  } else {
-    badge.className = "badge badge-offline";
-    text.textContent = "Kuyrukta (Offline)";
+  $("failed-actions").hidden = !failed;
+  const list = $("failure-list");
+  list.replaceChildren();
+  for (const item of await failedCaptures()) {
+    const div = document.createElement("div"),
+      p = document.createElement("p"),
+      edit = document.createElement("textarea"),
+      btn = document.createElement("button");
+    p.textContent = `${item.title || item.url} · ${item.message ?? "Reddedildi"}${item.replacement_id ? " · yeni yakalama oluşturuldu" : ""}`;
+    edit.setAttribute("aria-label", "Başarısız yakalama içeriği");
+    edit.value = JSON.stringify(item, null, 2);
+    edit.maxLength = 60000;
+    btn.textContent = "Düzeltmeyi yeni kimlikle gönder";
+    btn.disabled = Boolean(item.replacement_id);
+    btn.addEventListener("click", async () => {
+      try {
+        btn.disabled = true;
+        const result = await replaceFailed(
+          item.client_uuid,
+          JSON.parse(edit.value),
+        );
+        $("status").textContent = deliveryText(result);
+        await refresh();
+      } catch {
+        $("status").textContent =
+          "Geçerli düzeltme JSON’u gerekli; önceki kayıt korunuyor.";
+        btn.disabled = false;
+      }
+    });
+    div.append(p, edit, btn);
+    list.append(div);
   }
-  return online;
 }
-
-const { pending } = await refreshCounts();
-const online = await checkConnection();
-
-if (pending > 0) {
-  $("status").textContent = `${pending} kayıt gönderilmeyi bekliyor`;
-} else if (!online) {
-  $("status").textContent = "forkOS çevrimdışı — kayıtlar yerel kuyruğa alınır";
-}
-
-// Buton aksiyonları
+await refresh();
+const online = await ping();
+$("connection-badge").className =
+  `badge badge-${online ? "online" : "offline"}`;
+$("connection-text").textContent = online ? "Bağlı" : "Kuyruk modu";
+$("open-options").addEventListener("click", () =>
+  chrome.runtime.openOptionsPage(),
+);
+$("open-dashboard").addEventListener("click", async () =>
+  chrome.tabs.create({ url: await getWebBase() }),
+);
 $("retry-failed").addEventListener("click", async () => {
-  $("status").textContent = "Yeniden deneniyor…";
-  const result = await retryFailed();
-  await refreshCounts();
-  $("status").textContent = result.pending
-    ? `${result.pending} kayıt hâlâ bekliyor`
-    : "Başarısız kayıtlar yeniden gönderildi";
+  try {
+    const r = await retryFailed();
+    $("status").textContent =
+      `${r.sent} teslim doğrulandı · ${r.pending} bekleyen · ${r.rejected.length} reddedilen`;
+    await refresh();
+  } catch {
+    $("status").textContent =
+      "Yeniden deneme tamamlanamadı; kayıtlar korunuyor.";
+  }
 });
-
 $("clear-failed").addEventListener("click", async () => {
-  await clearFailed();
-  await refreshCounts();
-  $("status").textContent = "Başarısız kayıtlar temizlendi";
+  if (
+    !window.confirm(
+      "Başarısız kayıtların yerel kopyaları kalıcı silinecek. Emin misin?",
+    )
+  )
+    return;
+  await clearFailed(true);
+  await refresh();
 });
-
-$("open-options").addEventListener("click", () => chrome.runtime.openOptionsPage());
-
-$("open-dashboard").addEventListener("click", () => {
-  chrome.tabs.create({ url: "http://127.0.0.1:5173" });
-});
-
-// Form 1: Bağlantı Kaydet
-$("panel-bookmark").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const btn = $("save");
-  btn.disabled = true;
-  $("status").textContent = "Kaydediliyor…";
-
-  try {
-    const result = await enqueue({
-      url: $("url").value,
-      title: $("title").value,
-      note: $("note").value || null,
-      tags: $("tags").value.split(",").map((t) => t.trim()).filter(Boolean),
+const value = (id) => $(id).value.trim() || null;
+function dateValue(id) {
+  const text = value(id);
+  if (text && !/T.*(Z|[+-]\d\d:\d\d)$/.test(text))
+    throw new Error("Tarih saat dilimli ISO biçiminde olmalı");
+  return text;
+}
+const forms = {
+  bookmark: () =>
+    enqueue({
+      url: value("url"),
+      title: value("title"),
+      note: value("note"),
+      tags: $("tags")
+        .value.split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
       collection: $("collection").value,
-      hero_image_url: lastPageMeta?.image || null,
-      favicon_url: lastPageMeta?.favicon || null,
-      reading_time_min: lastPageMeta?.readingTimeMinutes || null,
-      author: lastPageMeta?.author || null,
+      hero_image_url: meta?.image || null,
+      favicon_url: meta?.favicon || null,
+      author: meta?.author || null,
+    }),
+  todo: () =>
+    enqueueTodo({
+      title: value("todo-title"),
+      priority: Number($("todo-priority").value),
+      plan_day: value("todo-day"),
+    }),
+  note: () =>
+    enqueueNote({
+      title: value("note-title"),
+      body_text: value("note-body") || "",
+      folder: value("note-folder") || "general",
+      url: activeUrl,
+    }),
+  job: () => {
+    if (!$("job-status").value) throw new Error("Önce kanonik durumları yükle");
+    return enqueueOpportunity({
+      kind: $("job-kind").value,
+      title: value("job-title"),
+      organization: value("job-org"),
+      url: value("job-url"),
+      status: $("job-status").value,
+      priority: Number($("job-priority").value),
+      notes: value("job-notes"),
+      deadline_at: dateValue("job-deadline"),
+      published_at: dateValue("job-published"),
+      location: value("job-location"),
+      remote: value("job-remote"),
+      compensation: value("job-compensation"),
+      raw: {
+        capture_evidence: {
+          official_document_url: value("job-document"),
+          source_confidence: "user_confirmed_page_metadata",
+          missing_fields: [
+            "organization",
+            "published",
+            "deadline",
+            "document",
+          ].filter(
+            (key) => !value(`job-${key === "organization" ? "org" : key}`),
+          ),
+        },
+      },
     });
-
-    const rejected = result.rejected.find((entry) => entry.url === $("url").value);
-    if (rejected) {
-      $("status").textContent = `Kaydedilemedi: ${rejected.message}`;
-      btn.disabled = false;
-      return;
-    }
-
-    const duplicate = result.duplicates.find((d) => d.url === $("url").value);
-    if (duplicate) {
-      $("status").textContent = "Kaydedildi (mükerrer kayıt)";
-      $("duplicate").hidden = false;
-      $("move-learning").addEventListener("click", async () => {
-        const ok = await moveTo(duplicate.existing_id, "learning");
-        $("status").textContent = ok ? "Learning'e taşındı" : "Taşınamadı";
-        setTimeout(() => window.close(), 600);
+  },
+};
+for (const [name, submit] of Object.entries(forms))
+  $(`panel-${name}`).addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = $(`panel-${name}`).querySelector('[type="submit"]');
+    button.disabled = true;
+    $("status").textContent = "Kuyruğa kaydediliyor…";
+    try {
+      const result = await submit();
+      $("status").textContent = deliveryText(result);
+      await chrome.storage.local.set({
+        captureCollection: $("collection").value,
       });
-      return;
+      await refresh();
+    } catch (e) {
+      $("status").textContent =
+        e.message || "Kaydedilemedi; kuyruğu kontrol et.";
+    } finally {
+      button.disabled = false;
     }
-
-    $("status").textContent = result.pending ? "Kuyruğa alındı (forkOS kapalı)" : "Kütüphaneye kaydedildi!";
-    setTimeout(() => window.close(), 700);
-  } catch (err) {
-    btn.disabled = false;
-    $("status").textContent = `Kaydedilemedi: ${err?.message ?? err}`;
-  }
-});
-
-// Form 2: İş İlanı Kaydet
-$("panel-job").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const btn = $("job-save");
-  const jobTitle = $("job-title").value.trim();
-  if (!jobTitle) return;
-
-  btn.disabled = true;
-  $("status").textContent = "İş ilanı ekleniyor…";
-
-  try {
-    const result = await enqueueOpportunity({
-      title: jobTitle,
-      organization: $("job-org").value.trim() || null,
-      url: $("job-url").value.trim() || null,
-      remote: $("job-remote").value || null,
-      location: $("job-location").value.trim() || null,
-      compensation: $("job-compensation").value.trim() || null,
-      deadline_at: $("job-deadline").value.trim() || null,
-      status: $("job-status").value || "discovered",
-      priority: Number($("job-priority").value) || 2,
-      notes: $("job-notes").value.trim() || null,
-    });
-
-    const rejected = result.rejected.find((entry) => entry.url === $("job-url").value);
-    if (rejected) {
-      $("status").textContent = `Eklenemedi: ${rejected.message}`;
-      btn.disabled = false;
-      return;
-    }
-
-    $("status").textContent = result.pending ? "Kuyruğa alındı (forkOS kapalı)" : "Fırsat olarak eklendi!";
-    setTimeout(() => window.close(), 700);
-  } catch (err) {
-    btn.disabled = false;
-    $("status").textContent = `Eklenemedi: ${err?.message ?? err}`;
-  }
-});
-
-// Form 3: Görev Kaydet
-$("panel-todo").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const btn = $("todo-save");
-  const title = $("todo-title").value.trim();
-  if (!title) return;
-
-  btn.disabled = true;
-  $("status").textContent = "Görev ekleniyor…";
-
-  try {
-    const result = await enqueueTodo({
-      title,
-      priority: Number($("todo-priority").value) || 2,
-      plan_day: $("todo-day").value || null,
-    });
-
-    $("status").textContent = result.pending ? "Kuyruğa alındı (forkOS kapalı)" : "Görev eklendi!";
-    setTimeout(() => window.close(), 700);
-  } catch (err) {
-    btn.disabled = false;
-    $("status").textContent = `Eklenemedi: ${err?.message ?? err}`;
-  }
-});
-
-// Form 4: Not Kaydet
-$("panel-note").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const btn = $("note-save");
-  const title = $("note-title").value.trim();
-  if (!title) return;
-
-  btn.disabled = true;
-  $("status").textContent = "Not kaydediliyor…";
-
-  try {
-    const result = await enqueueNote({
-      title,
-      body_text: $("note-body").value.trim(),
-      folder: $("note-folder").value.trim() || "general",
-    });
-
-    $("status").textContent = result.pending ? "Kuyruğa alındı (forkOS kapalı)" : "Not kaydedildi!";
-    setTimeout(() => window.close(), 700);
-  } catch (err) {
-    btn.disabled = false;
-    $("status").textContent = `Kaydedilemedi: ${err?.message ?? err}`;
-  }
-});
-
+  });

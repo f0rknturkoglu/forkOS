@@ -22,7 +22,9 @@ export function cleanHtmlText(html) {
   const lines = text
     .split("\n")
     .map((l) => l.replace(/[ \t]+/g, " ").trim())
-    .filter((l, idx, arr) => l.length > 0 || (idx > 0 && arr[idx - 1].length > 0));
+    .filter(
+      (l, idx, arr) => l.length > 0 || (idx > 0 && arr[idx - 1].length > 0),
+    );
 
   return lines.join("\n").trim();
 }
@@ -84,13 +86,22 @@ function parseLocation(jobLocation) {
 function detectRemote(text) {
   if (!text) return null;
   const s = text.toLowerCase();
-  if (s.includes("remote") || s.includes("uzaktan") || s.includes("telecommute")) {
+  if (
+    s.includes("remote") ||
+    s.includes("uzaktan") ||
+    s.includes("telecommute")
+  ) {
     return "remote";
   }
   if (s.includes("hybrid") || s.includes("hibrit")) {
     return "hybrid";
   }
-  if (s.includes("onsite") || s.includes("on-site") || s.includes("ofis") || s.includes("yerinde")) {
+  if (
+    s.includes("onsite") ||
+    s.includes("on-site") ||
+    s.includes("ofis") ||
+    s.includes("yerinde")
+  ) {
     return "onsite";
   }
   return null;
@@ -100,7 +111,7 @@ function detectSalaryFromText(text) {
   if (!text) return null;
   // Örn: $120k - $160k, €80,000 - €100,000, 150.000 TL - 200.000 TL
   const match = text.match(
-    /(?:[$€£₺]\s?[\d,.]+\s?[kK]?\s*(?:-|–|ila|to)\s*[$€£₺]?\s?[\d,.]+\s?[kK]?|[\d,.]+\s?[kK]?\s*[-–]\s*[\d,.]+\s?[kK]?\s*[$€£₺]|(?:[$€£₺]\s?[\d,.]+\s?[kK]?))/i
+    /(?:[$€£₺]\s?[\d,.]+\s?[kK]?\s*(?:-|–|ila|to)\s*[$€£₺]?\s?[\d,.]+\s?[kK]?|[\d,.]+\s?[kK]?\s*[-–]\s*[\d,.]+\s?[kK]?\s*[$€£₺]|(?:[$€£₺]\s?[\d,.]+\s?[kK]?))/i,
   );
   return match ? match[0].trim() : null;
 }
@@ -135,11 +146,17 @@ function extractFromJsonLd(doc) {
   for (const script of scripts) {
     try {
       const data = JSON.parse(script.textContent ?? "");
-      const items = Array.isArray(data) ? data : data["@graph"] ? data["@graph"] : [data];
+      const items = Array.isArray(data)
+        ? data
+        : data["@graph"]
+          ? data["@graph"]
+          : [data];
 
       for (const item of items) {
         const type = item["@type"];
-        const isJob = type === "JobPosting" || (Array.isArray(type) && type.includes("JobPosting"));
+        const isJob =
+          type === "JobPosting" ||
+          (Array.isArray(type) && type.includes("JobPosting"));
         if (!isJob) continue;
 
         let remote = null;
@@ -163,7 +180,8 @@ function extractFromJsonLd(doc) {
               : null;
 
         const location = parseLocation(item.jobLocation);
-        const compensation = parseSalary(item.baseSalary) || detectSalaryFromText(fullText);
+        const compensation =
+          parseSalary(item.baseSalary) || detectSalaryFromText(fullText);
         const notes = cleanHtmlText(item.description);
 
         return {
@@ -194,10 +212,12 @@ function extractFromAts(doc, pageUrl) {
 
   // Greenhouse
   if (url.includes("greenhouse.io") || doc.querySelector(".app-title")) {
-    const titleEl = doc.querySelector(".app-title") || doc.querySelector("h1.app-title");
+    const titleEl =
+      doc.querySelector(".app-title") || doc.querySelector("h1.app-title");
     const orgEl = doc.querySelector(".company-name");
     const locEl = doc.querySelector(".location");
-    const descEl = doc.querySelector("#content") || doc.querySelector(".content");
+    const descEl =
+      doc.querySelector("#content") || doc.querySelector(".content");
 
     if (titleEl?.textContent?.trim()) {
       const locText = locEl?.textContent?.trim() || "";
@@ -223,7 +243,9 @@ function extractFromAts(doc, pageUrl) {
     const titleEl = doc.querySelector(".posting-headline h2");
     const locEl = doc.querySelector(".posting-categories .location");
     const typeEl = doc.querySelector(".posting-categories .workplace-type");
-    const descEl = doc.querySelector('[data-qa="job-description"]') || doc.querySelector(".section-wrapper");
+    const descEl =
+      doc.querySelector('[data-qa="job-description"]') ||
+      doc.querySelector(".section-wrapper");
 
     if (titleEl?.textContent?.trim()) {
       const locText = locEl?.textContent?.trim() || "";
@@ -246,7 +268,10 @@ function extractFromAts(doc, pageUrl) {
   }
 
   // Ashby
-  if (url.includes("ashbyhq.com") || doc.querySelector('[data-test="job-location"]')) {
+  if (
+    url.includes("ashbyhq.com") ||
+    doc.querySelector('[data-test="job-location"]')
+  ) {
     const titleEl = doc.querySelector("h1");
     const locEl = doc.querySelector('[data-test="job-location"]');
     const descEl = doc.querySelector('[data-test="job-description"]');
@@ -271,7 +296,10 @@ function extractFromAts(doc, pageUrl) {
   }
 
   // Workable
-  if (url.includes("workable.com") || doc.querySelector('[data-ui="job-title"]')) {
+  if (
+    url.includes("workable.com") ||
+    doc.querySelector('[data-ui="job-title"]')
+  ) {
     const titleEl = doc.querySelector('[data-ui="job-title"]');
     const orgEl = doc.querySelector('[data-ui="company-name"]');
     const locEl = doc.querySelector('[data-ui="job-location"]');
@@ -297,7 +325,10 @@ function extractFromAts(doc, pageUrl) {
   }
 
   // LinkedIn
-  if (url.includes("linkedin.com") || doc.querySelector(".job-details-jobs-unified-top-card__job-title")) {
+  if (
+    url.includes("linkedin.com") ||
+    doc.querySelector(".job-details-jobs-unified-top-card__job-title")
+  ) {
     const titleEl =
       doc.querySelector(".job-details-jobs-unified-top-card__job-title") ||
       doc.querySelector(".top-card-layout__title");
@@ -331,10 +362,17 @@ function extractFromAts(doc, pageUrl) {
   }
 
   // Indeed
-  if (url.includes("indeed.com") || doc.querySelector("h1.jobsearch-JobInfoHeader-title")) {
+  if (
+    url.includes("indeed.com") ||
+    doc.querySelector("h1.jobsearch-JobInfoHeader-title")
+  ) {
     const titleEl = doc.querySelector("h1.jobsearch-JobInfoHeader-title");
-    const orgEl = doc.querySelector('[data-company-name="true"]') || doc.querySelector(".jobsearch-CompanyInfoContainer");
-    const locEl = doc.querySelector('[data-testid="inlineHeader-companyLocation"]');
+    const orgEl =
+      doc.querySelector('[data-company-name="true"]') ||
+      doc.querySelector(".jobsearch-CompanyInfoContainer");
+    const locEl = doc.querySelector(
+      '[data-testid="inlineHeader-companyLocation"]',
+    );
     const descEl = doc.querySelector("#jobDescriptionText");
 
     if (titleEl?.textContent?.trim()) {
@@ -361,11 +399,16 @@ function extractFromAts(doc, pageUrl) {
 
 // 3. KATMAN: OpenGraph, Meta Etiketleri ve Sayfa İçi Sezgisel Analiz
 function extractFromMeta(doc, pageUrl) {
-  const getMeta = (selector) => doc.querySelector(selector)?.getAttribute("content")?.trim() || null;
+  const getMeta = (selector) =>
+    doc.querySelector(selector)?.getAttribute("content")?.trim() || null;
 
-  const ogTitle = getMeta('meta[property="og:title"]') || getMeta('meta[name="twitter:title"]');
+  const ogTitle =
+    getMeta('meta[property="og:title"]') ||
+    getMeta('meta[name="twitter:title"]');
   const siteName = getMeta('meta[property="og:site_name"]');
-  const description = getMeta('meta[name="description"]') || getMeta('meta[property="og:description"]');
+  const description =
+    getMeta('meta[name="description"]') ||
+    getMeta('meta[property="og:description"]');
 
   const rawTitle = ogTitle || doc.title || "";
   const parsed = parseTitleAndOrg(rawTitle);
@@ -413,7 +456,9 @@ function wrapDoc(docOrSnapshot) {
     readingTimeMinutes,
     querySelectorAll(selector) {
       if (selector === 'script[type="application/ld+json"]') {
-        return scripts.map((s) => ({ textContent: typeof s === "string" ? s : JSON.stringify(s) }));
+        return scripts.map((s) => ({
+          textContent: typeof s === "string" ? s : JSON.stringify(s),
+        }));
       }
       return [];
     },
@@ -423,7 +468,9 @@ function wrapDoc(docOrSnapshot) {
         const nameMatch = selector.match(/name="([^"]+)"/);
         const key = propMatch?.[1] || nameMatch?.[1];
         if (key && metas[key]) {
-          return { getAttribute: (attr) => (attr === "content" ? metas[key] : null) };
+          return {
+            getAttribute: (attr) => (attr === "content" ? metas[key] : null),
+          };
         }
       }
       if (elements[selector]) {
@@ -441,21 +488,31 @@ function wrapDoc(docOrSnapshot) {
 
 // Aktif sekmede executeScript ile koşturulabilen DOM toplayıcı
 export function collectPageDom() {
-  const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]')).map(
-    (s) => s.textContent
-  );
+  const scripts = Array.from(
+    document.querySelectorAll('script[type="application/ld+json"]'),
+  )
+    .slice(0, 8)
+    .map((s) => s.textContent.slice(0, 4000));
   const metas = {};
-  for (const el of document.querySelectorAll("meta[property], meta[name]")) {
+  for (const el of Array.from(
+    document.querySelectorAll("meta[property], meta[name]"),
+  ).slice(0, 80)) {
     const key = el.getAttribute("property") || el.getAttribute("name");
-    if (key) metas[key] = el.getAttribute("content");
+    if (key)
+      metas[key.slice(0, 120)] = (el.getAttribute("content") || "").slice(
+        0,
+        500,
+      );
   }
 
-  const selectedText = window.getSelection ? window.getSelection().toString().trim() : "";
+  const selectedText = window.getSelection
+    ? window.getSelection().toString().trim().slice(0, 6000)
+    : "";
   const faviconEl = document.querySelector('link[rel~="icon"]');
-  const favicon = faviconEl ? faviconEl.href : `${window.location.origin}/favicon.ico`;
-  const bodyText = document.body ? document.body.innerText || "" : "";
-  const wordCount = bodyText.trim().split(/\s+/).filter(Boolean).length;
-  const readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
+  const favicon = faviconEl
+    ? faviconEl.href
+    : `${window.location.origin}/favicon.ico`;
+  const readingTimeMinutes = null; // Full-page text is intentionally not collected.
 
   const selectors = [
     ".app-title",
@@ -496,8 +553,8 @@ export function collectPageDom() {
       const el = document.querySelector(sel);
       if (el) {
         elements[sel] = {
-          text: el.textContent?.trim() || "",
-          html: el.innerHTML || "",
+          text: (el.textContent?.trim() || "").slice(0, 1200),
+          html: "", // text-only bounded snapshot; never transmit page HTML.
         };
       }
     } catch {}
@@ -505,8 +562,11 @@ export function collectPageDom() {
 
   return {
     url: window.location.href,
-    title: document.title,
+    title: document.title.slice(0, 300),
     scripts,
+    officialDocuments: Array.from(document.querySelectorAll('a[href$=".pdf"]'))
+      .slice(0, 3)
+      .map((a) => a.href.slice(0, 4000)),
     metas,
     elements,
     selectedText,
@@ -535,16 +595,27 @@ export function extractPageMetadata(docOrSnapshot, pageUrl) {
 
   const getMeta = (names) => {
     for (const name of names) {
-      const el = doc.querySelector(`meta[property="${name}"]`) || doc.querySelector(`meta[name="${name}"]`);
+      const el =
+        doc.querySelector(`meta[property="${name}"]`) ||
+        doc.querySelector(`meta[name="${name}"]`);
       const content = el?.getAttribute?.("content");
       if (content && content.trim()) return content.trim();
     }
     return "";
   };
 
-  const description = getMeta(["og:description", "description", "twitter:description"]);
+  const description = getMeta([
+    "og:description",
+    "description",
+    "twitter:description",
+  ]);
   const image = getMeta(["og:image", "og:image:secure_url", "twitter:image"]);
-  const author = getMeta(["author", "article:author", "twitter:creator", "byl"]);
+  const author = getMeta([
+    "author",
+    "article:author",
+    "twitter:creator",
+    "byl",
+  ]);
 
   return {
     title,
@@ -604,4 +675,52 @@ export function extractJobDetails(docOrSnapshot, pageUrl) {
   // 3. Adım: Meta Veriler & Heuristics
   const meta = extractFromMeta(doc, effectiveUrl);
   return { ...meta, url: effectiveUrl };
+}
+
+/** Academic capture is explicitly selected; ATS heuristics do not determine its type. */
+export function extractAnnouncement(snapshot, pageUrl) {
+  const metas = snapshot?.metas ?? {};
+  let article = {};
+  for (const script of snapshot?.scripts ?? []) {
+    try {
+      const data = JSON.parse(script);
+      const entries = Array.isArray(data) ? data : (data["@graph"] ?? [data]);
+      const match = entries.find((x) =>
+        ["Article", "NewsArticle", "ScholarlyArticle"].includes(x["@type"]),
+      );
+      if (match) {
+        article = match;
+        break;
+      }
+    } catch {}
+  }
+  const date = article.datePublished ?? metas["article:published_time"];
+  const validDate =
+    typeof date === "string" &&
+    /T.*(Z|[+-]\d\d:\d\d)$/.test(date) &&
+    Number.isFinite(Date.parse(date))
+      ? date
+      : null;
+  const publisher = article.publisher?.name;
+  const documentUrl =
+    snapshot?.officialDocuments?.find((url) => {
+      try {
+        return ["http:", "https:"].includes(new URL(url).protocol);
+      } catch {
+        return false;
+      }
+    }) ?? null;
+  return {
+    title: String(
+      article.headline ?? metas["og:title"] ?? snapshot?.title ?? "",
+    ).slice(0, 300),
+    organization:
+      typeof publisher === "string" ? publisher.slice(0, 300) : null,
+    url: pageUrl,
+    published_at: validDate,
+    deadline_at: null,
+    official_document_url: documentUrl,
+    sourceLabel:
+      "Sayfa yayın metaverisi · resmîlik kullanıcı doğrulaması gerektirir",
+  };
 }

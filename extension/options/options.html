@@ -22,12 +22,16 @@
         --radius-md: 6px;
         --radius-lg: 8px;
       }
-      * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
       body {
         max-width: 520px;
         margin: 48px auto;
         padding: 24px;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
         font-size: 14px;
         line-height: 1.5;
         background-color: var(--bg-canvas);
@@ -62,7 +66,10 @@
         font-size: 13px;
         margin: 0 0 20px 0;
       }
-      form { display: grid; gap: 14px; }
+      form {
+        display: grid;
+        gap: 14px;
+      }
       label {
         font-size: 12px;
         font-weight: 600;
@@ -73,14 +80,17 @@
       input {
         width: 100%;
         padding: 10px 12px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         font-size: 13px;
         background: var(--bg-surface-sunken);
         color: var(--text-primary);
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-md);
         outline: none;
-        transition: border-color 0.15s, box-shadow 0.15s;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
       }
       input:focus {
         border-color: var(--border-accent);
@@ -98,7 +108,9 @@
         cursor: pointer;
         transition: background 0.15s;
       }
-      button:hover { background: var(--accent-hover); }
+      button:hover {
+        background: var(--accent-hover);
+      }
       #status {
         margin: 4px 0 0 0;
         min-height: 1.5em;
@@ -112,10 +124,20 @@
       <div class="header">
         <h1>fork<span>OS</span> Sunucu Ayarları</h1>
       </div>
-      <p class="subtitle">OrbStack, Podman VM veya yerel API adresini belirle.</p>
+      <p class="subtitle">
+        OrbStack, Podman VM veya yerel API adresini belirle.
+      </p>
       <form id="server-form">
         <label for="api-base">API Adresi</label>
-        <input id="api-base" type="url" required placeholder="http://127.0.0.1:8787/api" />
+        <input
+          id="api-base"
+          type="url"
+          required
+          placeholder="http://127.0.0.1:8787/api"
+        />
+        <label for="web-base"
+          >Web uygulaması adresi (API portundan bağımsız)</label
+        ><input id="web-base" type="url" required />
         <button type="submit">Kaydet ve İzin Ver</button>
         <p id="status" role="status"></p>
       </form>
