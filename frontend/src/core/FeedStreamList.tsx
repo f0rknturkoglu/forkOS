@@ -1,4 +1,4 @@
-import { Flame, Github, MessageSquare, Rss, Star, TrendingUp } from "lucide-react";
+import { BookOpen, Flame, Github, MessageSquare, Rss, Star, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { navigate } from "@/app/router";
 import { Button, RowList, cx, relativeTime } from "@/core/ui";
@@ -13,6 +13,7 @@ import type { FeedOrigin, StreamItem } from "./feedStream";
 /** Kaynak kimliği: ikon + renk. Renkler markadan gelir (semantik değil),
  *  index.css'te --feed-* olarak tanımlı. */
 const ORIGIN: Record<FeedOrigin, { icon: LucideIcon; text: string }> = {
+  hf: { icon: BookOpen, text: "text-accent" },
   rss: { icon: Rss, text: "text-feed-rss" },
   reddit: { icon: MessageSquare, text: "text-feed-reddit" },
   hn: { icon: Flame, text: "text-feed-hn" },
@@ -111,7 +112,7 @@ export function FeedStreamList({ items, empty }: { items: StreamItem[]; empty?: 
   );
 }
 
-function technologyChip(language: string): string {
+export function technologyChip(language: string): string {
   const key = language
     .toLowerCase()
     .replace(/\+/g, "p")

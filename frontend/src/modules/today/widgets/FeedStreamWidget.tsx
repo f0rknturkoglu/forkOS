@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FeedStreamList, FeedSourceFailures } from "@/core/FeedStreamList";
-import { FEED_FILTERS, useFeedStream, type FeedFilter } from "@/core/feedStream";
+import { useFeedStream, type FeedFilter } from "@/core/feedStream";
 import { Section, cx } from "@/core/ui";
 
 /**
@@ -19,7 +19,7 @@ export function FeedStreamWidget() {
       title="Okuma akışı"
       hint={
         <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-          {FEED_FILTERS.map((option) => (
+          {stream.available.map((option) => (
             <button
               key={option.id}
               type="button"

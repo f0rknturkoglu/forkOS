@@ -415,15 +415,17 @@ export function TopicDetail({
           <Button disabled={!online || createTodo.isPending} onClick={() => createTodo.mutate()}>
             <ListPlus size={14} /> Görev oluştur
           </Button>
-          <Button
-            disabled={!online}
-            onClick={() => {
-              setAddResourceSignal((count) => count + 1);
-              onTabChange("kaynaklar");
-            }}
-          >
-            <ScrollText size={14} /> Kaynak ekle
-          </Button>
+          <span data-onboarding="learning-resource">
+            <Button
+              disabled={!online}
+              onClick={() => {
+                setAddResourceSignal((count) => count + 1);
+                onTabChange("kaynaklar");
+              }}
+            >
+              <ScrollText size={14} /> Kaynak ekle
+            </Button>
+          </span>
           <Button disabled={!online} onClick={() => setSubTopicOpen(true)}>
             <Baby size={14} /> Alt konu ekle
           </Button>

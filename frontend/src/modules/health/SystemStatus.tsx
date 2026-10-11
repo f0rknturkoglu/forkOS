@@ -21,6 +21,7 @@
  * /agent/status, /obsidian/status, /proactivity/status, /execution/plans.
  */
 import { useState } from "react";
+import { useExperience } from "@/core/onboarding/experience";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw, Stethoscope } from "lucide-react";
 import { api } from "@/core/api";
@@ -388,6 +389,7 @@ function attentionItems(input: {
 /* ── Sorgular + özet (tek okuma noktası) ──────────────────────────────── */
 
 export function useHealthSummary(): HealthSummary {
+  const experience = useExperience();
   const stats = useSystemStats();
   const runs = useSourceHealth();
   const coverage = useQuery({
@@ -419,7 +421,8 @@ export function useHealthSummary(): HealthSummary {
   const coverageRows = coverage.data ?? [];
   const sourceProblems = coverageRows.filter((row) => isProblem(row));
   const feedRows = feeds.data ?? [];
-  const feedAttention = feedRows.filter((feed) => feedStateView(feed).attention);
+  const feedAttention =
+    experience.data?.feed.rss_enabled === false ? [] : feedRows.filter((feed) => feedStateView(feed).attention);
   const vaultView = describeVaultState(vault.data, vault.isError);
   const h4Row = agent.data?.local_cognition;
   const h4View = h4Row ? localModelSummary(h4Row) : null;
@@ -458,7 +461,9 @@ export function useHealthSummary(): HealthSummary {
     decisionsResultDegraded;
 
   const failingFeeds =
-    rssStats.data?.failing_feeds ?? (rssStats.isError || feeds.isError ? null : feedAttention.length);
+    experience.data?.feed.rss_enabled === false
+      ? 0
+      : (rssStats.data?.failing_feeds ?? (rssStats.isError || feeds.isError ? null : feedAttention.length));
 
   const statsData = stats.data;
   const backupData = backup.data;

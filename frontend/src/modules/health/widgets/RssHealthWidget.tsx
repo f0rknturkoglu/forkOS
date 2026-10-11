@@ -1,3 +1,4 @@
+import { useExperience, openSourceDiscovery } from "@/core/onboarding/experience";
 import { invalidateAfter } from "@/core/invalidation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertTriangle, RefreshCw } from "lucide-react";
@@ -24,6 +25,7 @@ const TONE_RANK = { danger: 0, warn: 1, accent: 2, neutral: 3, ok: 4 } as const;
  *    acikca yazilir (`SectionFallback`).
  */
 export function RssHealthWidget() {
+  const experience = useExperience();
   const online = useOnline();
   const toast = useToast();
 
@@ -64,6 +66,18 @@ export function RssHealthWidget() {
   const attention = rows.filter((row) => row.view.attention).length;
   /** Raporlanacak satirlar: saglikli olanlar listede tekrar edilmez. */
   const listed = rows.filter((row) => row.view.tone !== "ok");
+
+  if (experience.data?.feed.rss_enabled === false)
+    return (
+      <Section title="RSS Sağlığı">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-meta text-muted">
+          <span>RSS yenilemesi kapalı · abonelikler ve geçmiş korunuyor</span>
+          <Button size="sm" onClick={openSourceDiscovery}>
+            Kaynakları seç
+          </Button>
+        </div>
+      </Section>
+    );
 
   return (
     <Section

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, streamGoalStudio } from "@/core/api";
 import { Button, Field, Input, Textarea, Select } from "@/core/ui";
@@ -36,11 +36,13 @@ export function GoalStudio({
   goals,
   onClose,
   assistanceContext,
+  initialMessage,
 }: {
   goalId: string | null;
   goals: { id: string; title: string }[];
   onClose: () => void;
   assistanceContext?: AssistanceContext;
+  initialMessage?: string;
 }) {
   const storageKey = assistanceContext
     ? "assistance.session." + JSON.stringify(assistanceContext)
@@ -48,7 +50,9 @@ export function GoalStudio({
   const [context, setContext] = useState(goalId ?? "");
   const [session, setSession] = useState<Session | null>(null);
   const [resume, setResume] = useState(() => readStored(storageKey) ?? "");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialMessage ?? "");
+  const firstSent = useRef(false);
+  const creationUuid = useRef(crypto.randomUUID());
   const [pendingTurn, setPendingTurn] = useState<{ client_uuid: string; message: string } | null>(null);
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
@@ -114,12 +118,29 @@ export function GoalStudio({
     };
   }, [session?.id, running]);
   const send = () => {
-    if (!session || !message.trim()) return;
+    if (!message.trim() || status.data?.state !== "ready") return;
     const turn = { client_uuid: crypto.randomUUID(), message: message.trim() };
-    setPendingTurn(turn);
-    setMessage("");
-    run(() => api.post<Session>(`/goals/studio/sessions/${session.id}/turns`, turn));
+    setError("");
+    mutation.mutate(async () => {
+      const current =
+        session ??
+        (await api.post<Session>("/goals/studio/sessions", {
+          client_uuid: creationUuid.current,
+          ...(assistanceContext ? { context: assistanceContext } : { goal_id: context || null }),
+        }));
+      if (JSON.stringify(current.context ?? null) !== JSON.stringify(assistanceContext ?? null))
+        throw new Error("Görüşme bağlamı değişti; yeniden aç.");
+      adopt(current);
+      setPendingTurn(turn);
+      setMessage("");
+      return api.post<Session>(`/goals/studio/sessions/${current.id}/turns`, turn);
+    });
   };
+  useEffect(() => {
+    if (!initialMessage || firstSent.current || status.data?.state !== "ready") return;
+    firstSent.current = true;
+    send();
+  }, [initialMessage, status.data?.state]);
   const changeTitle = (index: number, title: string) =>
     setProposal((old) =>
       old
@@ -148,9 +169,11 @@ export function GoalStudio({
             ? "Hermes durumu alınamadı; yerel özet ve normal işlemleri kullanabilirsin."
             : "Bağlantı kontrol ediliyor…")}
       </p>
-      <Button disabled={status.isFetching} onClick={() => void status.refetch()}>
-        Bağlantıyı yeniden kontrol et
-      </Button>
+      {status.data?.state !== "ready" && (
+        <Button disabled={status.isFetching} onClick={() => void status.refetch()}>
+          Bağlantıyı yeniden kontrol et
+        </Button>
+      )}
       <details className="text-meta text-muted">
         <summary>Bağlam ve gizlilik</summary>
         <p>
@@ -158,7 +181,7 @@ export function GoalStudio({
           Hafıza adayları ve günlük gövdeleri otomatik gönderilmez. Sohbet onay sayılmaz.
         </p>
       </details>
-      {!session && (
+      {!session && !initialMessage && (
         <div className="flex flex-wrap items-end gap-2">
           {!assistanceContext && (
             <Field label="Görüşme bağlamı">
@@ -177,7 +200,7 @@ export function GoalStudio({
             onClick={() =>
               run(() =>
                 api.post<Session>("/goals/studio/sessions", {
-                  client_uuid: crypto.randomUUID(),
+                  client_uuid: creationUuid.current,
                   ...(assistanceContext ? { context: assistanceContext } : { goal_id: context || null }),
                 }),
               )
@@ -200,6 +223,28 @@ export function GoalStudio({
           {error}
         </p>
       )}
+      {!session && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            send();
+          }}
+          className="flex flex-wrap gap-2"
+        >
+          <Input ariaLabel="Hermes mesajı" value={message} onChange={setMessage} className="min-w-0 flex-1" />
+          <Button type="submit" disabled={mutation.isPending || status.data?.state !== "ready" || !message.trim()}>
+            Hermes’e gönder
+          </Button>
+        </form>
+      )}
+      {error && session && pendingTurn && session.state !== "running" && (
+        <Button
+          disabled={mutation.isPending}
+          onClick={() => run(() => api.post<Session>(`/goals/studio/sessions/${session.id}/turns`, pendingTurn))}
+        >
+          Gönderimi yeniden dene
+        </Button>
+      )}
       {session && (
         <>
           <div className="flex flex-wrap gap-2">
@@ -211,6 +256,7 @@ export function GoalStudio({
               onClick={() => {
                 setSession(null);
                 setProposal(null);
+                creationUuid.current = crypto.randomUUID();
               }}
             >
               Yeni görüşme

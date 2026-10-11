@@ -192,7 +192,7 @@ export function TodoPage() {
           ) : null}
         </WorkspacePaneHeader>
         <PlanViews view={path === "/habits" ? "routines" : "tasks"} />
-        <div className="border-b border-subtle bg-surface-sunken p-3">
+        <div data-onboarding="todo-create" className="border-b border-subtle bg-surface-sunken p-3">
           <TodoComposer defaultRecurring={path === "/habits"} />
         </div>
         <WorkspaceScrollArea className="stack-y-3 p-3">

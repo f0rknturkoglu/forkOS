@@ -105,7 +105,7 @@ export function ProjectsPage() {
       {isLoading ? (
         <SkeletonRows rows={6} />
       ) : projects.length === 0 ? (
-        <div className="stack-y-4">
+        <div data-onboarding="project-create" className="stack-y-4">
           <Empty
             variant="page"
             title="Henüz proje yok"
@@ -205,7 +205,12 @@ export function ProjectsPage() {
             }
           />
           <WorkspaceScrollArea className="p-4">
-            <div id="project-view" role="tabpanel" className="mx-auto max-w-4xl stack-y-4">
+            <div
+              data-onboarding="project-create"
+              id="project-view"
+              role="tabpanel"
+              className="mx-auto max-w-4xl stack-y-4"
+            >
               <ContextualHelp
                 key={current.id}
                 context={{ kind: "project", entity_id: current.id }}

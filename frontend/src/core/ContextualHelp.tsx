@@ -29,31 +29,59 @@ function tomorrow() {
   return localDateKey(date);
 }
 
-/** Deliberate user action only: no requests or model calls while the entry is closed. */
+/** Local summary is visible; Hermes is contacted only after an explicit message. */
 export function ContextualHelp({ context, label }: { context: AssistanceContext; label: string }) {
-  const [open, setOpen] = useState(false);
-  const entry = useRef<HTMLDivElement>(null);
+  const [message, setMessage] = useState("");
+  const [chat, setChat] = useState<string | null>(null);
+  const [summary, setSummary] = useState(true);
+  const online = useOnline();
   return (
-    <div ref={entry} className="stack-y-2">
-      <Button size="sm" ariaExpanded={open} onClick={() => setOpen((value) => !value)}>
-        {label}
-      </Button>
-      {open && (
-        <ContextSummary
-          key={JSON.stringify(context)}
-          context={context}
-          onClose={() => {
-            setOpen(false);
-            entry.current?.querySelector("button")?.focus();
+    <div className="min-w-0 stack-y-3">
+      {summary ? (
+        <ContextSummary key={JSON.stringify(context)} context={context} onClose={() => setSummary(false)} />
+      ) : (
+        <Button size="sm" onClick={() => setSummary(true)}>
+          {label}
+        </Button>
+      )}
+      {chat === null ? (
+        <form
+          className="flex min-w-0 items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (message.trim() && online) setChat(message.trim());
           }}
-        />
+        >
+          <Input
+            ariaLabel="Hermes'e sor"
+            placeholder="Hermes’e sor…"
+            value={message}
+            onChange={(value) => setMessage(value.slice(0, 6000))}
+            className="min-w-0 flex-1"
+          />
+          <Button type="submit" disabled={!online || !message.trim()}>
+            Gönder
+          </Button>
+        </form>
+      ) : (
+        <Suspense fallback={<SkeletonRows rows={2} />}>
+          <GoalStudio
+            goalId={null}
+            goals={[]}
+            assistanceContext={context}
+            initialMessage={chat}
+            onClose={() => {
+              setChat(null);
+              setMessage("");
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );
 }
 
 function ContextSummary({ context, onClose }: { context: AssistanceContext; onClose: () => void }) {
-  const [chat, setChat] = useState(false);
   const query = useQuery({
     queryKey: [
       {
@@ -95,7 +123,7 @@ function ContextSummary({ context, onClose }: { context: AssistanceContext; onCl
               </p>
             )}
             <ul className="list-inside list-disc stack-y-2 text-body">
-              {(data.facts ?? []).map((fact, i) => (
+              {(data.facts ?? []).slice(0, 3).map((fact, i) => (
                 <li key={i} className="break-words">
                   {fact.status === "candidate"
                     ? "Kayıtlı beyan / öneri: "
@@ -109,6 +137,16 @@ function ContextSummary({ context, onClose }: { context: AssistanceContext; onCl
                 </li>
               ))}
             </ul>
+            {(data.facts ?? []).length > 3 && (
+              <details className="text-meta">
+                <summary>Özetin tamamı</summary>
+                <ul className="mt-2 stack-y-2">
+                  {(data.facts ?? []).slice(3).map((fact, i) => (
+                    <li key={i}>{fact.text}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
             {(data.warnings ?? []).length > 0 && (
               <details className="text-meta text-warn">
                 <summary>Kaynak sınırları ve eksikler ({(data.warnings ?? []).length})</summary>
@@ -121,7 +159,7 @@ function ContextSummary({ context, onClose }: { context: AssistanceContext; onCl
             )}
             {(data.links ?? []).length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                {(data.links ?? []).slice(0, 6).map((link) => (
+                {(data.links ?? []).slice(0, 3).map((link) => (
                   <a
                     key={link.id}
                     className="rounded-control border border-subtle px-2 py-1 text-meta text-accent"
@@ -159,12 +197,6 @@ function ContextSummary({ context, onClose }: { context: AssistanceContext; onCl
               </ul>
             </details>
             <ContextMemory candidates={data.memory_candidates ?? []} sources={data.sources ?? []} />
-            {!chat && <Button onClick={() => setChat(true)}>Bunun hakkında konuş</Button>}
-            {chat && (
-              <Suspense fallback={<SkeletonRows rows={2} />}>
-                <GoalStudio goalId={null} goals={[]} assistanceContext={context} onClose={() => setChat(false)} />
-              </Suspense>
-            )}
           </div>
         )
       )}

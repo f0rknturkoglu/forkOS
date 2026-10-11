@@ -226,52 +226,54 @@ export function LearningPage() {
 
   const rail = (
     <WorkspaceRailContent>
-      <LearningRail
-        online={online}
-        areas={areas}
-        areasState={areasQuery.isPending ? "loading" : areasQuery.isError ? "error" : "ready"}
-        onRetryAreas={() => void areasQuery.refetch()}
-        areaId={areaId}
-        onSelectArea={selectArea}
-        areaQuery={areaQuery}
-        onAreaQuery={setAreaQuery}
-        includeArchived={includeArchived}
-        onIncludeArchived={setIncludeArchived}
-        selectedArea={selectedArea}
-        onManageAreas={() => setManageOpen(true)}
-        topicQuery={topicQuery}
-        onTopicQuery={setTopicQuery}
-        statusFilter={statusFilter}
-        onStatusFilter={setStatusFilter}
-        quickFilter={quickFilter}
-        onQuickFilter={setQuickFilter}
-        quickCounts={quickCounts}
-        tree={tree}
-        treeState={!areaId ? "ready" : treeQuery.isPending ? "loading" : treeQuery.isError ? "error" : "ready"}
-        onRetryTree={() => void treeQuery.refetch()}
-        nodes={visibleNodes}
-        filtered={filtered}
-        selectedId={focusId}
-        revealPath={revealPath}
-        onSelectTopic={selectTopic}
-        onTaskTopic={(node: StudyTreeNode) => createTask.mutate({ id: node.id, title: node.title })}
-        onFocusTopic={(node: StudyTreeNode) => openPomodoro({ context: node.id, topic: node.title })}
-        newTopicTitle={newTopicTitle}
-        onNewTopicTitle={setNewTopicTitle}
-        newTopicRoot={newTopicRoot}
-        onNewTopicRoot={setNewTopicRoot}
-        parentTitle={newTopicRoot ? undefined : detail?.topic.title}
-        onAddTopic={() => createTopic.mutate(newTopicRoot ? null : focusId || null)}
-        addPending={createTopic.isPending}
-        manageOpen={manageOpen}
-        onManageClose={() => setManageOpen(false)}
-        onRenameArea={(id, title) => patchArea.mutate({ id, body: { title } })}
-        onColorArea={(id, color) => patchArea.mutate({ id, body: { color: color || null } })}
-        onArchiveArea={(id, archived) => patchArea.mutate({ id, body: { archived } })}
-        onDeleteArea={(area) => void confirmRemoveArea(area)}
-        onCreateArea={(title) => createArea.mutate(title)}
-        areaPending={patchArea.isPending || removeArea.isPending || createArea.isPending}
-      />
+      <div data-onboarding="learning-create">
+        <LearningRail
+          online={online}
+          areas={areas}
+          areasState={areasQuery.isPending ? "loading" : areasQuery.isError ? "error" : "ready"}
+          onRetryAreas={() => void areasQuery.refetch()}
+          areaId={areaId}
+          onSelectArea={selectArea}
+          areaQuery={areaQuery}
+          onAreaQuery={setAreaQuery}
+          includeArchived={includeArchived}
+          onIncludeArchived={setIncludeArchived}
+          selectedArea={selectedArea}
+          onManageAreas={() => setManageOpen(true)}
+          topicQuery={topicQuery}
+          onTopicQuery={setTopicQuery}
+          statusFilter={statusFilter}
+          onStatusFilter={setStatusFilter}
+          quickFilter={quickFilter}
+          onQuickFilter={setQuickFilter}
+          quickCounts={quickCounts}
+          tree={tree}
+          treeState={!areaId ? "ready" : treeQuery.isPending ? "loading" : treeQuery.isError ? "error" : "ready"}
+          onRetryTree={() => void treeQuery.refetch()}
+          nodes={visibleNodes}
+          filtered={filtered}
+          selectedId={focusId}
+          revealPath={revealPath}
+          onSelectTopic={selectTopic}
+          onTaskTopic={(node: StudyTreeNode) => createTask.mutate({ id: node.id, title: node.title })}
+          onFocusTopic={(node: StudyTreeNode) => openPomodoro({ context: node.id, topic: node.title })}
+          newTopicTitle={newTopicTitle}
+          onNewTopicTitle={setNewTopicTitle}
+          newTopicRoot={newTopicRoot}
+          onNewTopicRoot={setNewTopicRoot}
+          parentTitle={newTopicRoot ? undefined : detail?.topic.title}
+          onAddTopic={() => createTopic.mutate(newTopicRoot ? null : focusId || null)}
+          addPending={createTopic.isPending}
+          manageOpen={manageOpen}
+          onManageClose={() => setManageOpen(false)}
+          onRenameArea={(id, title) => patchArea.mutate({ id, body: { title } })}
+          onColorArea={(id, color) => patchArea.mutate({ id, body: { color: color || null } })}
+          onArchiveArea={(id, archived) => patchArea.mutate({ id, body: { archived } })}
+          onDeleteArea={(area) => void confirmRemoveArea(area)}
+          onCreateArea={(title) => createArea.mutate(title)}
+          areaPending={patchArea.isPending || removeArea.isPending || createArea.isPending}
+        />
+      </div>
     </WorkspaceRailContent>
   );
 
@@ -382,7 +384,7 @@ export function LearningPage() {
 
   return (
     <PageFrame className="stack-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-onboarding="learning-review" className="flex flex-wrap items-center gap-2">
         <Tabs
           value={view}
           onChange={(next) => writeUrl({ view: next })}

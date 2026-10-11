@@ -1,28 +1,18 @@
-/**
- * Okuma akışı — RSS + Reddit + Hacker News + GitHub Trending TEK listede.
- *
- * Dört kaynak da aynı soruyu cevaplıyor ("bugün okunacak ne var?"), bu yüzden
- * ayrı kutular değil tek akış. Bu modül akışın TEK uygulamasıdır: Home widget'ı
- * (`today.feed-stream`) ve Okuma Akışı sayfası (`/feed`) aynı sorguları,
- * aynı birleştirme/kota kurallarını ve aynı hata semantiğini paylaşır.
- *
- * Dış kaynakların tamamı backend'den geçer: source_run sağlık kaydı, timeout,
- * çevrimdışı PWA önbelleği ve hız sınırı tek yerde uygulanır.
- */
+/** Canonical reading feed. Eligibility is established before any provider query mounts. */
+import { safeReadingUrl } from "@/core/readerHtml";
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import { useRssStats } from "@/core/runtimeQueries";
 import { hostOf } from "@/core/ui";
 import type { FeedItem, RedditPost } from "@/core/types";
+import { useExperience } from "@/core/onboarding/experience";
 
-export type FeedOrigin = "rss" | "reddit" | "hn" | "gh";
+export type FeedOrigin = "rss" | "reddit" | "hn" | "gh" | "hf";
 export type FeedFilter = "all" | FeedOrigin;
-
 export interface StreamItem {
   key: string;
   origin: FeedOrigin;
   title: string;
-  /** RSS satırı yerel okuyucuya gider (href yok), ötekiler dışarıya. */
   href: string | null;
   source: string;
   subtitle: string | null;
@@ -30,19 +20,26 @@ export interface StreamItem {
   score: number | null;
   scoreIcon: "points" | "stars" | null;
   commentsUrl: string | null;
+  commentCount?: number | null;
   at: number;
   unread: boolean;
+  entityId?: string;
+  savedBookmarkId?: string;
+  feedId?: string;
+  canonicalUrl?: string | null;
+  authors?: string[];
+  featuredAt?: string | null;
+  paperId?: string;
+  arxivUrl?: string;
 }
-
 interface HnStory {
   objectID: string;
   title: string;
   url: string | null;
   points: number | null;
-  num_comments: number | null;
   created_at: string;
+  num_comments?: number | null;
 }
-
 interface Repo {
   full_name: string;
   html_url: string;
@@ -51,185 +48,227 @@ interface Repo {
   language: string | null;
   created_at: string;
 }
-
-const HN_ITEM = "https://news.ycombinator.com/item?id=";
-
-/** Akışta gösterilecek azami satır. */
-const FEED_STREAM_LIMIT = 15;
-
-/** Kaynak başına yoklama kotası; sayfa biraz daha geniş liste ister. */
-const PAGE_SIZE = {
-  rss: 20,
-  reddit: 25,
-  hn: 25,
-  gh: 15,
-} as const;
-
+interface Paper {
+  id: string;
+  title: string;
+  url: string;
+  authors: string[];
+  summary: string | null;
+  published_at: string | null;
+  featured_at: string | null;
+  arxiv_url: string;
+  upvotes: number;
+  num_comments: number;
+}
 export const FEED_FILTERS: { id: FeedFilter; label: string }[] = [
   { id: "all", label: "Tümü" },
   { id: "rss", label: "RSS" },
   { id: "reddit", label: "Reddit" },
   { id: "hn", label: "Hacker News" },
-  { id: "gh", label: "GitHub" },
+  { id: "gh", label: "GitHub · Yeni ve Popüler" },
+  { id: "hf", label: "Papers" },
 ];
-
-interface FeedSource {
-  origin: FeedOrigin;
-  label: string;
-  failed: boolean;
-  retry: () => void;
+const hnItem = "https://news.ycombinator.com/item?id=";
+/** Fair round robin: a busy provider cannot erase a quieter provider. URL identity spans providers. */
+export function composeFeed(groups: StreamItem[][], limit: number): StreamItem[] {
+  const seen = new Set<string>();
+  const output: StreamItem[] = [];
+  for (let index = 0; index < Math.max(0, ...groups.map((group) => group.length)) && output.length < limit; index++) {
+    for (const group of groups) {
+      const item = group[index];
+      if (!item || output.length >= limit) continue;
+      const key = canonicalIdentity(item.canonicalUrl || item.href || item.key);
+      if (!seen.has(key)) {
+        seen.add(key);
+        output.push(item);
+      }
+    }
+  }
+  return output;
 }
-
-interface FeedStreamState {
-  filter: FeedFilter;
-  items: StreamItem[];
-  sources: FeedSource[];
-  failures: FeedSource[];
-  /** Seçili filtrenin verisi hâlâ yükleniyor mu. */
-  loading: boolean;
-  unread: number | null;
+function canonicalIdentity(value: string) {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    const paper =
+      (url.hostname === "arxiv.org" || url.hostname === "huggingface.co") &&
+      url.pathname.match(/^\/(?:abs|papers)\/(\d{4}\.\d{4,5})(?:v\d+)?$/);
+    if (paper) return "paper:" + paper[1];
+    for (const key of [...url.searchParams.keys()])
+      if (key.startsWith("utm_") || key === "ref") url.searchParams.delete(key);
+    return url.href.replace(/\/$/, "");
+  } catch {
+    return value;
+  }
 }
-
-/** Akışın veri katmanı: iki yüzey de bunu kullanır (§10). */
-export function useFeedStream(filter: FeedFilter): FeedStreamState {
-  const selected = (origin: FeedOrigin) => filter === "all" || filter === origin;
-  const settings = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => api.get<Record<string, unknown>>("/settings"),
-    enabled: selected("reddit"),
+export function useFeedStream(filter: FeedFilter, options: { limit?: number; bundleId?: string; date?: string } = {}) {
+  const experience = useExperience();
+  const prefs = experience.isError ? undefined : experience.data?.feed;
+  const bundle = prefs?.bundles.find((item) => item.id === options.bundleId);
+  const eligible = (origin: FeedOrigin) =>
+    Boolean(
+      prefs &&
+      (origin === "rss" ? prefs.rss_enabled : prefs.providers.includes(origin)) &&
+      (filter === "all" || filter === origin) &&
+      (!bundle || bundle.channels.includes(origin) || (origin === "rss" && bundle.feed_ids.length > 0)),
+    );
+  const rss = useQuery({
+    queryKey: ["items", "panel", 100],
+    queryFn: () => api.get<FeedItem[]>(`/rss/items${qs({ limit: 100 })}`),
+    enabled: eligible("rss"),
     staleTime: 60_000,
   });
-  // Empty saved subreddit list is the existing opt-out; no new preference.
-  const subreddits = settings.data?.["news.subreddits"];
-  const redditEnabled =
-    selected("reddit") && !settings.isPending && !(Array.isArray(subreddits) && subreddits.length === 0);
-  const rssQuery = useQuery({
-    queryKey: ["items", "panel"],
-    queryFn: () => api.get<FeedItem[]>(`/rss/items${qs({ limit: PAGE_SIZE.rss })}`),
-    enabled: selected("rss"),
-    staleTime: 60_000,
-  });
-  // RSS ozeti PAYLASILAN hook'tan gelir: ayni ucun ikinci bir anahtari olmaz.
-  const statsQuery = useRssStats(selected("rss"));
-  const redditQuery = useQuery({
-    queryKey: ["reddit-news"],
-    enabled: redditEnabled,
-    queryFn: () => api.get<RedditPost[]>(`/news/reddit${qs({ limit: PAGE_SIZE.reddit })}`),
-    refetchInterval: 15 * 60_000,
+  const stats = useRssStats(eligible("rss"));
+  const reddit = useQuery({
+    queryKey: ["settings", "feed", "reddit", prefs?.subreddits],
+    enabled: eligible("reddit") && Boolean(prefs?.subreddits.length),
+    queryFn: () => api.get<RedditPost[]>("/news/reddit?limit=30"),
     staleTime: 10 * 60_000,
     retry: 1,
   });
-  const hnQuery = useQuery({
-    queryKey: ["hacker-news"],
-    enabled: selected("hn"),
-    queryFn: () => api.get<HnStory[]>(`/news/hacker-news${qs({ limit: PAGE_SIZE.hn })}`),
-    refetchInterval: 15 * 60_000,
-    staleTime: 10 * 60_000,
+  const hn = useQuery({
+    queryKey: ["settings", "feed", "hn"],
+    enabled: eligible("hn"),
+    queryFn: () => api.get<HnStory[]>("/news/hacker-news?limit=30"),
+    staleTime: 15 * 60_000,
+    retry: 1,
   });
-  const githubQuery = useQuery({
-    queryKey: ["github-trending"],
-    enabled: selected("gh"),
-    queryFn: () => api.get<Repo[]>(`/news/github-trending${qs({ limit: PAGE_SIZE.gh })}`),
-    refetchInterval: 6 * 3600_000,
-    staleTime: 3 * 3600_000,
+  const gh = useQuery({
+    queryKey: ["settings", "feed", "gh"],
+    enabled: eligible("gh"),
+    queryFn: () => api.get<Repo[]>("/news/github-trending?limit=30"),
+    staleTime: 6 * 3600_000,
+    retry: 1,
   });
-
-  const queries = { rss: rssQuery, reddit: redditQuery, hn: hnQuery, gh: githubQuery };
-  const sources: FeedSource[] = [
-    { origin: "rss", label: "RSS", failed: rssQuery.isError, retry: () => void rssQuery.refetch() },
-    { origin: "reddit", label: "Reddit", failed: redditQuery.isError, retry: () => void redditQuery.refetch() },
-    { origin: "hn", label: "Hacker News", failed: hnQuery.isError, retry: () => void hnQuery.refetch() },
-    { origin: "gh", label: "GitHub", failed: githubQuery.isError, retry: () => void githubQuery.refetch() },
-  ];
-
-  // Kaynak başına kota: RSS dakikada akarken diğerleri saatlik/günlük. Düz
-  // zaman sıralaması yapınca diğerleri listeden tamamen düşüyor -- önce her
-  // kaynaktan eşit sayıda alınır, sonra kendi aralarında sıralanır.
-  const perSource = filter === "all" ? 4 : 15;
-
-  // Aynı besleme arka arkaya on yazı bırakınca panel tek feed'e dönüyor:
-  // besleme başına en fazla iki (RSS görünümünde üç) yazı.
-  const perFeed = filter === "rss" ? 3 : 2;
-  const seen = new Map<string, number>();
-  const rssTop = (rssQuery.data ?? []).filter((item) => {
-    const count = seen.get(item.feed_id) ?? 0;
-    if (count >= perFeed) return false;
-    seen.set(item.feed_id, count + 1);
-    return true;
+  const hf = useQuery({
+    queryKey: ["settings", "feed", "hf", options.date ?? "latest"],
+    enabled: eligible("hf"),
+    queryFn: () => api.get<Paper[]>(`/news/huggingface-papers${qs({ limit: 30, date: options.date || undefined })}`),
+    staleTime: 24 * 3600_000,
+    retry: 1,
   });
-
-  const items: StreamItem[] = [
-    ...rssTop.slice(0, perSource).map((item) => ({
-      key: `rss-${item.id}`,
-      origin: "rss" as const,
-      title: item.title,
+  const rssCount = new Map<string, number>();
+  const rssItems = (rss.data ?? []).filter((item) => {
+    if (bundle?.feed_ids.length && !bundle.feed_ids.includes(item.feed_id)) return false;
+    const count = rssCount.get(item.feed_id) ?? 0;
+    rssCount.set(item.feed_id, count + 1);
+    return count < (filter === "rss" ? 15 : 5);
+  });
+  const groups: Record<FeedOrigin, StreamItem[]> = {
+    rss: rssItems.map((i) => ({
+      key: `rss-${i.id}`,
+      entityId: i.id,
+      savedBookmarkId: i.saved_bookmark_id ?? undefined,
+      feedId: i.feed_id,
+      origin: "rss",
+      title: i.title,
       href: null,
-      source: item.feed_title,
-      subtitle: null,
-      host: null,
+      canonicalUrl: i.url,
+      source: i.feed_title,
+      subtitle: i.summary,
+      host: i.url ? hostOf(i.url) : null,
       score: null,
       scoreIcon: null,
       commentsUrl: null,
-      at: new Date(item.published_at ?? item.fetched_at).getTime(),
-      unread: item.read_at === null,
+      at: Date.parse(i.published_at || i.fetched_at),
+      unread: !i.read_at,
     })),
-    ...(redditQuery.data ?? []).slice(0, perSource).map((post) => ({
-      key: `reddit-${post.id}`,
-      origin: "reddit" as const,
-      title: post.title,
-      href: post.url,
-      source: post.subreddit ? `r/${post.subreddit}` : "reddit",
+    reddit: (reddit.data ?? []).map((i) => ({
+      key: `reddit-${i.id}`,
+      origin: "reddit",
+      title: i.title,
+      href: i.url,
+      source: i.subreddit ? `r/${i.subreddit}` : "Reddit",
       subtitle: null,
-      host: post.url === post.comments_url ? null : hostOf(post.url),
+      host: hostOf(i.url),
       score: null,
       scoreIcon: null,
-      commentsUrl: post.comments_url,
-      at: post.published_at ? new Date(post.published_at).getTime() : 0,
+      commentsUrl: i.comments_url,
+      at: i.published_at ? Date.parse(i.published_at) : 0,
       unread: false,
     })),
-    ...(hnQuery.data ?? []).slice(0, perSource).map((story) => ({
-      key: `hn-${story.objectID}`,
-      origin: "hn" as const,
-      title: story.title,
-      href: story.url ?? HN_ITEM + story.objectID,
+    hn: (hn.data ?? []).map((i) => ({
+      key: `hn-${i.objectID}`,
+      origin: "hn",
+      title: i.title,
+      href: i.url || hnItem + i.objectID,
       source: "Hacker News",
       subtitle: null,
-      host: story.url ? hostOf(story.url) : null,
-      score: story.points,
-      scoreIcon: "points" as const,
-      commentsUrl: HN_ITEM + story.objectID,
-      at: new Date(story.created_at).getTime(),
+      host: i.url ? hostOf(i.url) : null,
+      score: i.points,
+      scoreIcon: "points",
+      commentsUrl: hnItem + i.objectID,
+      commentCount: i.num_comments,
+      at: Date.parse(i.created_at),
       unread: false,
     })),
-    ...(githubQuery.data ?? []).slice(0, perSource).map((repo) => ({
-      key: `gh-${repo.full_name}`,
-      origin: "gh" as const,
-      title: repo.full_name,
-      href: repo.html_url,
-      source: repo.language ?? "GitHub",
-      subtitle: repo.description,
-      host: null,
-      score: repo.stargazers_count,
-      scoreIcon: "stars" as const,
+    gh: (gh.data ?? []).map((i) => ({
+      key: `gh-${i.full_name}`,
+      origin: "gh",
+      title: i.full_name,
+      href: i.html_url,
+      source: i.language || "GitHub",
+      subtitle: i.description,
+      host: "github.com",
+      score: i.stargazers_count,
+      scoreIcon: "stars",
       commentsUrl: null,
-      at: new Date(repo.created_at).getTime(),
+      at: Date.parse(i.created_at),
       unread: false,
     })),
-  ]
-    .filter((item) => selected(item.origin) && (item.origin !== "reddit" || redditEnabled))
-    .sort((a, b) => b.at - a.at)
-    .slice(0, FEED_STREAM_LIMIT);
-
+    hf: (hf.data ?? []).map((i) => ({
+      key: `hf-${i.id}`,
+      origin: "hf",
+      title: i.title,
+      href: i.url,
+      paperId: i.id,
+      source: "Hugging Face Papers",
+      subtitle: i.summary,
+      authors: i.authors,
+      arxivUrl: i.arxiv_url,
+      featuredAt: i.featured_at,
+      score: i.upvotes,
+      scoreIcon: "points",
+      host: "huggingface.co",
+      commentsUrl: i.url,
+      at: i.published_at ? Date.parse(i.published_at) : 0,
+      unread: false,
+    })),
+  };
+  const queries = { rss, reddit, hn, gh, hf };
+  const sources = FEED_FILTERS.filter(
+    (source): source is { id: FeedOrigin; label: string } => source.id !== "all" && eligible(source.id),
+  ).map((source) => ({
+    origin: source.id,
+    label: source.label,
+    failed: queries[source.id].isError,
+    retry: () => void queries[source.id].refetch(),
+  }));
+  const all = composeFeed(
+    sources.map((source) =>
+      groups[source.origin].map((item) => ({
+        ...item,
+        href: safeReadingUrl(item.href),
+        canonicalUrl: safeReadingUrl(item.canonicalUrl),
+        commentsUrl: safeReadingUrl(item.commentsUrl),
+      })),
+    ),
+    200,
+  );
   return {
     filter,
-    items,
-    sources: sources.filter((source) => selected(source.origin) && (source.origin !== "reddit" || redditEnabled)),
-    failures: sources.filter(
-      (source) => source.failed && selected(source.origin) && (source.origin !== "reddit" || redditEnabled),
+    items: all.slice(0, options.limit ?? 15),
+    sources,
+    failures: sources.filter((source) => source.failed),
+    loading: experience.isLoading || sources.some((source) => queries[source.origin].isLoading),
+    unread: eligible("rss") ? (stats.data?.unread ?? null) : null,
+    hasMore: all.length > (options.limit ?? 15),
+    preferencesError: experience.isError,
+    retryPreferences: () => void experience.refetch(),
+    available: FEED_FILTERS.filter(
+      (option) =>
+        option.id === "all" ||
+        (prefs && (option.id === "rss" ? prefs.rss_enabled : prefs.providers.includes(option.id))),
     ),
-    loading:
-      (selected("reddit") && settings.isPending && settings.fetchStatus === "fetching") ||
-      (filter === "all" ? Object.values(queries).some((query) => query.isLoading) : queries[filter].isLoading),
-    unread: selected("rss") ? (statsQuery.data?.unread ?? null) : null,
   };
 }

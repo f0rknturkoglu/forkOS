@@ -24,6 +24,7 @@ import { useSourceSync } from "@/core/SyncProgress";
 import { StatusLed } from "@/core/StatusLed";
 import type { ManualRefreshStatus } from "@/core/types";
 import { Button, Chip, IconButton, Kbd, Popover, cx, useTheme, useToast } from "@/core/ui";
+import { PageInfoButton } from "@/core/onboarding/PageInfoButton";
 import { useOnline } from "@/lib/hooks";
 
 /** Yenileme kapsamlari. Etiketler kullanici dilinde; degerler API sozlesmesi. */
@@ -177,6 +178,7 @@ export function WorkspaceHeader({
         {module && title !== module.title && (!area || area.label !== module.title) && (
           <span className="hidden truncate text-meta text-muted sm:inline">{module.title}</span>
         )}
+        <PageInfoButton />
       </div>
 
       {/* Sağ: Sıkı Eylem Bütçesi (Action Budget) */}

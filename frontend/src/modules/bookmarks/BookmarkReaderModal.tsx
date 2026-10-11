@@ -1,3 +1,4 @@
+import { sanitizeReaderHtml as sanitizeHtml } from "@/core/readerHtml";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -40,16 +41,6 @@ function safeUrl(raw: string): string {
   const value = raw.replace(/["'`]/g, "").replace(/&#x?[0-9a-f]+;/gi, "");
   const scheme = value.match(/^\s*([a-z][a-z0-9+.-]*)\s*:/i)?.[1] ?? "";
   return /^(?:http|https|mailto)$/i.test(scheme) ? value.trim() : "";
-}
-
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<(script|style|iframe|object|embed|form|svg|math)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/\s(href|src)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, (_, attr: string, raw: string) => {
-      const value = safeUrl(raw);
-      return value ? ` ${attr}="${value}"` : "";
-    });
 }
 
 const COLOR_STYLES: Record<HighlightColor, { badge: string; chip: string }> = {
@@ -648,6 +639,14 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
                 />
               ) : (
                 <div className="py-8 text-center stack-y-4 font-sans">
+                  {bookmark.description && (
+                    <section className="text-left stack-y-2">
+                      <h2 className="text-heading">Kaynak özeti</h2>
+                      <p className="whitespace-pre-wrap text-body text-secondary">
+                        {bookmark.description.replace(/<[^>]*>/g, " ")}
+                      </p>
+                    </section>
+                  )}
                   <p className="text-body text-muted">
                     Bu yer iminin tam metni henuz cekilmedi veya sayfa icerigi temizlenemedi.
                   </p>

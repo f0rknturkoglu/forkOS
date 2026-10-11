@@ -1,3 +1,4 @@
+import { sanitizeReaderHtml as sanitizeHtml } from "@/core/readerHtml";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "@/core/api";
@@ -8,24 +9,6 @@ import type { Collection, FeedItem } from "@/core/types";
 /** Tam metin ucu yaniti. Tip tanimlari modul icinde tutulur (core/types.ts'a dokunulmaz). */
 interface FullTextResult {
   full_text: string | null;
-}
-
-/** href/src degerini denetler: yalnizca http/https/mailto semalari gecer. */
-function safeUrl(raw: string): string {
-  const value = raw.replace(/["'`]/g, "").replace(/&#x?[0-9a-f]+;/gi, "");
-  const scheme = value.match(/^\s*([a-z][a-z0-9+.-]*)\s*:/i)?.[1] ?? "";
-  return /^(?:http|https|mailto)$/i.test(scheme) ? value.trim() : "";
-}
-
-/** Feed HTML'ini okuma bölmesi için temizler. */
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<(script|style|iframe|object|embed|form|svg|math)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/\s(href|src)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, (_, attr: string, raw: string) => {
-      const value = safeUrl(raw);
-      return value ? ` ${attr}="${value}"` : "";
-    });
 }
 
 function stripHtml(html: string): string {

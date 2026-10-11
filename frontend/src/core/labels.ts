@@ -15,6 +15,15 @@ export function sourceLabel(source: string): string {
     return "Özel İlan";
   }
   const parts = source.split(":");
+  if (parts[0] === "news") {
+    const names: Record<string, string> = {
+      "hacker-news": "Hacker News",
+      "github-trending": "GitHub · Yeni ve Popüler",
+      "huggingface-papers": "Hugging Face Papers",
+      reddit: "Reddit",
+    };
+    return names[parts[1]] || source;
+  }
   if (parts[0] === "careerops") {
     if (parts[1] === "boards") return "career-ops · açık panolar";
     if (parts[1] === "companies") return "career-ops · takip edilen şirketler";

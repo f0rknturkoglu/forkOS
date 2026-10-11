@@ -21,6 +21,7 @@ import { SystemStatusPanel } from "@/modules/health/SystemStatus";
 import { LinkedInProfilesEditor } from "@/modules/opportunity/LinkedInProfilesEditor";
 import type { LucideIcon } from "lucide-react";
 import { Button, NumberInput, PageFrame, Section, Select, Skeleton, SkeletonRows, cx, useToast } from "@/core/ui";
+import { openGuide, openSourceDiscovery } from "@/core/onboarding/experience";
 import { BrainAgentSection } from "./BrainAgentSection";
 import {
   Workspace,
@@ -321,6 +322,12 @@ export function SettingsPage() {
     <>
       {tab === "general" && (
         <Pane>
+          <Section title="Başlangıç ve rehberler">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={openGuide}>Rehberleri aç</Button>
+              <Button onClick={openSourceDiscovery}>Akış kaynakları</Button>
+            </div>
+          </Section>
           <Section title="Tema">
             <ThemePicker />
           </Section>

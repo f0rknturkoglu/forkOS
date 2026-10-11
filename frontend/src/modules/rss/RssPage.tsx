@@ -22,11 +22,12 @@ import { useOnline } from "@/lib/hooks";
 import { SectionFallback, dataState } from "@/core/DataState";
 import { useRssStats } from "@/core/runtimeQueries";
 import { feedStateView, type StatusTone } from "@/core/sourceStatus";
-import { navigate } from "@/app/router";
+import { useHashRoute, navigate } from "@/app/router";
 import type { Bookmark, Collection, Feed, FeedItem } from "@/core/types";
 import { appDayUtc } from "@/lib/date";
 import { RssReadingPane } from "./RssReadingPane";
 import { ReaderViews } from "./ReaderViews";
+import { useExperience, openSourceDiscovery } from "@/core/onboarding/experience";
 
 type SmartView = "unread" | "today" | "saved" | "all";
 
@@ -58,6 +59,7 @@ function AddFeed() {
     onSuccess: () => {
       setUrl("");
       invalidateAfter("rss.write");
+      invalidateAfter("settings.write");
     },
     onError: (error: Error) => toast.push(`Besleme eklenemedi: ${error.message}`, { tone: "danger" }),
   });
@@ -66,6 +68,7 @@ function AddFeed() {
     mutationFn: (file: File) => api.upload<{ added: number; skipped: number }>("/rss/import", file),
     onSuccess: (result) => {
       invalidateAfter("rss.write");
+      invalidateAfter("settings.write");
       // import sonrasi arka plan cekimi worker'i beklemeden yazilari getirir
       toast.push(
         result.added > 0
@@ -74,6 +77,7 @@ function AddFeed() {
         { tone: result.added > 0 ? "ok" : "neutral" },
       );
     },
+    onError: (error: Error) => toast.push(`OPML alınamadı: ${error.message}`, { tone: "danger" }),
   });
 
   return (
@@ -115,47 +119,15 @@ function AddFeed() {
 
 /* ── Kenar çubuğu satırları ──────────────────────────────────────────── */
 
-/**
- * Feed avatari: feed logosu varsa imaj, yoksa ya da hata verirse bas harf kutusu.
- * Imaj istekleri host tarafinda; harf avatari her durumda calisir.
- */
+/** Local initials avoid unsolicited favicon requests. */
 function FeedAvatar({ feed, size = 16 }: { feed?: Feed | null; size?: number }) {
-  // Imaj adaylari: (1) feed logosu, (2) sitenin /favicon.ico'su, (3) harf avatari.
-  const [failed, setFailed] = useState<Set<string>>(new Set());
-  let host: string | null = null;
-  if (feed?.url) {
-    try {
-      host = new URL(feed.url).hostname;
-    } catch {
-      host = null;
-    }
-  }
-  const candidates = [feed?.favicon_url, host ? `https://${host}/favicon.ico` : null].filter((v): v is string =>
-    Boolean(v),
-  );
-  const src = candidates.find((c) => !failed.has(c));
-
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt=""
-        width={size}
-        height={size}
-        loading="lazy"
-        onError={() => setFailed((prev) => new Set(prev).add(src as string))}
-        className="shrink-0 rounded-sm bg-surface-sunken"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
   const initial = ((feed?.title ?? "?").trim().charAt(0) || "?").toUpperCase();
   return (
     <span
-      className="flex shrink-0 select-none items-center justify-center rounded-sm bg-surface-sunken text-secondary"
+      className="flex shrink-0 select-none items-center justify-center rounded-sm bg-surface-sunken text-meta text-secondary"
       style={{ width: size, height: size }}
     >
-      <span style={{ fontSize: Math.max(9, Math.round(size * 0.62)) }}>{initial}</span>
+      {initial}
     </span>
   );
 }
@@ -270,6 +242,8 @@ function ItemRow({
 /* ── Sayfa ───────────────────────────────────────────────────────────── */
 
 export function RssPage() {
+  const experience = useExperience();
+  const route = useHashRoute();
   const online = useOnline();
   const toast = useToast();
 
@@ -277,7 +251,11 @@ export function RssPage() {
   const [feedId, setFeedId] = useState<string | null>(null);
   const [categorySel, setCategorySel] = useState<string | null>(null);
   const [unreadOnly, setUnreadOnly] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => route.params.get("item"));
+  useEffect(() => {
+    const item = route.params.get("item");
+    if (item) setSelectedId(item);
+  }, [route.params]);
   const [saveCollection, setSaveCollection] = useState<Collection>("read_later");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showAdd, setShowAdd] = useState(false);
@@ -521,6 +499,14 @@ export function RssPage() {
         <h1 className="text-heading text-primary">RSS & Akış</h1>
         <ReaderViews view="sources" />
       </div>
+      {experience.data?.feed.rss_enabled === false && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-card border border-subtle px-4 py-2 text-meta text-muted">
+          <span>RSS yenilemesi kapalı · kayıtlı yazıların korunuyor</span>
+          <Button size="sm" onClick={openSourceDiscovery}>
+            RSS’i etkinleştir
+          </Button>
+        </div>
+      )}
       <Surface className="grid min-h-0 flex-1 overflow-hidden md:grid-cols-workspace-rail xl:grid-cols-workspace-reader">
         {/* ── Sol: akıllı görünümler + beslemeler ── */}
         <aside className="flex max-h-[380px] min-w-0 flex-col overflow-y-auto border-b border-subtle p-3 md:max-h-[560px] md:border-b-0 md:border-r xl:max-h-none">

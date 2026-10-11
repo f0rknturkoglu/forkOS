@@ -79,6 +79,10 @@ export function GoalsPage() {
   const [studioOpen, setStudioOpen] = useState(false);
   const [studioGoalId, setStudioGoalId] = useState<string | null>(null);
   const [view, setView] = useState(params.get("view") ?? "overview");
+  useEffect(() => {
+    const next = params.get("view");
+    if (next) setView(next);
+  }, [params]);
   const [days, setDays] = useState<7 | 30 | 90>(30);
   const [selected, setSelected] = useState<string | null>(null);
   const read = useQuery({
@@ -285,7 +289,7 @@ export function GoalsPage() {
               )}
               {view === "objectives" && (
                 <>
-                  <div className="flex flex-wrap gap-2">
+                  <div data-onboarding="goal-create" className="flex flex-wrap gap-2">
                     <Button onClick={() => setSelected(null)}>Yeni hedef</Button>
                     {data.objectives.map((o) => (
                       <Button
@@ -498,7 +502,9 @@ function ObjectiveDetail({ objective: o, providers }: { objective: Objective; pr
           {r.code}: {r.explanation}
         </p>
       ))}
-      <h3 className="text-heading">Ölçülebilir sonuçlar (Key Results)</h3>
+      <h3 data-onboarding="goal-keyresults" className="text-heading">
+        Ölçülebilir sonuçlar (Key Results)
+      </h3>
       <Button
         onClick={() => {
           setEditKR(null);
@@ -562,6 +568,7 @@ function ObjectiveDetail({ objective: o, providers }: { objective: Objective; pr
         </details>
       ))}
       <form
+        data-onboarding="goal-milestone"
         className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();

@@ -1,7 +1,7 @@
 import "@/modules"; // registry yi doldurur -- ILK import olmali
 import { useSourceHealth } from "@/core/runtimeQueries";
 import { LegacyVaultLink } from "@/core/LegacyVaultLink";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, WifiOff, X } from "lucide-react";
 import { CommandPalette } from "@/core/CommandPalette";
@@ -13,6 +13,7 @@ import { allGlobalSurfaces, allRoutes, hydrateSettings } from "@/core/registry";
 import { hydrateEntityRegistry } from "@/core/entityRegistry";
 import type { EntityTypeSpec } from "@/core/entityRegistry";
 import { api } from "@/core/api";
+import { useExperience } from "@/core/onboarding/experience";
 import { sourceLabel } from "@/core/labels";
 import { runStateView } from "@/core/sourceStatus";
 import { Kbd, ToastProvider, applyTheme, cx, readTheme } from "@/core/ui";
@@ -21,6 +22,10 @@ import type { AppSettings, SourceHealth } from "@/core/types";
 import type { ModuleSpec } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
 import { findRouteMatch, navigate, useHashRoute } from "./router";
+
+const OnboardingHost = lazy(() =>
+  import("@/core/onboarding/OnboardingHost").then((m) => ({ default: m.OnboardingHost })),
+);
 
 export function routeForPath(routes: ModuleSpec["routes"], path: string) {
   return findRouteMatch(routes, path);
@@ -85,7 +90,16 @@ function SourceAlert() {
   // Kaynak sagligi kabukta TEK anahtarla tutulur (bkz. core/runtimeQueries):
   // ayri anahtar ayni ucu ikinci kez yoklardi.
   const query = useSourceHealth();
-  const sources = query.data ?? [];
+  const experience = useExperience();
+  const sources = (query.data ?? []).filter((run) => {
+    const parts = run.source.split(":");
+    if (parts[0] === "rss") return Boolean(experience.data?.feed.rss_enabled);
+    if (parts[0] !== "news") return true;
+    const provider = { "hacker-news": "hn", "github-trending": "gh", "huggingface-papers": "hf", reddit: "reddit" }[
+      parts[1]
+    ];
+    return Boolean(provider && experience.data?.feed.providers.includes(provider as "hn" | "gh" | "hf" | "reddit"));
+  });
   const attention = sources.filter((run) => runStateView(run.status).attention);
   if (dismissed) return null;
 
@@ -195,7 +209,7 @@ export default function App() {
             onToggleCollapsed={toggleSidebar}
           />
 
-          <main id="main-content" className="min-h-0 min-w-0 flex-1">
+          <main data-onboarding="workspace" id="main-content" className="min-h-0 min-w-0 flex-1">
             {!online && (
               <Banner tone="warn" icon={<WifiOff size={15} />}>
                 Çevrimdışısın. Kayıtlı veriler okunabilir, yazma işlemleri kapalı. Tarayıcı eklentisi kaydettiklerini
@@ -209,6 +223,9 @@ export default function App() {
           </main>
         </div>
 
+        <Suspense fallback={null}>
+          <OnboardingHost />
+        </Suspense>
         <CommandPalette />
         <DialogHost />
         <DropCapture />
