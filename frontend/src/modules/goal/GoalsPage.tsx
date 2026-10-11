@@ -1,3 +1,4 @@
+import { GoalStudio } from "./GoalStudio";
 import { useHashRoute } from "@/app/router";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { useEffect, useState, type ComponentProps } from "react";
@@ -74,6 +75,8 @@ function useSave(after?: () => void) {
 export function GoalsPage() {
   const { params } = useHashRoute();
   const requested = params.get("entity");
+  const [studioOpen, setStudioOpen] = useState(false);
+  const [studioGoalId, setStudioGoalId] = useState<string | null>(null);
   const [view, setView] = useState(params.get("view") ?? "overview");
   const [days, setDays] = useState<7 | 30 | 90>(30);
   const [selected, setSelected] = useState<string | null>(null);
@@ -125,6 +128,34 @@ export function GoalsPage() {
           />
         </WorkspacePaneHeader>
         <WorkspaceScrollArea className="min-w-0 stack-y-4 p-4">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => {
+                setStudioGoalId(null);
+                setStudioOpen(true);
+              }}
+            >
+              Hermes ile Hedef Hazırla
+            </Button>
+            {selected && (
+              <Button
+                onClick={() => {
+                  setStudioGoalId(selected);
+                  setStudioOpen(true);
+                }}
+              >
+                Hermes ile Geliştir
+              </Button>
+            )}
+          </div>
+          {studioOpen && (
+            <GoalStudio
+              key={studioGoalId ?? "new"}
+              goalId={studioGoalId}
+              goals={data?.objectives.map((o) => o.goal) ?? []}
+              onClose={() => setStudioOpen(false)}
+            />
+          )}
           {read.isPending && <p role="status">Strateji yükleniyor…</p>}
           {read.isError && (
             <div role="alert">

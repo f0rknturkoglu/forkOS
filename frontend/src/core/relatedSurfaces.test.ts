@@ -101,6 +101,9 @@ describe("entity relation visibility (Faz 18/32)", () => {
     // Bilincli karar listesi -- yeni tip eklenirse bu test eslesmeli.
     expect(disabled.sort()).toEqual(
       [
+        "capture_receipt", // delivery workflow; not a user relationship destination
+        "goal_studio_session", // contextual conversation, not an operational Goal
+        "goal_studio_revision", // approval workflow
         "course",
         "career_connection",
         "career_story",

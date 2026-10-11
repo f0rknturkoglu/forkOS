@@ -34,6 +34,17 @@ import {
  * etiketsiz kalirsa duser. Uslup: gecmis zaman, ilk harf buyuk, noktalama yok.
  */
 export const VERB_LABELS: Record<string, string> = {
+  "capture.delivered": "Yakalama teslimi doğrulandı",
+  "goal_studio.started": "Hedef görüşmesi açıldı",
+  "goal_studio.turn_requested": "Hermes turu istendi",
+  "goal_studio.turn_completed": "Hermes yanıtı alındı",
+  "goal_studio.stopped": "Hermes turu durduruldu",
+  "goal_studio.revised": "Hedef taslağı revize edildi",
+  "goal_studio.approved": "Hedef taslağı kullanıcı tarafından onaylandı",
+  "goal_studio.applied": "Hedef taslağı uygulandı",
+  "goal_studio.rejected": "Hedef taslağı reddedildi",
+  "goal_studio.stale": "Hedef taslağı güncelliğini kaybetti",
+  "goal_studio.failed": "Hedef taslağı uygulanamadı",
   // Yer imleri
   "bookmark.saved": "Yer imi kaydedildi",
   "bookmark.moved": "Yer imi taşındı",

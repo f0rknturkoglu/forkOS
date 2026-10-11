@@ -1972,6 +1972,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/goals/studio/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_api_goals_studio_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/studio/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read */
+        get: operations["read_api_goals_studio_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/studio/sessions/{session_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide */
+        post: operations["decide_api_goals_studio_sessions__session_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/studio/sessions/{session_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Events */
+        get: operations["events_api_goals_studio_sessions__session_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/studio/sessions/{session_id}/proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Revise */
+        put: operations["revise_api_goals_studio_sessions__session_id__proposal_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/studio/sessions/{session_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop */
+        post: operations["stop_api_goals_studio_sessions__session_id__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/studio/sessions/{session_id}/turns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn */
+        post: operations["turn_api_goals_studio_sessions__session_id__turns_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/studio/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status */
+        get: operations["status_api_goals_studio_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/goals/{goal_id}": {
         parameters: {
             query?: never;
@@ -6650,6 +6786,54 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** EditGoal */
+        "EditGoal-Input": {
+            data: components["schemas"]["StudioGoalPatch-Input"];
+            /** Key */
+            key: string;
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "goal.update";
+        };
+        /** EditGoal */
+        "EditGoal-Output": {
+            data: components["schemas"]["StudioGoalPatch-Output"];
+            /** Key */
+            key: string;
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "goal.update";
+        };
+        /** EditMilestone */
+        EditMilestone: {
+            data: components["schemas"]["StudioMilestonePatch"];
+            /** Key */
+            key: string;
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "milestone.update";
+        };
         /**
          * EnsureManagedNoteIn
          * @description Kanonik bilgi notu: kimliği verilen kalkın entity'sine bağlıdır.
@@ -7846,7 +8030,7 @@ export interface components {
             number: number;
         };
         /** KeyResultIn */
-        KeyResultIn: {
+        "KeyResultIn-Input": {
             /**
              * Baseline Value
              * @default 0
@@ -7904,6 +8088,66 @@ export interface components {
              * @default 1
              */
             weight: number | string;
+        };
+        /** KeyResultIn */
+        "KeyResultIn-Output": {
+            /**
+             * Baseline Value
+             * @default 0
+             */
+            baseline_value: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Direction
+             * @default increase
+             * @enum {string}
+             */
+            direction: "increase" | "decrease";
+            /** Manual Value */
+            manual_value?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            source_config?: components["schemas"]["MetricConfig"];
+            /**
+             * Source Key
+             * @default manual
+             * @enum {string}
+             */
+            source_key: "manual" | "applications_applied" | "applications_interview" | "applications_offer" | "goal_milestones" | "linked_completion";
+            /** Start At */
+            start_at?: string | null;
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "paused" | "completed" | "retired";
+            /** Target At */
+            target_at?: string | null;
+            /** Target Value */
+            target_value: string;
+            /** Title */
+            title: string;
+            /**
+             * Trajectory Model
+             * @default none
+             * @enum {string}
+             */
+            trajectory_model: "linear" | "deadline" | "none";
+            /**
+             * Unit
+             * @default adet
+             */
+            unit: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: string;
         };
         /** KeyResultOut */
         KeyResultOut: {
@@ -8243,6 +8487,90 @@ export interface components {
             /** Todos */
             todos: number;
         };
+        /** NewGoal */
+        "NewGoal-Input": {
+            data: components["schemas"]["StudioGoalIn-Input"];
+            /** Key */
+            key: string;
+            /** Parent Ref */
+            parent_ref?: string | null;
+            /** Pillar Ref */
+            pillar_ref?: string | null;
+            /** Plan Ref */
+            plan_ref?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "goal.create";
+        };
+        /** NewGoal */
+        "NewGoal-Output": {
+            data: components["schemas"]["StudioGoalIn-Output"];
+            /** Key */
+            key: string;
+            /** Parent Ref */
+            parent_ref?: string | null;
+            /** Pillar Ref */
+            pillar_ref?: string | null;
+            /** Plan Ref */
+            plan_ref?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "goal.create";
+        };
+        /** NewMilestone */
+        NewMilestone: {
+            data: components["schemas"]["StudioMilestoneIn"];
+            /** Goal Ref */
+            goal_ref: string;
+            /** Key */
+            key: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "milestone.create";
+        };
+        /** NewPillar */
+        "NewPillar-Input": {
+            data: components["schemas"]["PillarIn-Input"];
+            /** Key */
+            key: string;
+            /** Plan Ref */
+            plan_ref: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "pillar.create";
+        };
+        /** NewPillar */
+        "NewPillar-Output": {
+            data: components["schemas"]["PillarIn-Output"];
+            /** Key */
+            key: string;
+            /** Plan Ref */
+            plan_ref: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "pillar.create";
+        };
+        /** NewPlan */
+        NewPlan: {
+            data: components["schemas"]["PlanIn"];
+            /** Key */
+            key: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "plan.create";
+        };
         /** NotificationOut */
         NotificationOut: {
             /** Body */
@@ -8480,6 +8808,8 @@ export interface components {
         };
         /** OpportunityIn */
         OpportunityIn: {
+            /** Client Uuid */
+            client_uuid?: string | null;
             /** Compensation */
             compensation?: string | null;
             /** Country */
@@ -8781,7 +9111,7 @@ export interface components {
             status: "pending" | "approved" | "rejected";
         };
         /** PillarIn */
-        PillarIn: {
+        "PillarIn-Input": {
             /**
              * Position
              * @default 0
@@ -8794,6 +9124,21 @@ export interface components {
              * @default 1
              */
             weight: number | string;
+        };
+        /** PillarIn */
+        "PillarIn-Output": {
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /** Title */
+            title: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: string;
         };
         /** PillarOut */
         PillarOut: {
@@ -9864,6 +10209,36 @@ export interface components {
              */
             collection: string;
         };
+        /** SaveKR */
+        "SaveKR-Input": {
+            data: components["schemas"]["KeyResultIn-Input"];
+            /** Goal Ref */
+            goal_ref: string;
+            /** Key */
+            key: string;
+            /** Target Id */
+            target_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "key_result.save";
+        };
+        /** SaveKR */
+        "SaveKR-Output": {
+            data: components["schemas"]["KeyResultIn-Output"];
+            /** Goal Ref */
+            goal_ref: string;
+            /** Key */
+            key: string;
+            /** Target Id */
+            target_id?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "key_result.save";
+        };
         /**
          * SavedViewCreate
          * @description POST /views govdesi: position sunucu tarafinda (max+1) hesaplanir.
@@ -10621,6 +10996,332 @@ export interface components {
             /** Longest */
             longest: number;
         };
+        /** StudioApplied */
+        StudioApplied: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Type */
+            type: string;
+        };
+        /** StudioDecisionIn */
+        StudioDecisionIn: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approve" | "reject";
+            /** Fingerprint */
+            fingerprint: string;
+            /**
+             * Revision Id
+             * Format: uuid
+             */
+            revision_id: string;
+        };
+        /** StudioGoalIn */
+        "StudioGoalIn-Input": {
+            /** Description */
+            description?: string | null;
+            /**
+             * Horizon
+             * @default quarter
+             * @enum {string}
+             */
+            horizon: "short_term" | "quarter" | "year" | "long_term";
+            /** Parent Goal Id */
+            parent_goal_id?: string | null;
+            /** Pillar Id */
+            pillar_id?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+            /** Source Memory Id */
+            source_memory_id?: string | null;
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "paused" | "completed" | "retired";
+            /** Strategic Plan Id */
+            strategic_plan_id?: string | null;
+            /** Target At */
+            target_at?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number | string;
+        };
+        /** StudioGoalIn */
+        "StudioGoalIn-Output": {
+            /** Description */
+            description?: string | null;
+            /**
+             * Horizon
+             * @default quarter
+             * @enum {string}
+             */
+            horizon: "short_term" | "quarter" | "year" | "long_term";
+            /** Parent Goal Id */
+            parent_goal_id?: string | null;
+            /** Pillar Id */
+            pillar_id?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+            /** Source Memory Id */
+            source_memory_id?: string | null;
+            /**
+             * Status
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "paused" | "completed" | "retired";
+            /** Strategic Plan Id */
+            strategic_plan_id?: string | null;
+            /** Target At */
+            target_at?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: string;
+        };
+        /** StudioGoalPatch */
+        "StudioGoalPatch-Input": {
+            /** Description */
+            description?: string | null;
+            /** Horizon */
+            horizon?: ("short_term" | "quarter" | "year" | "long_term") | null;
+            /** Parent Goal Id */
+            parent_goal_id?: string | null;
+            /** Pillar Id */
+            pillar_id?: string | null;
+            /** Position */
+            position?: number | null;
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+            /** Status */
+            status?: ("active" | "paused" | "completed" | "retired") | null;
+            /** Strategic Plan Id */
+            strategic_plan_id?: string | null;
+            /** Target At */
+            target_at?: string | null;
+            /** Title */
+            title?: string | null;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number | string;
+        };
+        /** StudioGoalPatch */
+        "StudioGoalPatch-Output": {
+            /** Description */
+            description?: string | null;
+            /** Horizon */
+            horizon?: ("short_term" | "quarter" | "year" | "long_term") | null;
+            /** Parent Goal Id */
+            parent_goal_id?: string | null;
+            /** Pillar Id */
+            pillar_id?: string | null;
+            /** Position */
+            position?: number | null;
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+            /** Status */
+            status?: ("active" | "paused" | "completed" | "retired") | null;
+            /** Strategic Plan Id */
+            strategic_plan_id?: string | null;
+            /** Target At */
+            target_at?: string | null;
+            /** Title */
+            title?: string | null;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: string;
+        };
+        /** StudioMilestoneIn */
+        StudioMilestoneIn: {
+            /** Due At */
+            due_at?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /** Title */
+            title: string;
+        };
+        /** StudioMilestonePatch */
+        StudioMilestonePatch: {
+            /** Completed */
+            completed?: boolean | null;
+            /** Due At */
+            due_at?: string | null;
+            /** Position */
+            position?: number | null;
+            /** Title */
+            title?: string | null;
+        };
+        /** StudioProposal */
+        "StudioProposal-Input": {
+            /** Assumptions */
+            assumptions?: string[];
+            /** Evidence Refs */
+            evidence_refs?: string[];
+            /** Missing Information */
+            missing_information?: string[];
+            /** Operations */
+            operations: (components["schemas"]["NewPlan"] | components["schemas"]["NewPillar-Input"] | components["schemas"]["NewGoal-Input"] | components["schemas"]["EditGoal-Input"] | components["schemas"]["SaveKR-Input"] | components["schemas"]["NewMilestone"] | components["schemas"]["EditMilestone"])[];
+            /** Rationale */
+            rationale: string;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /** StudioProposal */
+        "StudioProposal-Output": {
+            /** Assumptions */
+            assumptions?: string[];
+            /** Evidence Refs */
+            evidence_refs?: string[];
+            /** Missing Information */
+            missing_information?: string[];
+            /** Operations */
+            operations: (components["schemas"]["NewPlan"] | components["schemas"]["NewPillar-Output"] | components["schemas"]["NewGoal-Output"] | components["schemas"]["EditGoal-Output"] | components["schemas"]["SaveKR-Output"] | components["schemas"]["NewMilestone"] | components["schemas"]["EditMilestone"])[];
+            /** Rationale */
+            rationale: string;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /** StudioRevisionOut */
+        StudioRevisionOut: {
+            /** Before */
+            before: {
+                [key: string]: unknown;
+            };
+            /** Error */
+            error?: string | null;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            proposal: components["schemas"]["StudioProposal-Output"];
+            /** Results */
+            results: {
+                [key: string]: components["schemas"]["StudioApplied"];
+            };
+            /** State */
+            state: string;
+        };
+        /** StudioSessionIn */
+        StudioSessionIn: {
+            /**
+             * Client Uuid
+             * Format: uuid
+             */
+            client_uuid: string;
+            /** Goal Id */
+            goal_id?: string | null;
+        };
+        /** StudioSessionOut */
+        StudioSessionOut: {
+            /** Error */
+            error?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Messages */
+            messages: {
+                [key: string]: unknown;
+            }[];
+            pending_turn?: components["schemas"]["StudioTurnIn"] | null;
+            /**
+             * Progress
+             * @default
+             */
+            progress: string;
+            revision: components["schemas"]["StudioRevisionOut"] | null;
+            /** State */
+            state: string;
+        };
+        /** StudioStatus */
+        StudioStatus: {
+            /** Message */
+            message: string;
+            /**
+             * Provider Notice
+             * @default Hermes kendi yapılandırmasına göre bulut sağlayıcı kullanabilir. Bu geçit yalnız doğrulanmış yerel, araçsız profili kabul eder.
+             */
+            provider_notice: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_configured" | "unavailable" | "unsupported" | "ready";
+        };
+        /** StudioTurnIn */
+        StudioTurnIn: {
+            /**
+             * Client Uuid
+             * Format: uuid
+             */
+            client_uuid: string;
+            /** Message */
+            message: string;
+        };
         /** StudyAreaOut */
         StudyAreaOut: {
             /**
@@ -11056,6 +11757,8 @@ export interface components {
         };
         /** TodoIn */
         TodoIn: {
+            /** Client Uuid */
+            client_uuid?: string | null;
             /** Description */
             description?: string | null;
             /** Due At */
@@ -15206,7 +15909,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PillarIn"];
+                "application/json": components["schemas"]["PillarIn-Input"];
             };
         };
         responses: {
@@ -15242,7 +15945,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PillarIn"];
+                "application/json": components["schemas"]["PillarIn-Input"];
             };
         };
         responses: {
@@ -15262,6 +15965,257 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_api_goals_studio_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudioSessionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioSessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_api_goals_studio_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioSessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_api_goals_studio_sessions__session_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudioDecisionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioSessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    events_api_goals_studio_sessions__session_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revise_api_goals_studio_sessions__session_id__proposal_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudioProposal-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioSessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_api_goals_studio_sessions__session_id__stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioSessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    turn_api_goals_studio_sessions__session_id__turns_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudioTurnIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioSessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    status_api_goals_studio_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioStatus"];
                 };
             };
         };
@@ -15343,7 +16297,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["KeyResultIn"];
+                "application/json": components["schemas"]["KeyResultIn-Input"];
             };
         };
         responses: {
@@ -15379,7 +16333,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["KeyResultIn"];
+                "application/json": components["schemas"]["KeyResultIn-Input"];
             };
         };
         responses: {

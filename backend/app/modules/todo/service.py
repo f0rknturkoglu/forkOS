@@ -26,20 +26,31 @@ from app.modules.todo.schemas import (
 STATUSES = {"open", "doing", "done", "dropped"}
 
 
-def _todo_out(todo: Todo, title: str, tags: list[str] | None = None,
-              context: dict | None = None) -> TodoOut:
+def _todo_out(
+    todo: Todo, title: str, tags: list[str] | None = None, context: dict | None = None
+) -> TodoOut:
     """`context`: proje/kilometre tasi/alt gorev sayilari (bkz. `_context_for`).
 
     Ayri parametre cunku tek kayit okurken bunlari toplamak gereksiz;
     liste uclarinda ise N+1 kacinmak icin TOPLU hesaplanip buraya verilir.
     """
     extra = context or {}
-    return TodoOut(id=todo.id, title=title, description=todo.description,
-                   priority=todo.priority, status=todo.status, due_at=todo.due_at,
-                   reminder_at=todo.reminder_at, completed_at=todo.completed_at,
-                   parent_id=todo.parent_id, position=todo.position,
-                   tags=tags or [], recur=todo.recur, milestone_id=todo.milestone_id,
-                   **extra)
+    return TodoOut(
+        id=todo.id,
+        title=title,
+        description=todo.description,
+        priority=todo.priority,
+        status=todo.status,
+        due_at=todo.due_at,
+        reminder_at=todo.reminder_at,
+        completed_at=todo.completed_at,
+        parent_id=todo.parent_id,
+        position=todo.position,
+        tags=tags or [],
+        recur=todo.recur,
+        milestone_id=todo.milestone_id,
+        **extra,
+    )
 
 
 async def _context_for(session: AsyncSession, todos: list[Todo]) -> dict[uuid.UUID, dict]:
@@ -54,8 +65,7 @@ async def _context_for(session: AsyncSession, todos: list[Todo]) -> dict[uuid.UU
         await session.execute(
             select(Link.from_id, Entity.id, Entity.title)
             .join(Entity, Entity.id == Link.to_id)
-            .where(Link.from_id.in_(ids), Link.relation == "belongs_to",
-                   Entity.type == "project")
+            .where(Link.from_id.in_(ids), Link.relation == "belongs_to", Entity.type == "project")
         )
     ).all()
     for todo_id, project_id, project_title in rows:
@@ -154,15 +164,30 @@ def _next_due(current: datetime, recur: str) -> datetime:
     if recur == "monthly":
         year, month = divmod(current.month, 12)
         year, month = current.year + year, month + 1
-        last_day = [31, 29 if year % 4 == 0 and (year % 100 or not year % 400) else 28,
-                    31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
+        last_day = [
+            31,
+            29 if year % 4 == 0 and (year % 100 or not year % 400) else 28,
+            31,
+            30,
+            31,
+            30,
+            31,
+            31,
+            30,
+            31,
+            30,
+            31,
+        ][month - 1]
         return current.replace(year=year, month=month, day=min(current.day, last_day))
     return current + timedelta(days=1)
 
 
 async def _resolve_context(
-    session: AsyncSession, *, parent_id: uuid.UUID | None,
-    project_id: uuid.UUID | None, milestone_id: uuid.UUID | None,
+    session: AsyncSession,
+    *,
+    parent_id: uuid.UUID | None,
+    project_id: uuid.UUID | None,
+    milestone_id: uuid.UUID | None,
 ) -> tuple[uuid.UUID | None, uuid.UUID | None]:
     inherited_project = None
     inherited_milestone = None
@@ -170,12 +195,21 @@ async def _resolve_context(
         parent = await session.get(Todo, parent_id)
         if parent is None:
             raise ValueError("ust gorev bulunamadi")
-        inherited_projects = (await session.execute(
-            select(Link.to_id).join(Entity, Entity.id == Link.to_id).where(
-                Link.from_id == parent_id, Link.relation == "belongs_to",
-                Entity.type == "project",
+        inherited_projects = (
+            (
+                await session.execute(
+                    select(Link.to_id)
+                    .join(Entity, Entity.id == Link.to_id)
+                    .where(
+                        Link.from_id == parent_id,
+                        Link.relation == "belongs_to",
+                        Entity.type == "project",
+                    )
+                )
             )
-        )).scalars().all()
+            .scalars()
+            .all()
+        )
         if len(inherited_projects) > 1:
             raise ValueError("ust gorev birden fazla projeye bagli")
         inherited_project = inherited_projects[0] if inherited_projects else None
@@ -205,19 +239,29 @@ async def _resolve_context(
 async def _copy_project_links(
     session: AsyncSession, source_id: uuid.UUID, target_id: uuid.UUID
 ) -> list[uuid.UUID]:
-    project_ids = list((await session.execute(
-        select(Link.to_id).join(Entity, Entity.id == Link.to_id).where(
-            Link.from_id == source_id, Link.relation == "belongs_to",
-            Entity.type == "project",
-        )
-    )).scalars())
+    project_ids = list(
+        (
+            await session.execute(
+                select(Link.to_id)
+                .join(Entity, Entity.id == Link.to_id)
+                .where(
+                    Link.from_id == source_id,
+                    Link.relation == "belongs_to",
+                    Entity.type == "project",
+                )
+            )
+        ).scalars()
+    )
     for project_id in project_ids:
         await link(session, target_id, project_id, "belongs_to")
     return project_ids
 
 
 async def create(
-    session: AsyncSession, data: TodoIn, *, commit: bool = True,
+    session: AsyncSession,
+    data: TodoIn,
+    *,
+    commit: bool = True,
     search_text: str | None = None,
 ) -> TodoOut:
     """Tek gorev olusturma siniri (Faz 17): tum context adapter'lari buraya
@@ -226,6 +270,20 @@ async def create(
     `search_text`: varsayilan `data.description`; GitHub issue gibi
     adaptorler arama metnini govdeden ayri tutmak isterse verir.
     """
+    if data.client_uuid:
+        from app.modules.bookmark.receipts import capture_once
+
+        async def write():
+            result = await create(
+                session,
+                data.model_copy(update={"client_uuid": None}),
+                commit=False,
+                search_text=search_text,
+            )
+            return result.model_dump(mode="json")
+
+        result, _ = await capture_once(session, data, "todo", write)
+        return TodoOut.model_validate(result)
     if data.status not in STATUSES:
         raise ValueError("gecersiz todo durumu")
     project_id, milestone_id = await _resolve_context(
@@ -234,21 +292,39 @@ async def create(
         project_id=data.project_id,
         milestone_id=data.milestone_id,
     )
-    entity = await create_entity(session, type=Todo.ENTITY_TYPE, title=data.title.strip(),
-                                 search_text=search_text if search_text is not None
-                                 else (data.description or ""))
-    todo = Todo(id=entity.id, description=data.description, priority=data.priority,
-                status=data.status, due_at=data.due_at, reminder_at=data.reminder_at,
-                parent_id=data.parent_id, position=data.position, recur=data.recur,
-                milestone_id=milestone_id)
+    entity = await create_entity(
+        session,
+        type=Todo.ENTITY_TYPE,
+        title=data.title.strip(),
+        search_text=search_text if search_text is not None else (data.description or ""),
+    )
+    todo = Todo(
+        id=entity.id,
+        description=data.description,
+        priority=data.priority,
+        status=data.status,
+        due_at=data.due_at,
+        reminder_at=data.reminder_at,
+        parent_id=data.parent_id,
+        position=data.position,
+        recur=data.recur,
+        milestone_id=milestone_id,
+    )
     session.add(todo)
     if project_id:
         await link(session, todo.id, project_id, "belongs_to")
     if data.tags:
         await tag_svc.add_tags(session, entity.id, data.tags)
-    await log_event(session, verb="todo.created", entity_id=entity.id, entity_type="todo",
-                    payload={"priority": data.priority,
-                             "due_at": data.due_at.isoformat() if data.due_at else None})
+    await log_event(
+        session,
+        verb="todo.created",
+        entity_id=entity.id,
+        entity_type="todo",
+        payload={
+            "priority": data.priority,
+            "due_at": data.due_at.isoformat() if data.due_at else None,
+        },
+    )
     if data.plan_day is not None:
         # Tek istekte atomik: gorev + plan ayni transaction'da yazilir
         # (review/service.py:251'deki desen). schedule() kendi event'ini atar
@@ -262,10 +338,17 @@ async def create(
     return _todo_out(todo, entity.title, data.tags, context.get(todo.id))
 
 
-async def list_todos(session: AsyncSession, *, status: str | None = None,
-                     due_before: datetime | None = None, priority: int | None = None,
-                     include_undated: bool = False, completed_after: datetime | None = None,
-                     recur_only: bool = False, limit: int = 100) -> list[TodoOut]:
+async def list_todos(
+    session: AsyncSession,
+    *,
+    status: str | None = None,
+    due_before: datetime | None = None,
+    priority: int | None = None,
+    include_undated: bool = False,
+    completed_after: datetime | None = None,
+    recur_only: bool = False,
+    limit: int = 100,
+) -> list[TodoOut]:
     """`include_undated`: due_before verildiginde tarihsiz gorevleri de al.
 
     Bugun paneli bunu ister -- tarih girmeden eklenen bir gorev aksi halde
@@ -275,10 +358,13 @@ async def list_todos(session: AsyncSession, *, status: str | None = None,
     "bugun ne bitirdim" listesi bunu kullanir; due_before ile birlikte
     verildiginde ikisi OR'lanir (bugun yapilacaklar + bugun bitenler).
     """
-    stmt = (select(Todo, Entity.title).join(Entity, Entity.id == Todo.id)
-            .where(Entity.archived_at.is_(None))
-            .order_by(Todo.status, Todo.due_at.asc().nullslast(), Todo.position, Entity.created_at)
-            .limit(limit))
+    stmt = (
+        select(Todo, Entity.title)
+        .join(Entity, Entity.id == Todo.id)
+        .where(Entity.archived_at.is_(None))
+        .order_by(Todo.status, Todo.due_at.asc().nullslast(), Todo.position, Entity.created_at)
+        .limit(limit)
+    )
     if status:
         stmt = stmt.where(Todo.status == status)
     if due_before:
@@ -298,13 +384,18 @@ async def list_todos(session: AsyncSession, *, status: str | None = None,
     todos = [todo for todo, _ in rows]
     tag_map = await tag_svc.tags_for(session, [todo.id for todo in todos])
     context = await _context_for(session, todos)
-    return [_todo_out(todo, title, tag_map.get(todo.id, []), context.get(todo.id))
-            for todo, title in rows]
+    return [
+        _todo_out(todo, title, tag_map.get(todo.id, []), context.get(todo.id))
+        for todo, title in rows
+    ]
 
 
 async def get(session: AsyncSession, todo_id: uuid.UUID) -> TodoOut | None:
-    row = (await session.execute(select(Todo, Entity.title).join(Entity, Entity.id == Todo.id)
-                                 .where(Todo.id == todo_id))).first()
+    row = (
+        await session.execute(
+            select(Todo, Entity.title).join(Entity, Entity.id == Todo.id).where(Todo.id == todo_id)
+        )
+    ).first()
     if row is None:
         return None
     tag_map = await tag_svc.tags_for(session, [row[0].id])
@@ -312,8 +403,9 @@ async def get(session: AsyncSession, todo_id: uuid.UUID) -> TodoOut | None:
     return _todo_out(row[0], row[1], tag_map.get(row[0].id, []), context.get(row[0].id))
 
 
-async def update(session: AsyncSession, todo_id: uuid.UUID, data: TodoUpdate, *,
-                 commit: bool = True) -> TodoOut | None:
+async def update(
+    session: AsyncSession, todo_id: uuid.UUID, data: TodoUpdate, *, commit: bool = True
+) -> TodoOut | None:
     todo = await session.get(Todo, todo_id)
     entity = await session.get(Entity, todo_id)
     if todo is None or entity is None:
@@ -332,15 +424,25 @@ async def update(session: AsyncSession, todo_id: uuid.UUID, data: TodoUpdate, *,
     for key, value in values.items():
         setattr(todo, key, value)
     if title is not None or "description" in values:
-        await touch_entity(session, todo_id, title=title.strip() if title else None,
-                           search_text=todo.description or "")
+        await touch_entity(
+            session,
+            todo_id,
+            title=title.strip() if title else None,
+            search_text=todo.description or "",
+        )
     else:
         await touch_entity(session, todo_id)
     if "due_at" in values and previous_due != todo.due_at:
-        await log_event(session, verb="todo.rescheduled", entity_id=todo_id,
-                        entity_type="todo", payload={
-                            "from": previous_due.isoformat() if previous_due else None,
-                            "to": todo.due_at.isoformat() if todo.due_at else None})
+        await log_event(
+            session,
+            verb="todo.rescheduled",
+            entity_id=todo_id,
+            entity_type="todo",
+            payload={
+                "from": previous_due.isoformat() if previous_due else None,
+                "to": todo.due_at.isoformat() if todo.due_at else None,
+            },
+        )
     if new_tags is not None:
         await tag_svc.set_tags(session, todo_id, new_tags)
     if todo.status == "done" and previous_status != "done":
@@ -348,24 +450,38 @@ async def update(session: AsyncSession, todo_id: uuid.UUID, data: TodoUpdate, *,
         await _log_completed(session, todo, entity.title)
         await _spawn_next_occurrence(session, todo)
     elif todo.status == "dropped" and previous_status != "dropped":
-        await log_event(session, verb="todo.dropped", entity_id=todo_id,
-                        entity_type="todo", payload={})
+        await log_event(
+            session, verb="todo.dropped", entity_id=todo_id, entity_type="todo", payload={}
+        )
     if commit:
         await session.commit()
     else:
         await session.flush()
     tag_map = await tag_svc.tags_for(session, [todo.id])
     context = await _context_for(session, [todo])
-    return _todo_out(todo, entity.title if title is None else title.strip(),
-                     tag_map.get(todo.id, []), context.get(todo.id))
+    return _todo_out(
+        todo,
+        entity.title if title is None else title.strip(),
+        tag_map.get(todo.id, []),
+        context.get(todo.id),
+    )
 
 
 async def _log_completed(session: AsyncSession, todo: Todo, title: str) -> None:
     now = datetime.now(UTC)
     overdue = bool(todo.due_at and todo.due_at < now)
-    await log_event(session, verb="todo.completed", entity_id=todo.id, entity_type="todo",
-                    payload={"title": title, "priority": todo.priority,
-                             "was_overdue": overdue, "recur": todo.recur})
+    await log_event(
+        session,
+        verb="todo.completed",
+        entity_id=todo.id,
+        entity_type="todo",
+        payload={
+            "title": title,
+            "priority": todo.priority,
+            "was_overdue": overdue,
+            "recur": todo.recur,
+        },
+    )
 
 
 async def complete(session: AsyncSession, todo_id: uuid.UUID) -> TodoOut | None:
@@ -401,14 +517,28 @@ def week_bounds(week: date) -> tuple[date, date]:
 
 async def list_plan(session: AsyncSession, week: date) -> list[PlanSlotOut]:
     start, end = week_bounds(week)
-    rows = (await session.execute(
-        select(PlanSlot, Entity.type, Entity.title).join(Entity, Entity.id == PlanSlot.entity_id)
-        .where(PlanSlot.day >= start, PlanSlot.day < end)
-        .order_by(PlanSlot.day, PlanSlot.start_min.asc().nullslast(), PlanSlot.position)
-    )).all()
-    return [PlanSlotOut(id=s.id, entity_id=s.entity_id, entity_type=typ, title=title,
-                        day=s.day, start_min=s.start_min, duration_min=s.duration_min,
-                        note=s.note, position=s.position) for s, typ, title in rows]
+    rows = (
+        await session.execute(
+            select(PlanSlot, Entity.type, Entity.title)
+            .join(Entity, Entity.id == PlanSlot.entity_id)
+            .where(PlanSlot.day >= start, PlanSlot.day < end)
+            .order_by(PlanSlot.day, PlanSlot.start_min.asc().nullslast(), PlanSlot.position)
+        )
+    ).all()
+    return [
+        PlanSlotOut(
+            id=s.id,
+            entity_id=s.entity_id,
+            entity_type=typ,
+            title=title,
+            day=s.day,
+            start_min=s.start_min,
+            duration_min=s.duration_min,
+            note=s.note,
+            position=s.position,
+        )
+        for s, typ, title in rows
+    ]
 
 
 async def carry_over(session: AsyncSession, day: date, target: date) -> int:
@@ -419,26 +549,26 @@ async def carry_over(session: AsyncSession, day: date, target: date) -> int:
     zaten varsa eski slot dusurulur (yeni gun kazanir). `plan.carried_over`
     event'i yazilir.
     """
-    slots = list((await session.execute(
-        select(PlanSlot).where(PlanSlot.day == day)
-    )).scalars())
+    slots = list((await session.execute(select(PlanSlot).where(PlanSlot.day == day))).scalars())
     moved = 0
     for slot in slots:
         todo = await session.get(Todo, slot.entity_id)
         if todo is None or todo.status not in ("open", "doing"):
             continue
-        existing = (await session.execute(
-            select(PlanSlot).where(
-                PlanSlot.entity_id == slot.entity_id, PlanSlot.day == target
+        existing = (
+            await session.execute(
+                select(PlanSlot).where(PlanSlot.entity_id == slot.entity_id, PlanSlot.day == target)
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
         if existing is not None:
             # Hedef gunde zaten planli: eski slot gereksiz, yeni gun kazanir.
             await session.delete(slot)
         else:
             slot.day = target
         await log_event(
-            session, verb="plan.carried_over", entity_id=slot.entity_id,
+            session,
+            verb="plan.carried_over",
+            entity_id=slot.entity_id,
             entity_type="todo",
             payload={"from": day.isoformat(), "to": target.isoformat()},
         )
@@ -451,28 +581,44 @@ async def schedule(session: AsyncSession, data: PlanSlotIn, *, commit: bool = Tr
     entity = await session.get(Entity, data.entity_id)
     if entity is None:
         raise ValueError("entity bulunamadi")
-    existing = (await session.execute(select(PlanSlot).where(
-        PlanSlot.entity_id == data.entity_id, PlanSlot.day == data.day))).scalar_one_or_none()
+    existing = (
+        await session.execute(
+            select(PlanSlot).where(PlanSlot.entity_id == data.entity_id, PlanSlot.day == data.day)
+        )
+    ).scalar_one_or_none()
     slot = existing or PlanSlot(entity_id=data.entity_id, day=data.day)
     for key, value in data.model_dump(exclude={"entity_id", "day"}).items():
         setattr(slot, key, value)
     slot.day = data.day
     session.add(slot)
     await session.flush()
-    await log_event(session, verb="plan.scheduled", entity_id=data.entity_id,
-                    entity_type=entity.type,
-                    payload={"day": data.day.isoformat(), "duration_min": data.duration_min})
+    await log_event(
+        session,
+        verb="plan.scheduled",
+        entity_id=data.entity_id,
+        entity_type=entity.type,
+        payload={"day": data.day.isoformat(), "duration_min": data.duration_min},
+    )
     if commit:
         await session.commit()
     else:
         await session.flush()
-    return PlanSlotOut(id=slot.id, entity_id=slot.entity_id, entity_type=entity.type,
-                       title=entity.title, day=slot.day, start_min=slot.start_min,
-                       duration_min=slot.duration_min, note=slot.note, position=slot.position)
+    return PlanSlotOut(
+        id=slot.id,
+        entity_id=slot.entity_id,
+        entity_type=entity.type,
+        title=entity.title,
+        day=slot.day,
+        start_min=slot.start_min,
+        duration_min=slot.duration_min,
+        note=slot.note,
+        position=slot.position,
+    )
 
 
-async def update_slot(session: AsyncSession, slot_id: uuid.UUID,
-                      data: PlanSlotUpdate) -> PlanSlotOut | None:
+async def update_slot(
+    session: AsyncSession, slot_id: uuid.UUID, data: PlanSlotUpdate
+) -> PlanSlotOut | None:
     slot = await session.get(PlanSlot, slot_id)
     if slot is None:
         return None
@@ -502,11 +648,17 @@ async def update_slot(session: AsyncSession, slot_id: uuid.UUID,
             },
         )
     await session.commit()
-    return PlanSlotOut(id=slot.id, entity_id=slot.entity_id,
-                       entity_type=entity.type if entity else "unknown",
-                       title=entity.title if entity else "", day=slot.day,
-                       start_min=slot.start_min, duration_min=slot.duration_min,
-                       note=slot.note, position=slot.position)
+    return PlanSlotOut(
+        id=slot.id,
+        entity_id=slot.entity_id,
+        entity_type=entity.type if entity else "unknown",
+        title=entity.title if entity else "",
+        day=slot.day,
+        start_min=slot.start_min,
+        duration_min=slot.duration_min,
+        note=slot.note,
+        position=slot.position,
+    )
 
 
 async def delete_slot(session: AsyncSession, slot_id: uuid.UUID) -> bool:
@@ -532,18 +684,26 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
 
     # ScalarResult TEK gezinmelidir: ayni sonucu iki kez gezmek ikinci turda
     # bos doner (kayitlar sessizce /api/deadlines disinda kalirdi).
-    todos = list((await session.execute(
-        select(Todo).where(
-            Todo.status.in_(("open", "doing")),
-            Todo.due_at.is_not(None),
-        )
-    )).scalars())
+    todos = list(
+        (
+            await session.execute(
+                select(Todo).where(
+                    Todo.status.in_(("open", "doing")),
+                    Todo.due_at.is_not(None),
+                )
+            )
+        ).scalars()
+    )
     ids = [t.id for t in todos]
     due = {t.id: t.due_at for t in todos}
     prio = {t.id: t.priority for t in todos}
     return await rows_with_titles(
-        session, type_="todo", module="todo", ids=ids,
-        due_at=due, priority=prio,
+        session,
+        type_="todo",
+        module="todo",
+        ids=ids,
+        due_at=due,
+        priority=prio,
     )
 
 

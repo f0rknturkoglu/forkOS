@@ -4,13 +4,14 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 #: Rutin araliklari. None = tek seferlik.
 RECUR = Literal["daily", "weekdays", "weekly", "monthly"]
 
 
 class TodoIn(BaseModel):
+    client_uuid: uuid.UUID | None = None
     title: str = Field(min_length=1, max_length=500)
     description: str | None = None
     priority: int = Field(default=2, ge=0, le=3)
@@ -29,6 +30,20 @@ class TodoIn(BaseModel):
     #: semantik (planner gecmise de yazabilir); "bugun"u komposerlar Istanbul
     #: gunune gore uretir, API bu alani genel plan gunu olarak gorur.
     plan_day: date | None = None
+
+    @model_validator(mode="after")
+    def capture_contract(self):
+        if self.client_uuid:
+            if not self.title.strip() or self.status != "open":
+                raise ValueError("Capture açık ve başlığı dolu bir görev olmalı")
+            if self.description and len(self.description) > 30000:
+                raise ValueError("Capture açıklaması en fazla 30000 karakter")
+            if any(
+                value is not None and value.tzinfo is None
+                for value in (self.due_at, self.reminder_at)
+            ):
+                raise ValueError("Capture tarihi saat dilimi içermeli")
+        return self
 
 
 class TodoUpdate(BaseModel):

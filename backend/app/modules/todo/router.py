@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,29 +23,45 @@ router = APIRouter(tags=["todo"])
 
 
 @router.get("/todos", response_model=list[TodoOut])
-async def list_todos(status: str | None = None, due_before: datetime | None = None,
-                     priority: int | None = None, include_undated: bool = False,
-                     completed_after: datetime | None = None,
-                     recur_only: bool = False,
-                     limit: int = Query(100, ge=1, le=500),
-                     session: AsyncSession = Depends(get_session)):
-    return await service.list_todos(session, status=status, due_before=due_before,
-                                    priority=priority, include_undated=include_undated,
-                                    completed_after=completed_after,
-                                    recur_only=recur_only, limit=limit)
+async def list_todos(
+    status: str | None = None,
+    due_before: datetime | None = None,
+    priority: int | None = None,
+    include_undated: bool = False,
+    completed_after: datetime | None = None,
+    recur_only: bool = False,
+    limit: int = Query(100, ge=1, le=500),
+    session: AsyncSession = Depends(get_session),
+):
+    return await service.list_todos(
+        session,
+        status=status,
+        due_before=due_before,
+        priority=priority,
+        include_undated=include_undated,
+        completed_after=completed_after,
+        recur_only=recur_only,
+        limit=limit,
+    )
 
 
 @router.post("/todos", response_model=TodoOut, status_code=201)
-async def create_todo(body: TodoIn, session: AsyncSession = Depends(get_session)):
+async def create_todo(
+    body: TodoIn, response: Response, session: AsyncSession = Depends(get_session)
+):
     try:
-        return await service.create(session, body)
+        result = await service.create(session, body)
+        if session.info.pop("capture_replayed", False):
+            response.headers["Idempotency-Replayed"] = "true"
+        return result
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
 
 
 @router.patch("/todos/{todo_id}", response_model=TodoOut)
-async def update_todo(todo_id: uuid.UUID, body: TodoUpdate,
-                      session: AsyncSession = Depends(get_session)):
+async def update_todo(
+    todo_id: uuid.UUID, body: TodoUpdate, session: AsyncSession = Depends(get_session)
+):
     try:
         result = await service.update(session, todo_id, body)
     except ValueError as exc:
@@ -85,8 +101,9 @@ async def carry_over(body: CarryOverIn, session: AsyncSession = Depends(get_sess
 
 
 @router.get("/plan", response_model=list[PlanSlotOut])
-async def get_plan(week: date = Query(default_factory=local_today),
-                   session: AsyncSession = Depends(get_session)):
+async def get_plan(
+    week: date = Query(default_factory=local_today), session: AsyncSession = Depends(get_session)
+):
     return await service.list_plan(session, week)
 
 
@@ -99,8 +116,9 @@ async def create_slot(body: PlanSlotIn, session: AsyncSession = Depends(get_sess
 
 
 @router.patch("/plan/{slot_id}", response_model=PlanSlotOut)
-async def update_slot(slot_id: uuid.UUID, body: PlanSlotUpdate,
-                      session: AsyncSession = Depends(get_session)):
+async def update_slot(
+    slot_id: uuid.UUID, body: PlanSlotUpdate, session: AsyncSession = Depends(get_session)
+):
     result = await service.update_slot(session, slot_id, body)
     if result is None:
         raise HTTPException(404, "plan slot bulunamadi")

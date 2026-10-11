@@ -131,9 +131,7 @@ def _skill_match_ratio(
     hesaplanmadi" ayni goruntuye dusuyor ve "Hesaplanmadi" filtresi is
     ilanlarinda asla eslesmiyordu. Artik null korunur.
     """
-    match = _calculate_skill_match(
-        opportunity, title, None, candidate_revision=candidate_revision
-    )
+    match = _calculate_skill_match(opportunity, title, None, candidate_revision=candidate_revision)
     if match is None:
         return None
     return match.match_ratio
@@ -193,9 +191,7 @@ def _out(
         follow_up_at=o.follow_up_at,
         rejection_reason=o.rejection_reason,
         profile_match_ratio=_skill_match_ratio(o, title, candidate_revision=candidate_revision),
-        skill_match=_calculate_skill_match(
-            o, title, None, candidate_revision=candidate_revision
-        ),
+        skill_match=_calculate_skill_match(o, title, None, candidate_revision=candidate_revision),
         application_status=application.status if application is not None else None,
         application_status_changed_at=(
             application.status_changed_at if application is not None else None
@@ -286,9 +282,7 @@ async def list_opportunities(
     stmt = stmt.limit(limit)
     rows = (await session.execute(stmt)).all()
     candidate_revision = (await build_candidate_career_context(session)).revision if rows else None
-    outs = [
-        _out(row, include_raw=False, candidate_revision=candidate_revision) for row in rows
-    ]
+    outs = [_out(row, include_raw=False, candidate_revision=candidate_revision) for row in rows]
     outs = await attach_applications(session, rows, outs)
     if not outs:
         return outs
@@ -424,8 +418,22 @@ async def delete_opportunity(session: AsyncSession, item_id: uuid.UUID) -> bool:
     return True
 
 
-async def create(session: AsyncSession, data: OpportunityIn) -> OpportunityOut:
+async def create(
+    session: AsyncSession, data: OpportunityIn, *, commit: bool = True
+) -> OpportunityOut:
     from app.modules.opportunity import lifecycle
+
+    if data.client_uuid:
+        from app.modules.bookmark.receipts import capture_once
+
+        async def write():
+            result = await create(
+                session, data.model_copy(update={"client_uuid": None}), commit=False
+            )
+            return result.model_dump(mode="json")
+
+        result, _ = await capture_once(session, data, "opportunity", write)
+        return OpportunityOut.model_validate(result)
 
     entity = await create_entity(
         session,
@@ -472,7 +480,10 @@ async def create(session: AsyncSession, data: OpportunityIn) -> OpportunityOut:
         entity_type="opportunity",
         payload={"kind": item.kind, "status": item.status},
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return _out((item, data.title))
 
 
@@ -503,10 +514,17 @@ async def patch(
     old_raw = dict(item.raw or {})
     old_desc = canonical_description(old_raw)
 
-    ranking_fields = ("organization", "location", "remote", "compensation", "published_at", "country", "region")
+    ranking_fields = (
+        "organization",
+        "location",
+        "remote",
+        "compensation",
+        "published_at",
+        "country",
+        "region",
+    )
     field_ranking_changed = any(
-        key in changes and changes[key] != getattr(item, key, None)
-        for key in ranking_fields
+        key in changes and changes[key] != getattr(item, key, None) for key in ranking_fields
     )
 
     raw_changed = False
@@ -530,7 +548,9 @@ async def patch(
         if ranking_relevant_changed:
             score_canonical_opportunity(item, effective_title, now=now)
         if candidate_evidence_changed:
-            apply_candidate_match(item, effective_title, await build_candidate_career_context(session))
+            apply_candidate_match(
+                item, effective_title, await build_candidate_career_context(session)
+            )
 
     for key in ("deadline_at", "follow_up_at"):
         if isinstance(changes.get(key), datetime):
@@ -666,9 +686,7 @@ async def merge_duplicate_clusters(
             and application_count == 0
             and requirement_count == 0
             and all(
-                same_real_world_posting(
-                    identity_from_stored(rows[0]), identity_from_stored(row)
-                )
+                same_real_world_posting(identity_from_stored(rows[0]), identity_from_stored(row))
                 for row in rows[1:]
             )
         )
@@ -737,8 +755,12 @@ def _announcement_columns(raw: dict[str, Any]) -> dict[str, Any]:
         "application_end_at": _parse_dt(payload.get("application_end_at")),
         "exam_at": _parse_dt(payload.get("exam_at")),
         "result_at": _parse_dt(payload.get("result_at")),
-        "guide_url": payload.get("guide_url") if isinstance(payload.get("guide_url"), str) else None,
-        "apply_url": payload.get("apply_url") if isinstance(payload.get("apply_url"), str) else None,
+        "guide_url": payload.get("guide_url")
+        if isinstance(payload.get("guide_url"), str)
+        else None,
+        "apply_url": payload.get("apply_url")
+        if isinstance(payload.get("apply_url"), str)
+        else None,
         "quota_total": quota if isinstance(quota, int) else None,
         "fields": [str(item) for item in fields] if isinstance(fields, list) else [],
     }
@@ -866,7 +888,13 @@ async def _refresh_opportunity(
     incoming_owner = (raw.get("forkjob") or {}).get("source")
     # A source refresh can correct its own historical default-native label.
     # It cannot downgrade an employer owner or another publisher's evidence.
-    if incoming_authority == "meta" and existing_authority == "native" and existing_owner and existing_owner == incoming_owner and opportunity.source == source_label:
+    if (
+        incoming_authority == "meta"
+        and existing_authority == "native"
+        and existing_owner
+        and existing_owner == incoming_owner
+        and opportunity.source == source_label
+    ):
         existing_authority = "meta"
         merged_raw["source_authority"] = "meta"
     authority_rank = {"meta": 0, "native": 1, "employer": 2}
@@ -877,11 +905,24 @@ async def _refresh_opportunity(
     if "forkjob" in raw and isinstance(raw["forkjob"], dict):
         merged_fk = dict(merged_raw.get("forkjob") or {})
         for k, v in raw["forkjob"].items():
-            if k == "language" and v is None and (existing_owner == incoming_owner or upgrade_authority) and not preserve_authority and not source_fact(merged_fk.get("description"), "Language"):
-                merged_fk[k] = None  # remove a historical UI/prose-language guess, not explicit facts
+            if (
+                k == "language"
+                and v is None
+                and (existing_owner == incoming_owner or upgrade_authority)
+                and not preserve_authority
+                and not source_fact(merged_fk.get("description"), "Language")
+            ):
+                merged_fk[k] = (
+                    None  # remove a historical UI/prose-language guess, not explicit facts
+                )
             if v is not None and v != "":
                 if k == "description":
-                    merged_fk[k] = merge_descriptions(merged_fk.get(k), v, prefer_existing=preserve_authority, prefer_incoming=upgrade_authority)
+                    merged_fk[k] = merge_descriptions(
+                        merged_fk.get(k),
+                        v,
+                        prefer_existing=preserve_authority,
+                        prefer_incoming=upgrade_authority,
+                    )
                 elif not preserve_authority or merged_fk.get(k) in (None, "", "unknown", "UNKNOWN"):
                     merged_fk[k] = v
         merged_raw["forkjob"] = merged_fk
@@ -893,10 +934,15 @@ async def _refresh_opportunity(
         merged_raw.setdefault("apply_url", raw["apply_url"])
     if raw.get("description"):
         merged_raw["description"] = merge_descriptions(
-            canonical_description(merged_raw), str(raw["description"]), prefer_existing=preserve_authority, prefer_incoming=upgrade_authority
+            canonical_description(merged_raw),
+            str(raw["description"]),
+            prefer_existing=preserve_authority,
+            prefer_incoming=upgrade_authority,
         )
 
-    if raw.get("source_authority") and (not merged_raw.get("source_authority") or upgrade_authority):
+    if raw.get("source_authority") and (
+        not merged_raw.get("source_authority") or upgrade_authority
+    ):
         merged_raw["source_authority"] = raw["source_authority"]
     existing_sources = list(merged_raw.get("sources", [opportunity.source]))
     incoming_sources = raw.get("sources") or [source_label]
@@ -906,7 +952,9 @@ async def _refresh_opportunity(
     merged_raw["sources"] = existing_sources
     opportunity.raw = merged_raw
 
-    same_primary_source = (opportunity.source == source_label and not source_label.startswith("careerops:")) or upgrade_authority
+    same_primary_source = (
+        opportunity.source == source_label and not source_label.startswith("careerops:")
+    ) or upgrade_authority
 
     # Field-aware non-destructive updates (Finding 16)
     if category is not None and (not opportunity.category or same_primary_source):
@@ -936,7 +984,11 @@ async def _refresh_opportunity(
 
     if forkjob.get("work_mode"):
         mode = str(forkjob["work_mode"])
-        if mode and mode != "unknown" and (not opportunity.remote or opportunity.remote == "unknown" or same_primary_source):
+        if (
+            mode
+            and mode != "unknown"
+            and (not opportunity.remote or opportunity.remote == "unknown" or same_primary_source)
+        ):
             opportunity.remote = mode
     elif getattr(job, "work_mode", None) is not None:
         mode_val = job.work_mode.value if hasattr(job.work_mode, "value") else str(job.work_mode)
@@ -976,8 +1028,6 @@ async def _refresh_opportunity(
     for key, value in _announcement_columns(raw).items():
         if value is not None and value != []:
             setattr(opportunity, key, value)
-
-
 
 
 async def _sync_entity_titles(
@@ -1065,15 +1115,23 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
     canonical_urls = [canonical_url(url) for url in urls if isinstance(url, str) and url.strip()]
     existing_by_url: dict[str, Opportunity] = {}
     existing_by_canonical_url: dict[str, Opportunity] = {}
-    apply_urls = [url for _job, raw, _fk in rows_by_job if (url := specific_application_url(raw.get("apply_url")))]
+    apply_urls = [
+        url
+        for _job, raw, _fk in rows_by_job
+        if (url := specific_application_url(raw.get("apply_url")))
+    ]
     lookups = list(dict.fromkeys([*urls, *canonical_urls, *apply_urls]))
     existing_by_apply_url: dict[str, list[Opportunity]] = {}
     if lookups:
         for row in (
-            await session.execute(select(Opportunity).where(or_(
-                Opportunity.url.in_(lookups),
-                Opportunity.raw["apply_url"].astext.in_(lookups),
-            )))
+            await session.execute(
+                select(Opportunity).where(
+                    or_(
+                        Opportunity.url.in_(lookups),
+                        Opportunity.raw["apply_url"].astext.in_(lookups),
+                    )
+                )
+            )
         ).scalars():
             if not row.url:
                 continue
@@ -1090,17 +1148,12 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             Opportunity.raw["cluster_key"].astext,
         )
         for row in (
-            (
-                await session.execute(
-                    select(Opportunity).where(cluster_expr.in_(cluster_keys))
-                )
-            )
+            (await session.execute(select(Opportunity).where(cluster_expr.in_(cluster_keys))))
             .scalars()
             .all()
         ):
-            key = (
-                ((row.raw or {}).get("forkjob") or {}).get("cluster_key")
-                or (row.raw or {}).get("cluster_key")
+            key = ((row.raw or {}).get("forkjob") or {}).get("cluster_key") or (row.raw or {}).get(
+                "cluster_key"
             )
             if key:
                 existing_by_cluster.setdefault(str(key), []).append(row)
@@ -1163,18 +1216,28 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             )
         if existing is None:
             application = specific_application_url(raw.get("apply_url"))
-            candidates = list(existing_by_apply_url.get(canonical_url(job.url), [])) if job.url else []
+            candidates = (
+                list(existing_by_apply_url.get(canonical_url(job.url), [])) if job.url else []
+            )
             if application:
                 if linked := existing_by_canonical_url.get(application):
                     candidates.append(linked)
                 candidates.extend(existing_by_apply_url.get(application, []))
-            matches = {row.id: row for row in candidates if same_real_world_posting(
-                identity_from_stored(row), identity_from_incoming(job, raw, source_label)
-            )}
+            matches = {
+                row.id: row
+                for row in candidates
+                if same_real_world_posting(
+                    identity_from_stored(row), identity_from_incoming(job, raw, source_label)
+                )
+            }
             if len(matches) == 1:
                 existing = next(iter(matches.values()))
         if existing is not None:
-            if existing.source != source_label and job.url and existing_by_url.get(job.url) is existing:
+            if (
+                existing.source != source_label
+                and job.url
+                and existing_by_url.get(job.url) is existing
+            ):
                 sources = list((existing.raw or {}).get("sources", [existing.source]))
                 if source_label not in sources:
                     sources.append(source_label)
@@ -1260,9 +1323,7 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
         touched=touched,
         source_label=source_label,
     )
-    observation_cache = await _load_observations(
-        session, [row.id for row in touched], source_label
-    )
+    observation_cache = await _load_observations(session, [row.id for row in touched], source_label)
     for (job, raw, _forkjob), opportunity in zip(rows_by_job, touched, strict=False):
         await _touch_observation(
             session,
@@ -1574,7 +1635,9 @@ async def _average_row_bytes(session: AsyncSession) -> int:
     return int(size / count) if count else 0
 
 
-async def _prune_candidates(session: AsyncSession, *, days: int) -> tuple[list[uuid.UUID], int, int]:
+async def _prune_candidates(
+    session: AsyncSession, *, days: int
+) -> tuple[list[uuid.UUID], int, int]:
     """(silinebilir id'ler, korunan sayisi, arsivlenen sayisi)."""
     cutoff = datetime.now(UTC) - timedelta(days=days)
     stale_filter = (
@@ -1584,13 +1647,10 @@ async def _prune_candidates(session: AsyncSession, *, days: int) -> tuple[list[u
     # Kullanici ilgisi olan her kayit korunur: basvuru, gorusme, gereksinim,
     # not, yer imi ya da herhangi bir entity link'i.
     linked_ids = select(Link.from_id).union(select(Link.to_id))
-    user_touched = (
-        select(Application.opportunity_id)
-        .union(
-            select(Interview.opportunity_id),
-            select(OpportunityRequirement.opportunity_id),
-            linked_ids,
-        )
+    user_touched = select(Application.opportunity_id).union(
+        select(Interview.opportunity_id),
+        select(OpportunityRequirement.opportunity_id),
+        linked_ids,
     )
     protected = (
         await session.execute(

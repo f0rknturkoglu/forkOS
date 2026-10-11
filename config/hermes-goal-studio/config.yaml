@@ -1,0 +1,33 @@
+# Dedicated profile only. Do not copy credentials, tools, hooks or skills from the user's profile.
+model:
+  provider: custom
+  default: qwen3.5:9b
+  base_url: http://127.0.0.1:11434/v1
+platform_toolsets:
+  api_server: []
+mcp_servers: {}
+plugins: {}
+fallback_model: null
+memory:
+  memory_enabled: false
+  user_profile_enabled: false
+auxiliary:
+  background_review:
+    enabled: false
+curator:
+  enabled: false
+context_engine: default
+agent:
+  max_iterations: 3
+platforms:
+  api_server:
+    enabled: true
+    extra:
+      host: 127.0.0.1
+      port: 8643
+      model_name: forkos-goal-studio
+      cors_origins: []
+      browser_control:
+        enabled: false
+gateway:
+  multiplex_profiles: false

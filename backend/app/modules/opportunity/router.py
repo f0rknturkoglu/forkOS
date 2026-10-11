@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -392,8 +392,13 @@ async def reply_analysis(
 
 
 @router.post("/opportunities", response_model=OpportunityOut, status_code=201)
-async def create(body: OpportunityIn, session: AsyncSession = Depends(get_session)):
-    return await service.create(session, body)
+async def create(
+    body: OpportunityIn, response: Response, session: AsyncSession = Depends(get_session)
+):
+    result = await service.create(session, body)
+    if session.info.pop("capture_replayed", False):
+        response.headers["Idempotency-Replayed"] = "true"
+    return result
 
 
 @router.patch("/opportunities/{item_id}", response_model=OpportunityOut)

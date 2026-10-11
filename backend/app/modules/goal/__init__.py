@@ -1,4 +1,5 @@
 from app.modules import EntityTypeSpec, ModuleSpec
+from app.modules.goal import studio_models  # noqa: F401
 from app.modules.goal.router import router
 from app.modules.goal.service import deadline_provider
 
@@ -7,6 +8,24 @@ MODULE = ModuleSpec(
     title="Goals",
     router=router,
     entity_types=[
+        EntityTypeSpec(
+            "goal_studio_session",
+            "Hedef görüşmesi",
+            "Hedef görüşmeleri",
+            "/goals",
+            "MessageSquare",
+            searchable=False,
+            linkable=False,
+        ),
+        EntityTypeSpec(
+            "goal_studio_revision",
+            "Hedef taslağı",
+            "Hedef taslakları",
+            "/goals",
+            "FileCheck",
+            searchable=False,
+            linkable=False,
+        ),
         EntityTypeSpec(
             "strategic_plan", "Stratejik plan", "Stratejik planlar", "/goals?entity={id}", "Compass"
         ),
@@ -43,6 +62,16 @@ MODULE = ModuleSpec(
         ),
     ],
     event_verbs=[
+        "goal_studio.started",
+        "goal_studio.turn_requested",
+        "goal_studio.turn_completed",
+        "goal_studio.stopped",
+        "goal_studio.revised",
+        "goal_studio.approved",
+        "goal_studio.applied",
+        "goal_studio.rejected",
+        "goal_studio.stale",
+        "goal_studio.failed",
         "strategic_plan.created",
         "strategic_plan.updated",
         "strategic_plan.revised",

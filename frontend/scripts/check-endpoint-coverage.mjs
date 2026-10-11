@@ -76,6 +76,7 @@ function isCalled(path) {
 // Calisma zamaninda template/concatenation ile kurulan cagrilar (kaynakta tam
 // path gorunmez; grep ile dogrulandi). Kural 17: uclar bagli, betik goremiyor.
 const DYNAMIC_KNOWN = new Set([
+  "/api/goals/studio/sessions/{session_id}/events", // core/api.ts streamGoalStudio bounded SSE consumer
   "/api/opportunities/browse", // browseQuery(filters) query string ile birlestirir
   "/api/pomodoro/{pomo_id}/pause",  // api.post(`/pomodoro/${id}/${paused ? "resume" : "pause"}`)
   "/api/pomodoro/{pomo_id}/resume",

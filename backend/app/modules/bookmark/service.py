@@ -14,6 +14,7 @@ import re
 import uuid
 from urllib.parse import urlsplit, urlunsplit
 
+from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -88,6 +89,8 @@ async def find_by_url(
 async def capture(
     session: AsyncSession,
     data: CaptureIn,
+    *,
+    commit: bool = True,
 ) -> tuple[Bookmark, bool, Bookmark | None]:
     """Idempotent capture.
 
@@ -95,11 +98,44 @@ async def capture(
       replayed -> ayni client_uuid ikinci kez geldi, YENI KAYIT ACILMADI
       prior    -> ayni URL daha once kaydedilmis (hata degil, sadece bilgi)
     """
+    if data.client_uuid and commit:
+        from app.modules.bookmark.receipts import capture_once
+
+        async def write():
+            row, replay, prior = await capture(session, data, commit=False)
+            return {
+                "id": str(row.id),
+                "prior": str(prior.id) if prior else None,
+                "replayed": replay,
+            }
+
+        result, replayed = await capture_once(session, data, "bookmark", write)
+        return (
+            await session.get(Bookmark, uuid.UUID(result["id"])),
+            replayed or result["replayed"],
+            await session.get(Bookmark, uuid.UUID(result["prior"])) if result["prior"] else None,
+        )
     if data.client_uuid:
         existing = (
             await session.execute(select(Bookmark).where(Bookmark.client_uuid == data.client_uuid))
         ).scalar_one_or_none()
         if existing is not None:
+            # Pre-receipt captures cannot prove their original request after user edits.
+            # Adopt only an exact match of persisted fields; otherwise retain the client payload for review.
+            entity = await session.get(Entity, existing.id)
+            values = data.model_dump(exclude={"client_uuid", "title", "tags"})
+            values["reading_time_min"] = data.reading_time_min or 1
+            values["word_count"] = data.word_count or 0
+            tags = (await tag_svc.tags_for(session, [existing.id])).get(existing.id, [])
+            if (
+                entity.title != (data.title.strip() or normalize_url(data.url))
+                or any(getattr(existing, key) != value for key, value in values.items())
+                or sorted(set(data.tags)) != sorted(tags)
+            ):
+                raise HTTPException(
+                    409,
+                    "Eski capture kimliği mevcut kayıtla eşleşmiyor; içerik korunarak incelenmeli",
+                )
             return existing, True, None
 
     # Kendisiyle karsilastirmamak icin kayit ACILMADAN once bakilir.
@@ -109,7 +145,9 @@ async def capture(
         session,
         type=Bookmark.ENTITY_TYPE,
         title=data.title.strip() or normalize_url(data.url),
-        search_text=_search_text(data.url, data.description, data.selection, data.note, data.author),
+        search_text=_search_text(
+            data.url, data.description, data.selection, data.note, data.author
+        ),
     )
     bookmark = Bookmark(
         id=entity.id,
@@ -145,7 +183,10 @@ async def capture(
             "duplicate": prior is not None,
         },
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return bookmark, False, prior
 
 
@@ -314,8 +355,7 @@ async def list_bookmarks(
     hashes = list({b.url_hash for b, _ in rows})
     other_bookmarks = (
         await session.execute(
-            select(Bookmark.url_hash, Bookmark.collection)
-            .where(Bookmark.url_hash.in_(hashes))
+            select(Bookmark.url_hash, Bookmark.collection).where(Bookmark.url_hash.in_(hashes))
         )
     ).all()
     collection_by_hash: dict[str, list[str]] = {}
@@ -868,7 +908,9 @@ async def import_bookmarks(
                         source="pocket_import",
                         author=author_name,
                         word_count=int(item.get("word_count", 0) or 0),
-                        reading_time_min=max(1, math.ceil(int(item.get("word_count", 0) or 0) / 200))
+                        reading_time_min=max(
+                            1, math.ceil(int(item.get("word_count", 0) or 0) / 200)
+                        )
                         if item.get("word_count")
                         else 1,
                     )
@@ -923,7 +965,9 @@ async def stats(session: AsyncSession) -> dict:
     midnight, tomorrow = local_day_bounds(local_today())
     saved_today = (
         await session.execute(
-            select(func.count()).select_from(Bookmark).where(
+            select(func.count())
+            .select_from(Bookmark)
+            .where(
                 Bookmark.saved_at >= midnight,
                 Bookmark.saved_at < tomorrow,
             )

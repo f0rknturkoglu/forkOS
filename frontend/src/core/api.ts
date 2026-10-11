@@ -124,7 +124,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(`${BASE}${path}`, {
       ...init,
-      headers: multipart ? undefined : { "Content-Type": "application/json" },
+      headers: multipart
+        ? undefined
+        : {
+            "Content-Type": "application/json",
+            ...(path.startsWith("/goals/studio/") ? { "X-ForkOS-Goal-Studio": "1" } : {}),
+          },
       signal: controller.signal,
     });
   } catch (error) {
@@ -174,4 +179,34 @@ export const api = {
 export function qs(params: Record<string, string | number | boolean | undefined | null>): string {
   const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "");
   return entries.length ? `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)]))}` : "";
+}
+
+/** Goal Studio public SSE only. Disconnects reconcile the same run, never submit again. */
+export async function streamGoalStudio(id: string, signal: AbortSignal, onText: (text: string) => void) {
+  const response = await fetch(`${BASE}/goals/studio/sessions/${encodeURIComponent(id)}/events`, { signal });
+  if (!response.ok || !response.body)
+    throw new ApiError(response.status, "Hermes akışı kesildi; mevcut koşu kontrol ediliyor.");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "",
+    total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.length;
+      if (total > 128000) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const event = JSON.parse(line.slice(6)) as { text?: string; reconcile?: boolean };
+        if (typeof event.text === "string") onText(event.text.slice(0, 4000));
+        if (event.reconcile) return;
+      }
+    }
+  } finally {
+    await reader.cancel();
+  }
 }

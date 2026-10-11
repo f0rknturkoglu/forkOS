@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -26,7 +27,6 @@ class ListingHealthOut(BaseModel):
     salary_transparency: Literal["transparent", "unclear", "missing"]
     liveness_status: Literal["live", "unchecked", "at_risk", "expired", "uncertain"]
     repost_frequency: Literal["none", "moderate", "frequent"]
-
 
 
 class OpportunityIntelligenceOut(BaseModel):
@@ -152,6 +152,7 @@ class OpportunityEvaluationPatch(BaseModel):
 
 
 class OpportunityIn(BaseModel):
+    client_uuid: UUID | None = None
     title: str = Field(min_length=1)
     kind: str = "job"
     organization: str | None = None
@@ -167,6 +168,37 @@ class OpportunityIn(BaseModel):
     country: str | None = None
     region: str | None = None
     raw: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def capture_contract(self):
+        if not self.client_uuid:
+            return self
+        from app.modules.opportunity.lifecycle import discovery_flow
+
+        if self.kind not in {"job", "announcement"} or self.status not in discovery_flow(self.kind):
+            raise ValueError(
+                "Capture yalnız iş keşfi veya duyuru durumu kabul eder; başvuru Kariyer ekranında yapılır"
+            )
+        if (
+            len(self.title.strip()) == 0
+            or len(self.title) > 500
+            or len(json.dumps(self.model_dump(mode="json"))) > 60000
+        ):
+            raise ValueError("Capture başlığı veya içerik boyutu geçersiz")
+        if self.url and (self.url.username or self.url.password):
+            raise ValueError("URL kimlik bilgisi içeremez")
+        for value in (self.deadline_at, self.published_at):
+            if value is not None and value.tzinfo is None:
+                raise ValueError("Capture tarihi saat dilimi içermeli")
+        evidence = self.raw.get("capture_evidence", {})
+        if not isinstance(evidence, dict):
+            raise ValueError("Capture kanıtı bir nesne olmalı")
+        document = evidence.get("official_document_url")
+        if document:
+            parsed = HttpUrl(document)
+            if parsed.username or parsed.password:
+                raise ValueError("Belge URL kimlik bilgisi içeremez")
+        return self
 
 
 class OpportunityPatch(BaseModel):
@@ -752,7 +784,9 @@ class ApplicationAnswerOut(BaseModel):
 class KnockoutAnswerOut(BaseModel):
     question: str
     proposed_answer: str
-    classification: Literal["safe_verified", "needs_user_input", "sensitive_user_decision"] = "needs_user_input"
+    classification: Literal["safe_verified", "needs_user_input", "sensitive_user_decision"] = (
+        "needs_user_input"
+    )
     evidence_refs: list[str] = Field(default_factory=list)
     evidence: str
     confidence: float = 1.0
@@ -784,7 +818,9 @@ class ApplicationPackageOut(BaseModel):
     cv_change_audit: list[CvChangeItemOut] = Field(default_factory=list)
     fact_verification: list[CvFactVerificationOut] = Field(default_factory=list)
     cover_letter: str = ""
-    cover_letter_review: PackageCoverLetterReviewOut = Field(default_factory=PackageCoverLetterReviewOut)
+    cover_letter_review: PackageCoverLetterReviewOut = Field(
+        default_factory=PackageCoverLetterReviewOut
+    )
     application_answers: list[ApplicationAnswerOut] = Field(default_factory=list)
     knockout_answers: list[KnockoutAnswerOut] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

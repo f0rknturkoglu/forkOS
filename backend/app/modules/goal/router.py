@@ -26,6 +26,7 @@ from app.modules.goal.strategy_schemas import (
     StrategyHistory,
     StrategyOverview,
 )
+from app.modules.goal.studio_router import router as studio_router
 
 
 class StrategyWindow(IntEnum):
@@ -35,6 +36,7 @@ class StrategyWindow(IntEnum):
 
 
 router = APIRouter(tags=["goals"])
+router.include_router(studio_router)
 
 
 @router.get("/goals/strategy/overview", response_model=StrategyOverview)

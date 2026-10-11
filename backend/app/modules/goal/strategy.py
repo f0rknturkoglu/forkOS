@@ -138,7 +138,7 @@ async def revision(session, row, entity, change_reason):
     )
 
 
-async def save_plan(session, data: PlanIn, plan_id=None):
+async def save_plan(session, data: PlanIn, plan_id=None, *, commit=True):
     validate_narrative(data.narrative_path)
     values = data.model_dump(exclude={"title", "change_reason"})
     if plan_id:
@@ -172,11 +172,14 @@ async def save_plan(session, data: PlanIn, plan_id=None):
         entity_type=row.ENTITY_TYPE,
         payload={"revision": row.revision},
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return plan_out(row, entity)
 
 
-async def save_pillar(session, plan_id, data: PillarIn, pillar_id=None):
+async def save_pillar(session, plan_id, data: PillarIn, pillar_id=None, *, commit=True):
     plan = await session.scalar(
         select(StrategicPlan).where(StrategicPlan.id == plan_id).with_for_update()
     )
@@ -207,11 +210,16 @@ async def save_pillar(session, plan_id, data: PillarIn, pillar_id=None):
         entity_type=row.ENTITY_TYPE,
         payload={"plan_id": str(plan_id)},
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return PillarOut(id=row.id, plan_id=plan_id, **data.model_dump())
 
 
-async def save_kr(session, goal_id, data: KeyResultIn, kr_id=None):
+async def save_kr(
+    session, goal_id, data: KeyResultIn, kr_id=None, *, commit=True, preserve_measurement=False
+):
     if not await service.get_goal(session, goal_id):
         raise ValueError("Hedef bulunamadı")
     values = data.model_dump(exclude={"title", "source_config"})
@@ -229,7 +237,11 @@ async def save_kr(session, goal_id, data: KeyResultIn, kr_id=None):
         entity = await session.get(Entity, row.id)
         for key, value in values.items():
             setattr(row, key, value)
-        if data.source_key == "manual" and data.manual_value is not None:
+        if (
+            data.source_key == "manual"
+            and data.manual_value is not None
+            and not preserve_measurement
+        ):
             row.measured_at = clock()
             changed = True
         verb = "key_result.updated"
@@ -264,7 +276,10 @@ async def save_kr(session, goal_id, data: KeyResultIn, kr_id=None):
             entity_type=row.ENTITY_TYPE,
             payload={"value": str(data.manual_value)},
         )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return next(
         kr
         for objective in (await overview(session)).objectives

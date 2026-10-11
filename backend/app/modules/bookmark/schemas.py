@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 
 class CaptureIn(BaseModel):
@@ -33,6 +35,16 @@ class CaptureIn(BaseModel):
         if not v.lower().startswith(("http://", "https://")):
             raise ValueError("url http(s) ile baslamali")
         return v
+
+    @model_validator(mode="after")
+    def capture_boundaries(self):
+        if self.client_uuid:
+            parsed = urlsplit(self.url)
+            if not parsed.hostname or parsed.username or parsed.password or len(self.url) > 4000:
+                raise ValueError("Geçerli, kimlik bilgisi içermeyen URL gerekli")
+            if len(json.dumps(self.model_dump(mode="json"))) > 60000:
+                raise ValueError("Capture en fazla 60 KB olabilir")
+        return self
 
 
 class BookmarkUpdate(BaseModel):

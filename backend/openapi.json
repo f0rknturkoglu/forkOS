@@ -4790,6 +4790,99 @@
         "title": "DeepEvaluationOut",
         "type": "object"
       },
+      "EditGoal-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StudioGoalPatch-Input"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "goal.update",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "target_id",
+          "data"
+        ],
+        "title": "EditGoal",
+        "type": "object"
+      },
+      "EditGoal-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StudioGoalPatch-Output"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "goal.update",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "target_id",
+          "data"
+        ],
+        "title": "EditGoal",
+        "type": "object"
+      },
+      "EditMilestone": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StudioMilestonePatch"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "milestone.update",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "target_id",
+          "data"
+        ],
+        "title": "EditMilestone",
+        "type": "object"
+      },
       "EnsureManagedNoteIn": {
         "description": "Kanonik bilgi notu: kimliği verilen kalkın entity'sine bağlıdır.",
         "properties": {
@@ -7974,7 +8067,7 @@
         "title": "IssueToTodoIn",
         "type": "object"
       },
-      "KeyResultIn": {
+      "KeyResultIn-Input": {
         "additionalProperties": false,
         "properties": {
           "baseline_value": {
@@ -8130,6 +8223,146 @@
             ],
             "default": "1",
             "title": "Weight"
+          }
+        },
+        "required": [
+          "title",
+          "target_value"
+        ],
+        "title": "KeyResultIn",
+        "type": "object"
+      },
+      "KeyResultIn-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_value": {
+            "default": "0",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,21}0*$)\\d{0,16}\\.\\d{0,4}0*$)",
+            "title": "Baseline Value",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "direction": {
+            "default": "increase",
+            "enum": [
+              "increase",
+              "decrease"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "manual_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,21}0*$)\\d{0,16}\\.\\d{0,4}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual Value"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "source_config": {
+            "$ref": "#/components/schemas/MetricConfig"
+          },
+          "source_key": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "applications_applied",
+              "applications_interview",
+              "applications_offer",
+              "goal_milestones",
+              "linked_completion"
+            ],
+            "title": "Source Key",
+            "type": "string"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "active",
+              "paused",
+              "completed",
+              "retired"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target At"
+          },
+          "target_value": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,21}0*$)\\d{0,16}\\.\\d{0,4}0*$)",
+            "title": "Target Value",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "trajectory_model": {
+            "default": "none",
+            "enum": [
+              "linear",
+              "deadline",
+              "none"
+            ],
+            "title": "Trajectory Model",
+            "type": "string"
+          },
+          "unit": {
+            "default": "adet",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          },
+          "weight": {
+            "default": "1",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+            "title": "Weight",
+            "type": "string"
           }
         },
         "required": [
@@ -9001,6 +9234,246 @@
         "title": "MonthlyPoint",
         "type": "object"
       },
+      "NewGoal-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StudioGoalIn-Input"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "parent_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Ref"
+          },
+          "pillar_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pillar Ref"
+          },
+          "plan_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Ref"
+          },
+          "type": {
+            "const": "goal.create",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "data"
+        ],
+        "title": "NewGoal",
+        "type": "object"
+      },
+      "NewGoal-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StudioGoalIn-Output"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "parent_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Ref"
+          },
+          "pillar_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pillar Ref"
+          },
+          "plan_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Ref"
+          },
+          "type": {
+            "const": "goal.create",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "data"
+        ],
+        "title": "NewGoal",
+        "type": "object"
+      },
+      "NewMilestone": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/StudioMilestoneIn"
+          },
+          "goal_ref": {
+            "maxLength": 64,
+            "title": "Goal Ref",
+            "type": "string"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "type": {
+            "const": "milestone.create",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "goal_ref",
+          "data"
+        ],
+        "title": "NewMilestone",
+        "type": "object"
+      },
+      "NewPillar-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PillarIn-Input"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "plan_ref": {
+            "maxLength": 64,
+            "title": "Plan Ref",
+            "type": "string"
+          },
+          "type": {
+            "const": "pillar.create",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "plan_ref",
+          "data"
+        ],
+        "title": "NewPillar",
+        "type": "object"
+      },
+      "NewPillar-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PillarIn-Output"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "plan_ref": {
+            "maxLength": 64,
+            "title": "Plan Ref",
+            "type": "string"
+          },
+          "type": {
+            "const": "pillar.create",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "plan_ref",
+          "data"
+        ],
+        "title": "NewPillar",
+        "type": "object"
+      },
+      "NewPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PlanIn"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "type": {
+            "const": "plan.create",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "data"
+        ],
+        "title": "NewPlan",
+        "type": "object"
+      },
       "NotificationOut": {
         "properties": {
           "body": {
@@ -9735,6 +10208,18 @@
       },
       "OpportunityIn": {
         "properties": {
+          "client_uuid": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Uuid"
+          },
           "compensation": {
             "anyOf": [
               {
@@ -10932,7 +11417,7 @@
         "title": "PackageCoverLetterReviewOut",
         "type": "object"
       },
-      "PillarIn": {
+      "PillarIn-Input": {
         "additionalProperties": false,
         "properties": {
           "position": {
@@ -10959,6 +11444,33 @@
             ],
             "default": "1",
             "title": "Weight"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "PillarIn",
+        "type": "object"
+      },
+      "PillarIn-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "weight": {
+            "default": "1",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+            "title": "Weight",
+            "type": "string"
           }
         },
         "required": [
@@ -13937,6 +14449,92 @@
         "title": "SaveItemIn",
         "type": "object"
       },
+      "SaveKR-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/KeyResultIn-Input"
+          },
+          "goal_ref": {
+            "maxLength": 64,
+            "title": "Goal Ref",
+            "type": "string"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "type": {
+            "const": "key_result.save",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "goal_ref",
+          "data"
+        ],
+        "title": "SaveKR",
+        "type": "object"
+      },
+      "SaveKR-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/KeyResultIn-Output"
+          },
+          "goal_ref": {
+            "maxLength": 64,
+            "title": "Goal Ref",
+            "type": "string"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "type": {
+            "const": "key_result.save",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "goal_ref",
+          "data"
+        ],
+        "title": "SaveKR",
+        "type": "object"
+      },
       "SavedViewCreate": {
         "description": "POST /views govdesi: position sunucu tarafinda (max+1) hesaplanir.",
         "properties": {
@@ -15775,6 +16373,1094 @@
         "title": "StreakOut",
         "type": "object"
       },
+      "StudioApplied": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type"
+        ],
+        "title": "StudioApplied",
+        "type": "object"
+      },
+      "StudioDecisionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "revision_id": {
+            "format": "uuid",
+            "title": "Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision_id",
+          "fingerprint",
+          "decision"
+        ],
+        "title": "StudioDecisionIn",
+        "type": "object"
+      },
+      "StudioGoalIn-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "horizon": {
+            "default": "quarter",
+            "enum": [
+              "short_term",
+              "quarter",
+              "year",
+              "long_term"
+            ],
+            "title": "Horizon",
+            "type": "string"
+          },
+          "parent_goal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Goal Id"
+          },
+          "pillar_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pillar Id"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "priority": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "source_memory_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Memory Id"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "active",
+              "paused",
+              "completed",
+              "retired"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategic_plan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategic Plan Id"
+          },
+          "target_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target At"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+                "type": "string"
+              }
+            ],
+            "default": "1",
+            "title": "Weight"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "StudioGoalIn",
+        "type": "object"
+      },
+      "StudioGoalIn-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "horizon": {
+            "default": "quarter",
+            "enum": [
+              "short_term",
+              "quarter",
+              "year",
+              "long_term"
+            ],
+            "title": "Horizon",
+            "type": "string"
+          },
+          "parent_goal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Goal Id"
+          },
+          "pillar_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pillar Id"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "priority": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "source_memory_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Memory Id"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "active",
+              "paused",
+              "completed",
+              "retired"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "strategic_plan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategic Plan Id"
+          },
+          "target_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target At"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "weight": {
+            "default": "1",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+            "title": "Weight",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "StudioGoalIn",
+        "type": "object"
+      },
+      "StudioGoalPatch-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "horizon": {
+            "anyOf": [
+              {
+                "enum": [
+                  "short_term",
+                  "quarter",
+                  "year",
+                  "long_term"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Horizon"
+          },
+          "parent_goal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Goal Id"
+          },
+          "pillar_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pillar Id"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "priority": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "active",
+                  "paused",
+                  "completed",
+                  "retired"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "strategic_plan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategic Plan Id"
+          },
+          "target_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target At"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+                "type": "string"
+              }
+            ],
+            "default": "1",
+            "title": "Weight"
+          }
+        },
+        "title": "StudioGoalPatch",
+        "type": "object"
+      },
+      "StudioGoalPatch-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "horizon": {
+            "anyOf": [
+              {
+                "enum": [
+                  "short_term",
+                  "quarter",
+                  "year",
+                  "long_term"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Horizon"
+          },
+          "parent_goal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Goal Id"
+          },
+          "pillar_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pillar Id"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "priority": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "active",
+                  "paused",
+                  "completed",
+                  "retired"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "strategic_plan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategic Plan Id"
+          },
+          "target_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target At"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "weight": {
+            "default": "1",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+            "title": "Weight",
+            "type": "string"
+          }
+        },
+        "title": "StudioGoalPatch",
+        "type": "object"
+      },
+      "StudioMilestoneIn": {
+        "additionalProperties": false,
+        "properties": {
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "StudioMilestoneIn",
+        "type": "object"
+      },
+      "StudioMilestonePatch": {
+        "additionalProperties": false,
+        "properties": {
+          "completed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "StudioMilestonePatch",
+        "type": "object"
+      },
+      "StudioProposal-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "evidence_refs": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "missing_information": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Missing Information",
+            "type": "array"
+          },
+          "operations": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "goal.create": "#/components/schemas/NewGoal-Input",
+                  "goal.update": "#/components/schemas/EditGoal-Input",
+                  "key_result.save": "#/components/schemas/SaveKR-Input",
+                  "milestone.create": "#/components/schemas/NewMilestone",
+                  "milestone.update": "#/components/schemas/EditMilestone",
+                  "pillar.create": "#/components/schemas/NewPillar-Input",
+                  "plan.create": "#/components/schemas/NewPlan"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/NewPlan"
+                },
+                {
+                  "$ref": "#/components/schemas/NewPillar-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/NewGoal-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/EditGoal-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/SaveKR-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/NewMilestone"
+                },
+                {
+                  "$ref": "#/components/schemas/EditMilestone"
+                }
+              ]
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Operations",
+            "type": "array"
+          },
+          "rationale": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rationale",
+          "operations"
+        ],
+        "title": "StudioProposal",
+        "type": "object"
+      },
+      "StudioProposal-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "evidence_refs": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "missing_information": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Missing Information",
+            "type": "array"
+          },
+          "operations": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "goal.create": "#/components/schemas/NewGoal-Output",
+                  "goal.update": "#/components/schemas/EditGoal-Output",
+                  "key_result.save": "#/components/schemas/SaveKR-Output",
+                  "milestone.create": "#/components/schemas/NewMilestone",
+                  "milestone.update": "#/components/schemas/EditMilestone",
+                  "pillar.create": "#/components/schemas/NewPillar-Output",
+                  "plan.create": "#/components/schemas/NewPlan"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/NewPlan"
+                },
+                {
+                  "$ref": "#/components/schemas/NewPillar-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/NewGoal-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/EditGoal-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/SaveKR-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/NewMilestone"
+                },
+                {
+                  "$ref": "#/components/schemas/EditMilestone"
+                }
+              ]
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Operations",
+            "type": "array"
+          },
+          "rationale": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rationale",
+          "operations"
+        ],
+        "title": "StudioProposal",
+        "type": "object"
+      },
+      "StudioRevisionOut": {
+        "additionalProperties": false,
+        "properties": {
+          "before": {
+            "additionalProperties": true,
+            "title": "Before",
+            "type": "object"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/StudioProposal-Output"
+          },
+          "results": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StudioApplied"
+            },
+            "title": "Results",
+            "type": "object"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "fingerprint",
+          "state",
+          "proposal",
+          "before",
+          "results",
+          "expires_at"
+        ],
+        "title": "StudioRevisionOut",
+        "type": "object"
+      },
+      "StudioSessionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "client_uuid": {
+            "format": "uuid",
+            "title": "Client Uuid",
+            "type": "string"
+          },
+          "goal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Id"
+          }
+        },
+        "required": [
+          "client_uuid"
+        ],
+        "title": "StudioSessionIn",
+        "type": "object"
+      },
+      "StudioSessionOut": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "pending_turn": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StudioTurnIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "progress": {
+            "default": "",
+            "title": "Progress",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StudioRevisionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "messages",
+          "revision"
+        ],
+        "title": "StudioSessionOut",
+        "type": "object"
+      },
+      "StudioStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "provider_notice": {
+            "default": "Hermes kendi yapılandırmasına göre bulut sağlayıcı kullanabilir. Bu geçit yalnız doğrulanmış yerel, araçsız profili kabul eder.",
+            "title": "Provider Notice",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "not_configured",
+              "unavailable",
+              "unsupported",
+              "ready"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "message"
+        ],
+        "title": "StudioStatus",
+        "type": "object"
+      },
+      "StudioTurnIn": {
+        "additionalProperties": false,
+        "properties": {
+          "client_uuid": {
+            "format": "uuid",
+            "title": "Client Uuid",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_uuid",
+          "message"
+        ],
+        "title": "StudioTurnIn",
+        "type": "object"
+      },
       "StudyAreaOut": {
         "properties": {
           "active": {
@@ -16650,6 +18336,18 @@
       },
       "TodoIn": {
         "properties": {
+          "client_uuid": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Uuid"
+          },
           "description": {
             "anyOf": [
               {
@@ -23519,7 +25217,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PillarIn"
+                "$ref": "#/components/schemas/PillarIn-Input"
               }
             }
           },
@@ -23582,7 +25280,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PillarIn"
+                "$ref": "#/components/schemas/PillarIn-Input"
               }
             }
           },
@@ -23612,6 +25310,362 @@
         },
         "summary": "Pillar Update",
         "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/studio/sessions": {
+      "post": {
+        "operationId": "start_api_goals_studio_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudioSessionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start",
+        "tags": [
+          "goals",
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/studio/sessions/{session_id}": {
+      "get": {
+        "operationId": "read_api_goals_studio_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read",
+        "tags": [
+          "goals",
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/studio/sessions/{session_id}/decision": {
+      "post": {
+        "operationId": "decide_api_goals_studio_sessions__session_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudioDecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide",
+        "tags": [
+          "goals",
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/studio/sessions/{session_id}/events": {
+      "get": {
+        "operationId": "events_api_goals_studio_sessions__session_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Events",
+        "tags": [
+          "goals",
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/studio/sessions/{session_id}/proposal": {
+      "put": {
+        "operationId": "revise_api_goals_studio_sessions__session_id__proposal_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudioProposal-Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revise",
+        "tags": [
+          "goals",
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/studio/sessions/{session_id}/stop": {
+      "post": {
+        "operationId": "stop_api_goals_studio_sessions__session_id__stop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop",
+        "tags": [
+          "goals",
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/studio/sessions/{session_id}/turns": {
+      "post": {
+        "operationId": "turn_api_goals_studio_sessions__session_id__turns_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudioTurnIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Turn",
+        "tags": [
+          "goals",
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/studio/status": {
+      "get": {
+        "operationId": "status_api_goals_studio_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Status",
+        "tags": [
+          "goals",
           "goals"
         ]
       }
@@ -23729,7 +25783,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/KeyResultIn"
+                "$ref": "#/components/schemas/KeyResultIn-Input"
               }
             }
           },
@@ -23792,7 +25846,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/KeyResultIn"
+                "$ref": "#/components/schemas/KeyResultIn-Input"
               }
             }
           },
