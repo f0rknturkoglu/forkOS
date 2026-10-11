@@ -7285,6 +7285,10 @@ export interface components {
         };
         /** ExperienceOut */
         ExperienceOut: {
+            /** Canonical Actions */
+            canonical_actions?: {
+                [key: string]: number;
+            };
             /** Counts */
             counts: {
                 [key: string]: number;

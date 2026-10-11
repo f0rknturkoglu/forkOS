@@ -102,8 +102,10 @@ async def test_completion_requires_view_and_canonical_record_and_feed_decision(c
     )
     assert response.status_code == 422
     async with SessionLocal() as db:
-        await create_entity(db, type="todo", title="Gerçek görev")
-        await db.commit()
+        from app.modules.todo.schemas import TodoIn
+        from app.modules.todo.service import create
+
+        await create(db, TodoIn(title="Gerçek görev"))
     assert (
         await client.put(
             "/api/system/experience", json={"revision": state["revision"], "onboarding": progress}

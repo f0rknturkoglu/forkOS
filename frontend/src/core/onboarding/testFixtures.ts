@@ -9,6 +9,8 @@ export function experienceFixture(
     revision: "a".repeat(64),
     first_run: false,
     counts: {},
+    canonical_actions: {},
+    invalid_feed_ids: [],
     warnings: [],
     updated_at: null,
     onboarding: {

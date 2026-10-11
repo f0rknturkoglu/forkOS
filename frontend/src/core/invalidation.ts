@@ -10,6 +10,7 @@ import { queryClient } from "./queryClient";
 
 export const AFTER = {
   "todo.write": [
+    "onboarding-evidence",
     "strategy-overview",
     "career-strategy",
     "career-proposals",
@@ -73,6 +74,7 @@ export const AFTER = {
     "activity",
   ],
   "goal.write": [
+    "onboarding-evidence",
     "strategy-overview",
     "strategy-history",
     "career-goals",
@@ -106,6 +108,7 @@ export const AFTER = {
     "related",
   ],
   "project.write": [
+    "onboarding-evidence",
     "strategy-overview",
     "career-strategy",
     "career-proposals",
@@ -124,6 +127,7 @@ export const AFTER = {
   // de bu veriden beslenir -- yalnizca "flashcard" tazelemek onlari bayat birakir.
   "flashcard.write": ["flashcard", "activity", "statistics", "today-agenda", "review-preview"],
   "study.write": [
+    "onboarding-evidence",
     "strategy-overview",
     "career-strategy",
     "career-proposals",
@@ -169,6 +173,7 @@ export const AFTER = {
     "study-stats",
   ],
   "learning.write": [
+    "onboarding-evidence",
     "courses",
     "bookmarks",
     "topic-resources",

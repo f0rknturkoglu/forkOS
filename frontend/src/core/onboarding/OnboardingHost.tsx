@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/core/api";
 import { BookOpen, Check, ChevronLeft, ChevronRight, Play, X } from "lucide-react";
 import { useHashRoute, navigate } from "@/app/router";
 import { enabledModules, moduleForPath, titleForPath } from "@/core/registry";
@@ -6,7 +8,7 @@ import { requestNavigation } from "@/core/navigationGuard";
 import { Button, Input, Modal, cx } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { JOURNEYS, TOUR_IDS, helpForModule, pageNotes, tourSteps } from "./catalog";
-import { useExperience, useSaveExperience, type OnboardingState } from "./experience";
+import { useExperience, useSaveExperience, type OnboardingState, type Experience } from "./experience";
 import { SourceDiscovery } from "./SourceDiscovery";
 
 export function OnboardingHost() {
@@ -34,6 +36,14 @@ export function OnboardingHost() {
     !query.isError &&
     Boolean(query.data?.first_run || (inProgress && ["welcome", "journey", "sources"].includes(state?.phase ?? "")));
   const modal = guide || sources || welcome;
+  const evidence = useQuery({
+    queryKey: ["onboarding-evidence"],
+    queryFn: async () => (await api.get<Experience>("/system/experience")).canonical_actions,
+    enabled: Boolean(inProgress && ["tour", "checklist"].includes(state?.phase ?? "")),
+    staleTime: 30_000,
+    retry: false,
+  });
+  const actionDone = !step?.actionType || Boolean(evidence.data?.[step.actionType]);
   const module = moduleForPath(route.path);
   const title = titleForPath(route.path) || "forkOS";
   const [targetReady, setTargetReady] = useState(false);
@@ -173,7 +183,8 @@ export function OnboardingHost() {
   const journeyType = { goal: "goal", planning: "todo", learning: "study_topic", career: "opportunity", general: "" }[
     state?.journey || "general"
   ];
-  const canonicalDone = !journeyType || Boolean(query.data?.counts[journeyType]);
+  const canonicalDone = !journeyType || Boolean(evidence.data?.[journeyType]);
+  const canonicalSkipped = Boolean(state?.journey && state.skipped_steps.includes(state.journey));
   const feedDone = state?.feed_setup !== "pending";
   const tours = TOUR_IDS.map((id) => ({ id, steps: tourSteps(id) }))
     .filter((item) => item.steps.length)
@@ -393,11 +404,20 @@ export function OnboardingHost() {
               <>
                 <h2 className="text-heading">İlk adımlar</h2>
                 <div className="stack-y-3">
-                  <ChecklistItem done={Boolean(state?.visited_steps.length)} title="Bir çalışma alanını keşfet" />
-                  <ChecklistItem done={feedDone} title="Kaynakları seç veya şimdilik geç" />
+                  <ChecklistItem
+                    done={Boolean(state?.visited_steps.length)}
+                    skipped={Boolean(!state?.visited_steps.length && state?.skipped_steps.length)}
+                    title="Çalışma alanı keşfi"
+                  />
+                  <ChecklistItem
+                    done={state?.feed_setup === "chosen"}
+                    skipped={state?.feed_setup === "skipped"}
+                    title="Kaynak seçimi"
+                  />
                   <ChecklistItem
                     done={canonicalDone}
-                    title={journeyType ? "İlk gerçek kaydını oluştur" : "Çalışma alanın hazır"}
+                    skipped={!canonicalDone && canonicalSkipped}
+                    title={journeyType ? "Kanonik kayıt" : "Çalışma alanın hazır"}
                   />
                 </div>
                 {!canonicalDone && (
@@ -424,7 +444,13 @@ export function OnboardingHost() {
                   </Button>
                   <Button
                     variant="primary"
-                    disabled={!online || save.isPending || !canonicalDone || !feedDone || !state?.visited_steps.length}
+                    disabled={
+                      !online ||
+                      save.isPending ||
+                      (!canonicalDone && !canonicalSkipped) ||
+                      !feedDone ||
+                      !(state?.visited_steps.length || state?.skipped_steps.length)
+                    }
                     onClick={async () => {
                       if (await update({ status: "completed" })) setTourOpen(false);
                     }}
@@ -440,6 +466,20 @@ export function OnboardingHost() {
               <>
                 <h2 className="text-heading">{step.title}</h2>
                 <p className="text-body text-secondary">{step.text}</p>
+                <p className={cx("text-meta", step.actionType && actionDone ? "text-ok" : "text-muted")}>
+                  {step.actionType
+                    ? evidence.isError
+                      ? "Kayıt kontrolü alınamadı"
+                      : actionDone
+                        ? "Mevcut kayıt doğrulandı"
+                        : "Kayıt bekleniyor"
+                    : "Keşif adımı"}
+                </p>
+                {step.actionType && !actionDone && (
+                  <Button size="sm" disabled={evidence.isFetching} onClick={() => void evidence.refetch()}>
+                    Kaydı kontrol et
+                  </Button>
+                )}
                 {!targetReady && (
                   <p role="status" className="text-meta text-muted">
                     {route.path === step.path.split("?")[0]
@@ -485,7 +525,7 @@ export function OnboardingHost() {
                   </Button>
                   <Button
                     variant="primary"
-                    disabled={!online || save.isPending || !targetReady}
+                    disabled={!online || save.isPending || !targetReady || !actionDone}
                     onClick={() => void advance()}
                   >
                     {index === tour.length - 1 ? "İlk adımlar" : "Sonraki"}
@@ -516,13 +556,14 @@ export function OnboardingHost() {
     </>
   );
 }
-function ChecklistItem({ done, title }: { done: boolean; title: string }) {
+function ChecklistItem({ done, skipped = false, title }: { done: boolean; skipped?: boolean; title: string }) {
   return (
     <p className={cx("flex items-center gap-2 text-body", done ? "text-ok" : "text-secondary")}>
       <span className="flex h-5 w-5 items-center justify-center rounded-full border border-subtle">
         {done && <Check size={12} />}
       </span>
       {title}
+      {skipped && <span className="text-meta text-muted">· Geçildi</span>}
     </p>
   );
 }

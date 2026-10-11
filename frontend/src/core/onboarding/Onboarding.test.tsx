@@ -138,6 +138,7 @@ it("persisted tour waits for a lazy target, respects navigation guard and restor
     journey: "planning",
     feed_setup: "skipped",
   };
+  current.canonical_actions = { todo: 1 };
   const page = render(
     <>
       <button aria-label="Bu sayfa hakkında bilgi ve rehberler">i</button>
@@ -229,4 +230,51 @@ it("explicit bundle repair preserves pending provider choices and advances the C
   fireEvent.click(screen.getByRole("button", { name: "Seçimleri kaydet" }));
   await waitFor(() => expect(current.feed.providers).toEqual(["hn"]));
   expect(current.feed.bundles[0].feed_ids).toEqual([]);
+});
+it("a visible action target is only a visit; Next requires backend domain evidence", async () => {
+  current.onboarding = {
+    ...current.onboarding,
+    status: "in_progress",
+    phase: "tour",
+    journey: "planning",
+    active_tour: "planning",
+    active_step: "planning",
+  };
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>
+        <div data-onboarding="todo-create">
+          <button>Görev alanı</button>
+        </div>
+        <OnboardingHost />
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
+  const next = await screen.findByRole("button", { name: "Sonraki" });
+  await screen.findByText("Kayıt bekleniyor");
+  expect(next.hasAttribute("disabled")).toBe(true);
+  expect(current.onboarding.visited_steps).toEqual([]);
+  current.canonical_actions = { todo: 1 };
+  await client.invalidateQueries({ queryKey: ["onboarding-evidence"] });
+  await screen.findByText("Mevcut kayıt doğrulandı");
+  expect(next.hasAttribute("disabled")).toBe(false);
+  fireEvent.click(next);
+  await waitFor(() => expect(current.onboarding.visited_steps).toEqual(["planning"]));
+});
+it("RSS adds save immediately while Cancel discards only pending preferences", async () => {
+  const closed = vi.fn();
+  vi.mocked(api.post).mockResolvedValue({ id: "feed", title: "RSS", url: "https://example.com/feed" });
+  render(<SourceDiscovery onClose={closed} />, { wrapper });
+  fireEvent.click(await screen.findByRole("button", { name: "Hacker News ekle" }));
+  fireEvent.change(screen.getByLabelText("RSS adresi"), { target: { value: "https://example.com/feed" } });
+  fireEvent.click(screen.getByRole("button", { name: "RSS aboneliğini ekle" }));
+  await screen.findByText("Abonelik kaydedildi");
+  expect(screen.getByText(/Vazgeç yalnız kaydedilmemiş akış tercihlerini/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Vazgeç" }));
+  expect(closed).toHaveBeenCalledOnce();
+  expect(api.put).not.toHaveBeenCalled();
+  expect(api.post).toHaveBeenCalledWith("/rss/feeds", { url: "https://example.com/feed", probe: false });
+  expect(current.feed.providers).toEqual([]);
+  expect(screen.getByRole("button", { name: "Abonelikleri yönet / OPML" })).toBeTruthy();
 });

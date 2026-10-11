@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
-from sqlalchemy import func, select, text
+from sqlalchemy import func, literal, select, text, union_all
 
 from app.core.events import log_event
 from app.core.models import Entity
@@ -86,6 +86,7 @@ class ExperienceOut(ExperienceData):
     counts: dict[str, int]
     warnings: list[str] = Field(default_factory=list)
     invalid_feed_ids: list[UUID] = Field(default_factory=list)
+    canonical_actions: dict[str, int] = Field(default_factory=dict)
 
 
 class ExperienceRepairIn(Closed):
@@ -165,7 +166,36 @@ async def read(session):
         counts=counts,
         warnings=warning,
         invalid_feed_ids=invalid,
+        canonical_actions=await canonical_actions(session),
     )
+
+
+async def canonical_actions(session):
+    """Read-only domain evidence, not DOM visibility or orphan Entity rows."""
+    from app.modules.goal.models import Goal, GoalMilestone, KeyResult
+    from app.modules.learning.models import LearningResource, StudyTopic
+    from app.modules.opportunity.models import Opportunity
+    from app.modules.project.models import Project
+    from app.modules.todo.models import Todo
+
+    models = {
+        "goal": Goal,
+        "goal_milestone": GoalMilestone,
+        "key_result": KeyResult,
+        "todo": Todo,
+        "project": Project,
+        "study_topic": StudyTopic,
+        "learning_resource": LearningResource,
+        "opportunity": Opportunity,
+    }
+    queries = [
+        select(literal(kind), func.count())
+        .select_from(model)
+        .join(Entity, Entity.id == model.id)
+        .where(Entity.archived_at.is_(None))
+        for kind, model in models.items()
+    ]
+    return dict((await session.execute(union_all(*queries))).all())
 
 
 async def lock(session):
@@ -232,7 +262,14 @@ async def update(session, body, *, commit=True):
         )
     state = ExperienceData.model_validate(
         current.model_dump(
-            exclude={"revision", "first_run", "counts", "warnings", "invalid_feed_ids"}
+            exclude={
+                "revision",
+                "first_run",
+                "counts",
+                "warnings",
+                "invalid_feed_ids",
+                "canonical_actions",
+            }
         )
     )
     if body.feed is not None:
@@ -252,12 +289,18 @@ async def update(session, body, *, commit=True):
                 "learning": "study_topic",
                 "career": "opportunity",
             }.get(body.onboarding.journey)
-            if body.onboarding.feed_setup == "pending" or not body.onboarding.visited_steps:
+            if body.onboarding.feed_setup == "pending" or not (
+                body.onboarding.visited_steps or body.onboarding.skipped_steps
+            ):
                 raise HTTPException(
                     422, "Kaynak seçimini tamamla veya geç; en az bir çalışma alanını keşfet"
                 )
-            if journey_type and not current.counts.get(journey_type):
-                raise HTTPException(422, "İlk gerçek kaydını oluştur veya rehberi şimdilik kapat")
+            if (
+                journey_type
+                and not current.canonical_actions.get(journey_type)
+                and body.onboarding.journey not in body.onboarding.skipped_steps
+            ):
+                raise HTTPException(422, "Gerçek kaydını oluştur veya ilgili rehber adımını geç")
         state.onboarding = body.onboarding
     await store(session, state, commit=commit)
     return await read(session)

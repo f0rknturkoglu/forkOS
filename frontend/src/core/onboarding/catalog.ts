@@ -23,7 +23,7 @@ export const SOURCE_CATALOG = [
   },
   {
     id: "gh",
-    title: "GitHub · Yeni ve Popüler",
+    title: "GitHub",
     description: "Yeni açık kaynak projeleri",
     detail: "Son 7 günde açılan depolar · yıldız sırası",
     icon: Github,
@@ -96,6 +96,7 @@ const steps: TourStep[] = [
   },
   {
     id: "goal-milestone",
+    actionType: "goal_milestone",
     module: "goal",
     search: { view: "objectives" },
     target: "goal-milestone",
@@ -104,6 +105,7 @@ const steps: TourStep[] = [
   },
   {
     id: "goal-keyresults",
+    actionType: "key_result",
     module: "goal",
     search: { view: "objectives" },
     target: "goal-keyresults",
@@ -144,6 +146,7 @@ const steps: TourStep[] = [
   },
   {
     id: "learning-resource",
+    actionType: "learning_resource",
     module: "learning",
     target: "learning-resource",
     title: "Kaynağını konuya bağla",
@@ -193,7 +196,7 @@ const steps: TourStep[] = [
     module: "rss",
     target: "feed-sources",
     title: "Akışını oluştur",
-    text: "Kaynaklar + ile takip edeceklerini seç. Kaydetmeden hiçbir kaynak eklenmez.",
+    text: "Kaynaklar + ile takip edeceklerini seç. Akış tercihlerini kaydet; RSS aboneliği ekleme anında kaydedilir.",
   },
   {
     id: "rss",

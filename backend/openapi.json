@@ -5736,6 +5736,13 @@
       "ExperienceOut": {
         "additionalProperties": false,
         "properties": {
+          "canonical_actions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Canonical Actions",
+            "type": "object"
+          },
           "counts": {
             "additionalProperties": {
               "type": "integer"

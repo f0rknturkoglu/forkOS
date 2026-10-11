@@ -90,10 +90,14 @@ function SourceEditor({
       invalidateAfter("rss.write");
       setUrl("");
       setDraft((value) => ({ ...value, rss_enabled: true }));
-      toast.push("RSS aboneliği eklendi");
+      toast.push("Abonelik kaydedildi");
     },
     onError: (e) => setError(e.message),
   });
+  const busy = addFeed.isPending || save.isPending || repair.isPending;
+  const close = () => {
+    if (!busy) onClose();
+  };
   const selected = (id: string) =>
     id === "rss" ? draft.rss_enabled : draft.providers.includes(id as FeedPreferences["providers"][number]);
   const toggle = (id: string) =>
@@ -158,24 +162,32 @@ function SourceEditor({
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={close}
       title="Akışını oluştur"
       className="sm:max-w-3xl"
       footer={
         <div className="flex flex-wrap justify-end gap-2">
-          {onBack && <Button onClick={onBack}>Geri</Button>}
-          {onboarding ? (
-            <Button onClick={onSkip}>Kaynakları şimdilik geç</Button>
-          ) : (
-            <Button onClick={onClose}>Vazgeç</Button>
+          {onBack && (
+            <Button disabled={busy} onClick={onBack}>
+              Geri
+            </Button>
           )}
-          <Button variant="primary" disabled={!online || save.isPending} onClick={() => void commit()}>
+          {onboarding ? (
+            <Button disabled={busy} onClick={onSkip}>
+              Kaynakları şimdilik geç
+            </Button>
+          ) : (
+            <Button disabled={busy} onClick={close}>
+              Vazgeç
+            </Button>
+          )}
+          <Button variant="primary" disabled={!online || busy} onClick={() => void commit()}>
             {save.isPending ? "Kaydediliyor…" : "Seçimleri kaydet"}
           </Button>
         </div>
       }
     >
-      <div className="stack-y-5">
+      <fieldset disabled={busy} className="min-w-0 stack-y-5">
         {(initial.invalid_feed_ids?.length ?? 0) > 0 && (
           <div className="rounded-card border border-warn-border p-3 stack-y-2">
             <p className="text-meta text-warn">Seçkilerde silinmiş RSS abonelikleri var. Diğer seçimlerin korunur.</p>
@@ -251,6 +263,9 @@ function SourceEditor({
         )}
         <section className="stack-y-3">
           <h3 className="text-heading">RSS abonelikleri</h3>
+          <p className="text-meta text-muted">
+            RSS aboneliği anında kaydedilir. Vazgeç yalnız kaydedilmemiş akış tercihlerini iptal eder.
+          </p>
           <div className="flex flex-wrap gap-2">
             <Input
               ariaLabel="RSS adresi"
@@ -260,7 +275,7 @@ function SourceEditor({
               onChange={setUrl}
             />
             <Button disabled={!online || !url.trim() || addFeed.isPending} onClick={() => addFeed.mutate()}>
-              RSS ekle
+              RSS aboneliğini ekle
             </Button>
             <Button
               onClick={() => {
@@ -271,7 +286,7 @@ function SourceEditor({
                 }
               }}
             >
-              OPML / abonelikler
+              Abonelikleri yönet / OPML
             </Button>
           </div>
           <p className="text-meta text-muted">
@@ -394,10 +409,10 @@ function SourceEditor({
         {error && (
           <p role="alert" className="text-meta text-danger">
             {error}
-            <Button onClick={onClose}>Güncel seçimleri yeniden aç</Button>
+            <Button onClick={close}>Kapatıp yeniden seç</Button>
           </p>
         )}
-      </div>
+      </fieldset>
     </Modal>
   );
 }
