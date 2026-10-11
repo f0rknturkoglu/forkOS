@@ -515,3 +515,7 @@ Geliştirme kuralları için [AGENTS.md](AGENTS.md), migration zinciri için [ba
 ## Güvenlik ve gizlilik sınırı
 
 forkOS tek kullanıcı içindir ve auth içermez. `BIND_ADDR=127.0.0.1` değerini native Linux/Docker ortamında değiştirme; `0.0.0.0` uygulamayı yerel ağa açabilir. Harici kaynaklar yalnızca içerik çekmek veya kullanıcının açıkça yapılandırdığı entegrasyonu çalıştırmak için çağrılır; kişisel veritabanı bir bulut servisine senkronlanmaz.
+
+## Hermes Goal Studio ve Capture V1
+
+Goals içinde konuşma, tipli taslak, revizyon incelemesi ve açık kullanıcı onayı desteklenir. Hermes ayrı araçsız yerel profil gerektirir; manuel Goals bağımsızdır. Capture 0.2.0 her hedefte kalıcı UUID, doğru teslim durumu ve kariyer/akademi ayrımı kullanır. Kurulum, ağ sınırı, migration ve doğrulama için [güncel sözleşme](docs/architecture/hermes-goal-studio-extension-v1.md).

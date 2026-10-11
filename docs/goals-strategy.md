@@ -106,3 +106,7 @@ hareket drift üretir; proje başlığına göre otomatik hedef eşlemesi yapıl
 - Canlı MCP initialize→tools/list→tools/call: 37 public araç, forkos_strategy overview başarılı. Salt okuma testinde DB fingerprint değişmedi.
 - Tarayıcı: geniş ve 390 px, açık/koyu, boş/hata/yeniden deneme, dolu hedef, plan ve geçmiş. Yatay scroll viewport'u aşmadı.
 - Geçici preview servisleri, tmpfs DB/network, container içindeki geçici schema kaynakları ve ek Vite süreci temizlendi. Kişisel pgdata volume korunur.
+
+## Hermes Goal Studio ve Capture V1
+
+Goals içinde konuşma, tipli taslak, revizyon incelemesi ve açık kullanıcı onayı desteklenir. Hermes ayrı araçsız yerel profil gerektirir; manuel Goals bağımsızdır. Capture 0.2.0 her hedefte kalıcı UUID, doğru teslim durumu ve kariyer/akademi ayrımı kullanır. Kurulum, ağ sınırı, migration ve doğrulama için [güncel sözleşme](architecture/hermes-goal-studio-extension-v1.md).

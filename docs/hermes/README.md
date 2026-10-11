@@ -281,3 +281,7 @@ Ayrıntılı sözleşmeler: [H1 Araç Sözleşmesi](h1-tool-contract.md) ·
 kanonik sonuç, rota, uyum, güven, kanıt ve karşılaştırma okur. Yazma veya H7
 onayı üretmez. Vault anlatıları brain_read, destekleyen kanıtlar H3 üzerinden
 okunur. [Sözleşme ve hesaplama](../goals-strategy.md).
+
+## Hermes Goal Studio ve Capture V1
+
+Goals içinde konuşma, tipli taslak, revizyon incelemesi ve açık kullanıcı onayı desteklenir. Hermes ayrı araçsız yerel profil gerektirir; manuel Goals bağımsızdır. Capture 0.2.0 her hedefte kalıcı UUID, doğru teslim durumu ve kariyer/akademi ayrımı kullanır. Kurulum, ağ sınırı, migration ve doğrulama için [güncel sözleşme](../architecture/hermes-goal-studio-extension-v1.md).
