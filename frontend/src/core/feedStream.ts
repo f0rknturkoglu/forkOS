@@ -92,14 +92,28 @@ interface FeedStreamState {
 
 /** Akışın veri katmanı: iki yüzey de bunu kullanır (§10). */
 export function useFeedStream(filter: FeedFilter): FeedStreamState {
+  const selected = (origin: FeedOrigin) => filter === "all" || filter === origin;
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => api.get<Record<string, unknown>>("/settings"),
+    enabled: selected("reddit"),
+    staleTime: 60_000,
+  });
+  // Empty saved subreddit list is the existing opt-out; no new preference.
+  const subreddits = settings.data?.["news.subreddits"];
+  const redditEnabled =
+    selected("reddit") && !settings.isPending && !(Array.isArray(subreddits) && subreddits.length === 0);
   const rssQuery = useQuery({
     queryKey: ["items", "panel"],
     queryFn: () => api.get<FeedItem[]>(`/rss/items${qs({ limit: PAGE_SIZE.rss })}`),
+    enabled: selected("rss"),
+    staleTime: 60_000,
   });
   // RSS ozeti PAYLASILAN hook'tan gelir: ayni ucun ikinci bir anahtari olmaz.
-  const statsQuery = useRssStats();
+  const statsQuery = useRssStats(selected("rss"));
   const redditQuery = useQuery({
     queryKey: ["reddit-news"],
+    enabled: redditEnabled,
     queryFn: () => api.get<RedditPost[]>(`/news/reddit${qs({ limit: PAGE_SIZE.reddit })}`),
     refetchInterval: 15 * 60_000,
     staleTime: 10 * 60_000,
@@ -107,12 +121,14 @@ export function useFeedStream(filter: FeedFilter): FeedStreamState {
   });
   const hnQuery = useQuery({
     queryKey: ["hacker-news"],
+    enabled: selected("hn"),
     queryFn: () => api.get<HnStory[]>(`/news/hacker-news${qs({ limit: PAGE_SIZE.hn })}`),
     refetchInterval: 15 * 60_000,
     staleTime: 10 * 60_000,
   });
   const githubQuery = useQuery({
     queryKey: ["github-trending"],
+    enabled: selected("gh"),
     queryFn: () => api.get<Repo[]>(`/news/github-trending${qs({ limit: PAGE_SIZE.gh })}`),
     refetchInterval: 6 * 3600_000,
     staleTime: 3 * 3600_000,
@@ -200,16 +216,20 @@ export function useFeedStream(filter: FeedFilter): FeedStreamState {
       unread: false,
     })),
   ]
-    .filter((item) => filter === "all" || item.origin === filter)
+    .filter((item) => selected(item.origin) && (item.origin !== "reddit" || redditEnabled))
     .sort((a, b) => b.at - a.at)
     .slice(0, FEED_STREAM_LIMIT);
 
   return {
     filter,
     items,
-    sources,
-    failures: sources.filter((source) => source.failed && (filter === "all" || filter === source.origin)),
-    loading: filter === "all" ? Object.values(queries).some((query) => query.isLoading) : queries[filter].isLoading,
-    unread: statsQuery.data?.unread ?? null,
+    sources: sources.filter((source) => selected(source.origin) && (source.origin !== "reddit" || redditEnabled)),
+    failures: sources.filter(
+      (source) => source.failed && selected(source.origin) && (source.origin !== "reddit" || redditEnabled),
+    ),
+    loading:
+      (selected("reddit") && settings.isPending && settings.fetchStatus === "fetching") ||
+      (filter === "all" ? Object.values(queries).some((query) => query.isLoading) : queries[filter].isLoading),
+    unread: selected("rss") ? (statsQuery.data?.unread ?? null) : null,
   };
 }

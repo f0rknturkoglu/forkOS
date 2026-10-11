@@ -32,7 +32,7 @@ registerModule({
     // Tekrar kuyrugu ayri gorunum: dogrudan `?view=review` deep-link'i.
     {
       id: "learning.review",
-      label: "Öğrenme: tekrar kuyruğu",
+      label: "Bugünün tekrarları — konular ve kartlar",
       run: () => navigate("/learning?view=review"),
     },
     { id: "study.open", label: "Çalışma ağacını aç", run: () => navigate("/study") },

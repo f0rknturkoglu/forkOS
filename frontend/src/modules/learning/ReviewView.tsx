@@ -20,6 +20,8 @@ import { invalidateAfter } from "@/core/invalidation";
 import { Button, Empty, RowList, SectionHeader, SkeletonRows, cx } from "@/core/ui";
 import { openPomodoro } from "@/modules/pomodoro/dock";
 import { useOnline } from "@/lib/hooks";
+import { listDecks } from "@/modules/flashcard/api";
+import { navigate } from "@/app/router";
 
 type ReviewTopic = components["schemas"]["ReviewTopicOut"];
 type ReviewQueue = components["schemas"]["ReviewQueueOut"];
@@ -63,6 +65,65 @@ function dueLabel(topic: ReviewTopic, now: Date): { text: string; tone: "danger"
 const dateText = (iso: string): string => new Date(iso).toLocaleDateString("tr-TR");
 
 export function ReviewView({ onOpenTopic }: { onOpenTopic: (topicId: string) => void }) {
+  return (
+    <div className="space-y-5">
+      <DailyCardReviews />
+      <TopicReviewView onOpenTopic={onOpenTopic} />
+    </div>
+  );
+}
+
+function DailyCardReviews() {
+  const decks = useQuery({ queryKey: ["flashcard", "decks"], queryFn: () => listDecks() });
+  const data = Array.isArray(decks.data) ? decks.data : [];
+  const due = data.reduce((count, deck) => count + deck.due_count, 0);
+  const fresh = data.reduce((count, deck) => count + deck.new_count, 0);
+  return (
+    <section aria-label="Kart tekrarları" className="space-y-2 rounded-card border border-subtle p-3">
+      <SectionHeader
+        label="Kart tekrarları"
+        hint={
+          decks.isError ? "Yüklenemedi" : decks.isLoading ? "Yükleniyor…" : `${due} kart bekliyor · ${fresh} yeni kart`
+        }
+      />
+      {decks.isError ? (
+        <p role="alert" className="text-meta text-danger">
+          Kartlar yüklenemedi.{" "}
+          <Button size="sm" onClick={() => void decks.refetch()}>
+            Kartları yeniden dene
+          </Button>
+        </p>
+      ) : (
+        !decks.isLoading && (
+          <>
+            {!due && !fresh && <p className="text-meta text-muted">Bugün bekleyen kart yok.</p>}
+            <div className="flex flex-wrap gap-2">
+              {data
+                .filter((deck) => deck.due_count + deck.new_count > 0)
+                .map((deck) => (
+                  <Button
+                    key={deck.id}
+                    size="sm"
+                    onClick={() => navigate(`/flashcard?deck=${deck.id}&review=due&return=learning-review`)}
+                  >
+                    {deck.title} · {deck.due_count} bekleyen{deck.new_count ? ` · ${deck.new_count} yeni` : ""}
+                  </Button>
+                ))}
+            </div>
+            {due + fresh > 0 && (
+              <Button size="sm" onClick={() => navigate("/flashcard?review=due&return=learning-review")}>
+                Kart tekrarını başlat
+              </Button>
+            )}
+          </>
+        )
+      )}
+      <p className="text-meta text-muted">Konu tekrarları aşağıda; kartlar ve konular ayrı kuyruklardır.</p>
+    </section>
+  );
+}
+
+function TopicReviewView({ onOpenTopic }: { onOpenTopic: (topicId: string) => void }) {
   const online = useOnline();
   const [gradingId, setGradingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +202,7 @@ export function ReviewView({ onOpenTopic }: { onOpenTopic: (topicId: string) => 
         if (topics.length === 0 && section.key !== "due_today") return null;
         return (
           <section key={section.key}>
-            <SectionHeader label={section.label} hint={section.hint} />
+            <SectionHeader label={section.label} hint={`${topics.length} konu · ${section.hint}`} />
             {topics.length === 0 ? (
               <Empty>
                 Bugün tekrar edilecek konu yok.

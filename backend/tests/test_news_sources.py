@@ -57,3 +57,23 @@ async def test_news_endpoint_uses_backend_owned_adapter(
 
     assert response.status_code == 200
     assert response.json()[0]["title"] == "SQLite on the edge"
+
+async def test_saved_empty_reddit_preference_never_fetches_defaults(monkeypatch):
+    from httpx import ASGITransport, AsyncClient
+
+    from app.db import SessionLocal
+    from app.main import app
+    from app.modules.system import news
+    from app.modules.system.models import Setting
+
+    async with SessionLocal() as db:
+        db.add(Setting(key="news.subreddits", value=[]))
+        await db.commit()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        def unexpected_outbound(*args, **kwargs):
+            raise AssertionError("Disabled Reddit must not construct an outbound client")
+
+        monkeypatch.setattr(news.httpx, "AsyncClient", unexpected_outbound)
+        response = await client.get("/api/news/reddit")
+        assert response.status_code == 200
+        assert response.json() == []

@@ -22,6 +22,7 @@ import {
   useToast,
 } from "@/core/ui";
 import { BackupMergeControl } from "@/core/BackupMergeControl";
+import { useWeather } from "@/modules/today/weather";
 import type { Theme } from "@/core/ui";
 
 /** Ayar yazma sozlesmesi: `PUT /settings/{key}`. Sayfa tek noktadan baglar. */
@@ -271,6 +272,7 @@ export function WeatherSection({
   location?: string;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const { asking, denied, requestLocation } = useWeather({ displayed: false });
   return (
     <Section title="Hava durumu">
       <p className="mb-2 text-meta text-muted">
@@ -289,6 +291,14 @@ export function WeatherSection({
           kaydet
         </Button>
       </form>
+      <Button size="sm" variant="ghost" disabled={!online || asking} onClick={requestLocation}>
+        {asking ? "Konum izni isteniyor…" : "Konumumu kullan"}
+      </Button>
+      {denied && (
+        <p role="status" className="text-meta text-muted">
+          Konum izni verilmedi. Şehir adını elle girebilirsin.
+        </p>
+      )}
     </Section>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Flame, Layers, Play } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
@@ -23,10 +23,15 @@ export function FlashcardPage() {
   // Deep-link: registry rotasi /flashcard?deck={id} buradan acilir.
   const [deckId, setDeckId] = useState(() => route.params.get("deck") ?? "");
   const reviewMode = route.params.get("review");
-  const { data: decks = [] } = useQuery({
+  const decksQuery = useQuery({
     queryKey: ["flashcard", "decks"],
     queryFn: () => listDecks(),
   });
+  const decks = decksQuery.data ?? [];
+  const returnTo = route.params.get("return") === "learning-review" ? "/learning?view=review" : "/flashcard";
+  useEffect(() => {
+    setDeckId(route.params.get("deck") ?? "");
+  }, [route.params]);
   const selected = decks.find((deck) => deck.id === deckId);
 
   /**
@@ -34,14 +39,20 @@ export function FlashcardPage() {
    * ?review=missed (zayif noktalar). Komutlar ve Today widget'i buraya gelir.
    */
   const [session, setSession] = useState<{ cards: FlashcardCard[]; title: string } | null>(null);
+  const sessionKey = `${reviewMode ?? ""}:${deckId}`;
+  const startedKey = useRef<string | null>(null);
+  useEffect(() => {
+    startedKey.current = null;
+    setSession(null);
+  }, [sessionKey]);
   const dueReview = useQuery({
-    queryKey: ["flashcard", "review", "due", deckId],
+    queryKey: ["flashcard", "review", "due", deckId, deckId ? "" : decks.map((deck) => deck.id).join(",")],
     queryFn: async () => {
       if (deckId) return listCards(deckId, { due: true });
       const queues = await Promise.all(decks.map((deck) => listCards(deck.id, { due: true })));
       return queues.flat();
     },
-    enabled: reviewMode === "due",
+    enabled: reviewMode === "due" && (Boolean(deckId) || decksQuery.isSuccess),
   });
   const missedReview = useQuery({
     queryKey: ["flashcard", "review", "missed"],
@@ -50,14 +61,25 @@ export function FlashcardPage() {
   });
 
   useEffect(() => {
-    if (reviewMode === "due" && dueReview.data) setSession({ cards: dueReview.data, title: "Bugünün tekrarı" });
-  }, [reviewMode, dueReview.data]);
+    if (reviewMode === "due" && dueReview.data && startedKey.current !== sessionKey) {
+      startedKey.current = sessionKey;
+      setSession({ cards: dueReview.data, title: "Bugünün tekrarı" });
+    }
+  }, [reviewMode, dueReview.data, sessionKey]);
   useEffect(() => {
-    if (reviewMode === "missed" && missedReview.data) {
+    if (reviewMode === "missed" && missedReview.data && startedKey.current !== sessionKey) {
+      startedKey.current = sessionKey;
       setSession({ cards: missedReview.data, title: "Zayıf noktalar" });
     }
-  }, [reviewMode, missedReview.data]);
+  }, [reviewMode, missedReview.data, sessionKey]);
 
+  const sessionError = reviewMode === "due" ? (decksQuery.error ?? dueReview.error) : missedReview.error;
+  const retrySession = () => {
+    if (reviewMode === "due") {
+      void decksQuery.refetch();
+      void dueReview.refetch();
+    } else void missedReview.refetch();
+  };
   const sessionLoading =
     (reviewMode === "due" && dueReview.isLoading) || (reviewMode === "missed" && missedReview.isLoading);
   const openDeck = (id: string) => {
@@ -107,6 +129,11 @@ export function FlashcardPage() {
           left={selected?.due_count ? <Chip tone="danger">{selected.due_count} tekrar</Chip> : null}
           right={
             <div className="flex items-center gap-2">
+              {returnTo !== "/flashcard" && (
+                <Button size="sm" variant="ghost" onClick={() => navigate(returnTo)}>
+                  Günlük tekrara dön
+                </Button>
+              )}
               <Button size="sm" variant="ghost" onClick={() => navigate("/flashcard?review=missed")}>
                 <Flame size={13} /> Zayıf noktalar
               </Button>
@@ -118,7 +145,13 @@ export function FlashcardPage() {
         />
         <WorkspaceScrollArea className="p-4">
           {reviewMode ? (
-            sessionLoading || !session ? (
+            sessionError ? (
+              <Empty variant="page" title="Tekrar kuyruğu yüklenemedi">
+                <Button size="sm" onClick={retrySession}>
+                  Yeniden dene
+                </Button>
+              </Empty>
+            ) : sessionLoading || !session ? (
               session ? null : (
                 <SkeletonRows rows={5} className="h-16" />
               )
@@ -132,7 +165,7 @@ export function FlashcardPage() {
               <ReviewSession
                 cards={session.cards}
                 title={session.title}
-                onClose={() => navigate("/flashcard")}
+                onClose={() => navigate(returnTo)}
                 onRepeatMissed={(missed) => setSession({ cards: missed, title: "Zayıf noktalar" })}
               />
             )

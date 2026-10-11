@@ -202,8 +202,30 @@ async def test_vault_capture_retry_collision_and_lookup(tmp_path, monkeypatch):
 
 
 async def test_retire_media_batches_idempotently_preserve_diagnostics_and_retention(monkeypatch):
+    from decimal import Decimal
+
+    from app.modules.document.models import Document
+    from app.modules.finance.models import Expense
+    from app.modules.media.models import MediaItem
+    from app.modules.note.models import Note
+
     old = datetime.now(UTC) - timedelta(days=200)
     async with SessionLocal() as db:
+        for kind, model, fields in [
+            ("media_item", MediaItem, {"kind": "book", "notes": "Preserved media"}),
+            ("expense", Expense, {"amount": Decimal("42.50"), "category": "archive"}),
+            ("note", Note, {"body": "Preserved note"}),
+            ("document", Document, {"drive_file_id": "fixture", "synced_at": old}),
+        ]:
+            entity = await create_entity(db, type=kind, title=f"Historical {kind}")
+            db.add(model(id=entity.id, **fields))
+        await db.commit()
+        async def historical_rows():
+            return {
+                table: (await db.execute(text(f"SELECT to_jsonb(t) FROM {table} t"))).scalars().all()
+                for table in ("media_item", "expense", "note", "document", "entity", "event")
+            }
+        before = await historical_rows()
         batches = [
             SourceSyncBatch(
                 scope=scope,
@@ -248,6 +270,10 @@ async def test_retire_media_batches_idempotently_preserve_diagnostics_and_retent
             for statement in statements:
                 await db.execute(text(statement))
             await db.commit()
+        after = await historical_rows()
+        for table in ("media_item", "expense", "note", "document", "entity"):
+            assert after[table] == before[table]
+        assert all(row in after["event"] for row in before["event"])
         for batch in batches:
             await db.refresh(batch)
         assert [b.status for b in batches] == [

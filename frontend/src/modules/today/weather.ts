@@ -14,6 +14,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { api } from "@/core/api";
 import { readStored, writeStored } from "@/core/storage";
+import { invalidateAfter } from "@/core/invalidation";
 
 interface Forecast {
   current: { temperature_2m: number; weather_code: number; relative_humidity_2m: number };
@@ -86,8 +87,14 @@ function readCoord(key: string): number | null {
  * izniyle alinir ve ayarlara yazilir; Ayarlar sayfasindan sehir adiyla da
  * girilebilir.
  */
-export function useWeather() {
-  const [coords, setCoords] = useState<Coords | null>(() => {
+export function useWeather({ displayed = true } = {}) {
+  const preferences = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => api.get<Record<string, unknown>>("/settings"),
+    enabled: displayed,
+    staleTime: 60_000,
+  });
+  const [localCoords, setCoords] = useState<Coords | null>(() => {
     const lat = readCoord("weather.lat");
     const lon = readCoord("weather.lon");
     return lat !== null && lon !== null && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
@@ -95,11 +102,22 @@ export function useWeather() {
   const [asking, setAsking] = useState(false);
   const [denied, setDenied] = useState(false);
   const [place, setPlace] = useState<string | null>(() => readStored("weather.place"));
+  const savedLat = preferences.data?.["weather.lat"];
+  const savedLon = preferences.data?.["weather.lon"];
+  const coords =
+    typeof savedLat === "number" &&
+    typeof savedLon === "number" &&
+    Number.isFinite(savedLat) &&
+    Number.isFinite(savedLon) &&
+    Math.abs(savedLat) <= 90 &&
+    Math.abs(savedLon) <= 180
+      ? { lat: savedLat, lon: savedLon }
+      : localCoords;
 
   const { data, isFetching, isError, refetch } = useQuery({
     queryKey: ["weather", coords?.lat, coords?.lon],
     queryFn: () => api.get<Forecast>(`/weather/forecast?lat=${coords!.lat}&lon=${coords!.lon}`),
-    enabled: coords !== null,
+    enabled: displayed && coords !== null,
     refetchInterval: 30 * 60_000,
     staleTime: 15 * 60_000,
   });
@@ -123,6 +141,7 @@ export function useWeather() {
           await api.put("/settings/weather.lon", { value: lon });
           setPlace(name);
           writeStored("weather.place", name);
+          invalidateAfter("settings.write");
         } catch {
           // Konum yazilamadi: hava durumu yine de gosterilir, kalici olmaz.
         }
@@ -139,5 +158,16 @@ export function useWeather() {
     );
   }
 
-  return { coords, data, isFetching, isError, refetch, asking, denied, place, requestLocation };
+  const savedPlace = preferences.data?.["weather.location"];
+  return {
+    coords,
+    data,
+    isFetching,
+    isError,
+    refetch,
+    asking,
+    denied,
+    place: typeof savedPlace === "string" ? savedPlace : place,
+    requestLocation,
+  };
 }

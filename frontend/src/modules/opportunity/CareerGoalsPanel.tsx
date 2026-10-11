@@ -12,8 +12,12 @@ export function CareerGoalsPanel() {
     <div className="space-y-2 border-t border-subtle pt-4">
       <h3 className="text-body font-semibold">Hedefler</h3>
       <p className="text-meta text-muted">
-        {goals.data?.filter((g) => g.status === "active").length ?? "…"} aktif hedef. Sonuç ölçümü, plan ve hedef
-        adımları Hedefler alanında.
+        {goals.isError
+          ? "Hedef özeti yüklenemedi."
+          : goals.isPending
+            ? "Hedefler yükleniyor…"
+            : `${goals.data.filter((g) => g.status === "active").length} aktif hedef.`}{" "}
+        Sonuç ölçümü, plan ve hedef adımları Hedefler alanında.
       </p>
       <Button onClick={() => navigate("/goals")}>Hedefleri aç</Button>
     </div>

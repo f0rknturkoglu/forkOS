@@ -73,7 +73,15 @@ export function LearningWidget() {
   const rows = [...courseRows, ...topicRows];
 
   return (
-    <Section title="Devam eden öğrenme" hint={loading ? undefined : `${rows.length} kayıt`}>
+    <Section
+      title="Devam eden öğrenme"
+      hint={loading ? undefined : `${rows.length} kayıt`}
+      action={
+        <a href="#/learning?view=review" className="text-meta text-accent">
+          Bugünün tekrarları →
+        </a>
+      }
+    >
       {loading ? (
         <p role="status" className="py-4 text-center text-meta text-muted">
           Öğrenme kayıtları yükleniyor…

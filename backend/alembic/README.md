@@ -4,7 +4,7 @@ forkOS migration zincirinin gerçeği dosya adları değil, her revision içinde
 
 ## Güncel durum
 
-- Tek head: `0077_goals_strategy`
+- Tek head: `0079_retire_media_batches`
 - Taban: `0001_core`
 - Zincir doğrulaması: `backend/tests/test_migrations.py::test_revisions_form_a_single_chain`
 
@@ -54,6 +54,8 @@ Bu dosyaları yalnızca isimleri düzenlemek için yeniden adlandırma. PostgreS
 
 Kişisel `lifeos` veritabanını migration denemesi için sıfırlama. `make test`, adı `_test` ile biten geçici PostgreSQL veritabanı kullanır ve test projesini iş bitince `down -v` ile temizler.
 
-Güncel tek head: `0077_goals_strategy` (önceki `0076_source_run_telemetry`).
-Yeni strateji tabloları ve nullable Goal yerleşimi eklenir; mevcut Goal/milestone,
-source_memory_id veya kişisel veriler dönüştürülmez.
+Güncel tek head: `0079_retire_media_batches` (önceki `0078_pomodoro_source`).
+0078 kaynak kanıtına göre timer/manual ayrımını korur. 0079 yalnız emekli Media
+kuyruklarını gerekçeli terminal duruma geçirir ve retirement audit ekler; tarihsel
+tablo, dosya veya Event silmez. Başlangıç/migration preflight ve recovery adımları
+[preflight kapanış raporunda](../../docs/architecture/v1-preflight-closure.md).

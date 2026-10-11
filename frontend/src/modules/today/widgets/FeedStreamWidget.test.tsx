@@ -21,6 +21,8 @@ vi.mock("@/app/router", () => ({ navigate: vi.fn() }));
 vi.mock("@tanstack/react-query", () => ({
   useQuery: vi.fn(({ queryKey }: { queryKey: string[] }) => {
     switch (queryKey[0]) {
+      case "settings":
+        return { data: {}, isPending: false, isLoading: false, isError: false };
       case "items":
         return {
           data:

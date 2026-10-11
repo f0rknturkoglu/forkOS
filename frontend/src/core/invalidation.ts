@@ -86,6 +86,11 @@ export const AFTER = {
     "related",
   ],
   "career-strategy.write": [
+    "study-tree",
+    "study-areas",
+    "study-review",
+    "study-stale",
+    "today-agenda",
     "strategy-overview",
     "career-strategy",
     "career-proposals",

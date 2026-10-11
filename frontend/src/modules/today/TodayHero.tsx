@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { LocateFixed } from "lucide-react";
 import { Button } from "@/core/ui";
 import { appTimeParts, formatAppDate } from "@/lib/date";
 import { useWeather, weatherIcon, weatherLabel } from "./weather";
@@ -47,17 +46,10 @@ export function TodayHero() {
 }
 
 function WeatherPanel() {
-  const { coords, data, isError, refetch, asking, denied, place, requestLocation } = useWeather();
+  const { coords, data, isError, refetch, place } = useWeather();
 
   if (!coords) {
-    return (
-      <div className="flex items-center gap-2 text-meta text-muted">
-        <span>{denied ? "Konum izni yok — Ayarlar'dan şehir gir." : "Hava durumu için konum gerekli."}</span>
-        <Button size="sm" variant="ghost" onClick={requestLocation} disabled={asking}>
-          <LocateFixed size={13} /> {asking ? "İzin isteniyor…" : "Konumumu kullan"}
-        </Button>
-      </div>
-    );
+    return null;
   }
 
   if (isError) {
@@ -99,7 +91,7 @@ function WeatherPanel() {
         {place && <span className="hidden text-muted sm:inline">· {place}</span>}
       </summary>
       {daily && forecast.length > 0 && (
-        <div className="absolute right-0 top-full z-popover mt-1 w-64 rounded-card border border-subtle bg-surface-raised p-3 shadow-overlay">
+        <div className="absolute left-0 top-full z-popover sm:left-auto sm:right-0 mt-1 w-64 rounded-card border border-subtle bg-surface-raised p-3 shadow-overlay">
           <p className="mb-2 text-meta font-medium text-primary">Dört günlük tahmin</p>
           <div className="space-y-1.5">
             {forecast.map((day, index) => {

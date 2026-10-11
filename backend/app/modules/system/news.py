@@ -1,11 +1,8 @@
 """Bugun panelindeki haber akislari.
 
-Neden burada bir proxy var: reddit tarayiciya JSON/CORS vermiyor (403), ama
-sunucu tarafindan cekilen .rss 200 donuyor. Hacker News (Algolia) CORS'a acik
-oldugu icin dogrudan tarayicidan cekilir -- ona proxy yok.
-
-Bu bir scraper degil, canli okuma gecisi: hicbir sey DB'ye yazilmaz, o yuzden
-`source_run` kaydi da yok (kural 6 kalici kaynaklar icin).
+Reddit RSS, Hacker News ve GitHub tarayıcıdan değil backend'den çekilir.
+TTL cache dış isteği sınırlar. HN/GitHub SourceAdapter çalışmaları source_run
+üretir; Reddit mevcut kısa ömürlü proxy/cache sözleşmesini kullanır.
 """
 from __future__ import annotations
 

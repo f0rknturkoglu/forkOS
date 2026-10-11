@@ -1,8 +1,7 @@
 """Flashcard modulu testleri: SM-2 zamanlama, deck/kart CRUD, ic aktarim.
 
-Flashcard modulu henuz modul registry'sine (app/modules/__init__.py) baglanmadi
--- ana agent entegre eder. Testler bu yuzden kendi mini FastAPI uygulamasini
-kurar ve /api prefix'iyle uclari dogrudan test eder.
+Modül registry'de aktiftir. Bu testler kart sözleşmelerini ayrı mini FastAPI
+uygulamasında /api prefix'iyle doğrudan doğrular.
 """
 from __future__ import annotations
 
@@ -318,7 +317,7 @@ async def test_due_queue_orders_due_before_new(client: AsyncClient) -> None:
     summary = (await client.get("/api/flashcard/decks")).json()[0]
     assert summary["card_count"] == 4
     assert summary["due_count"] == 1
-    assert summary["new_count"] == 2  # yeni 1 + askidaki yeni (due_at NULL oldugu icin)
+    assert summary["new_count"] == 1  # askıdaki yeni kart çalışma kuyruğunda değildir
 
 
 async def test_cards_of_missing_deck_404(client: AsyncClient) -> None:

@@ -5,6 +5,7 @@ import { Markdown } from "@/core/Markdown";
 import { Button, Chip, Kbd, Section, cx } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { reviewCard } from "./api";
+import { refreshFlashcards } from "./invalidate";
 import { predictNextIntervals, type GradeTone } from "./srs";
 import type { FlashcardCard } from "./types";
 
@@ -61,6 +62,7 @@ export function ReviewSession({
   const review = useMutation({
     mutationFn: ({ cardId, grade }: { cardId: string; grade: number }) => reviewCard(cardId, grade),
     onSuccess: (_result, variables) => {
+      refreshFlashcards();
       setDone((value) => value + 1);
       if (variables.grade === 0 && current) setAgain((rows) => [...rows, current]);
       if (index + 1 >= queue.length) {

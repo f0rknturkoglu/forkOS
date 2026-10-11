@@ -131,8 +131,11 @@ describe("Home istek sözleşmesi", () => {
     // Sorgular yerleşene kadar kısa bir pencere bekle.
     await waitFor(() => expect(new Set(calls.map((call) => call.path)).size).toBeGreaterThan(8));
 
+    await waitFor(() => expect(calls.some((call) => call.path.startsWith("/api/news/reddit"))).toBe(true));
     const gets = calls.filter((call) => call.method === "GET");
     const uniquePaths = new Set(gets.map((call) => call.path));
+    expect([...uniquePaths].some((path) => path.includes("weather/forecast"))).toBe(false);
+    expect([...uniquePaths].some((path) => path.startsWith("/api/flashcard"))).toBe(false);
     // Aynı yol+parametre iki kez istenmez (paylaşılan anahtar sözleşmesi).
     expect(gets.length).toBe(uniquePaths.size);
     // Çekirdek iskelet bounded kalır: 7 yüzey + hero sayaçları.

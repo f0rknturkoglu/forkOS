@@ -102,7 +102,7 @@ async def _deck_out(session: AsyncSession, deck: FlashcardDeck, title: str) -> d
                 func.count().filter(
                     FlashcardCard.due_at <= datetime.now(UTC), FlashcardCard.suspended.is_(False)
                 ).label("due_count"),
-                func.count().filter(FlashcardCard.due_at.is_(None)).label("new_count"),
+                func.count().filter(FlashcardCard.due_at.is_(None), FlashcardCard.suspended.is_(False)).label("new_count"),
                 func.count().filter(
                     FlashcardCard.interval_days > MATURE_INTERVAL_DAYS
                 ).label("mature_count"),
@@ -155,7 +155,7 @@ async def list_decks(session: AsyncSession, linked_to: uuid.UUID | None = None) 
                         FlashcardCard.due_at <= datetime.now(UTC),
                         FlashcardCard.suspended.is_(False),
                     ),
-                    func.count().filter(FlashcardCard.due_at.is_(None)),
+                    func.count().filter(FlashcardCard.due_at.is_(None), FlashcardCard.suspended.is_(False)),
                     func.count().filter(FlashcardCard.interval_days > MATURE_INTERVAL_DAYS),
                 )
                 .where(FlashcardCard.deck_id.in_([deck.id for deck, _ in decks]))

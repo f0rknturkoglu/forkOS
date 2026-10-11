@@ -68,9 +68,11 @@ export function useBackupStatus() {
  */
 const RSS_STATS_QUERY_KEY = ["rss-stats"] as const;
 
-export function useRssStats() {
+export function useRssStats(enabled = true) {
   return useQuery({
     queryKey: RSS_STATS_QUERY_KEY,
     queryFn: () => api.get<RssStats>("/rss/stats"),
+    enabled,
+    staleTime: 60_000,
   });
 }

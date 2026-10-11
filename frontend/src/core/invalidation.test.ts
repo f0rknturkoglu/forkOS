@@ -65,6 +65,20 @@ describe("merkezi invalidation (kural 14)", () => {
     }
   });
 
+  it("kariyer onayı kanonik öğrenme ve hedef özetlerini tazeler", () => {
+    expect(AFTER["career-strategy.write"]).toEqual(
+      expect.arrayContaining([
+        "study-tree",
+        "study-areas",
+        "study-review",
+        "study-stale",
+        "today-agenda",
+        "strategy-overview",
+        "career-goal",
+      ]),
+    );
+  });
+
   it("plan yazinca gorevler sayfasi da tazeleniyor (Faz 9)", () => {
     expect(AFTER["plan.write"]).toContain("todos");
   });

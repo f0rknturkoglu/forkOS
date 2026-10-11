@@ -38,6 +38,13 @@ describe("TodayHero", () => {
     harness.weather.refetch.mockReset();
   });
 
+  it("unconfigured weather leaves Home quiet without requesting permission", () => {
+    render(<TodayHero />);
+    expect(screen.queryByText(/Konum/)).toBeNull();
+    expect(screen.queryByText(/Hava durumu/)).toBeNull();
+    expect(harness.weather.requestLocation).not.toHaveBeenCalled();
+  });
+
   it("uses the app timezone at the Istanbul day boundary", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-14T21:30:00Z"));

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/core/ui";
 import { FlashcardPage } from "./FlashcardPage";
@@ -59,13 +59,16 @@ const card = {
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <ToastProvider>
-        <FlashcardPage />
-      </ToastProvider>
-    </QueryClientProvider>,
-  );
+  return {
+    client,
+    ...render(
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <FlashcardPage />
+        </ToastProvider>
+      </QueryClientProvider>,
+    ),
+  };
 }
 
 beforeEach(() => {
@@ -89,6 +92,50 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("FlashcardPage", () => {
+  it("tüm deste kuyruğu yüklendikten sonra başlar ve birleşik tekrara döner", async () => {
+    window.location.hash = "#/flashcard?review=due&return=learning-review";
+    let resolveDecks!: (value: (typeof deck)[]) => void;
+    apiGet.mockImplementation(async (path: string) => {
+      if (path === "/flashcard/decks")
+        return new Promise((resolve) => {
+          resolveDecks = resolve;
+        });
+      if (path.includes("/cards")) return [card];
+      return [];
+    });
+    renderPage();
+    expect(screen.queryByText("Kuyruk boş")).toBeNull();
+    expect(apiGet.mock.calls.some(([path]) => path.includes("/cards"))).toBe(false);
+    await act(async () => resolveDecks([deck]));
+    expect(await screen.findByRole("button", { name: /Kart sorusu/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Günlük tekrara dön" }));
+    await waitFor(() => expect(window.location.hash).toBe("#/learning?view=review"));
+  });
+
+  it("kuyruk hatası görünürdür ve yeniden denenebilir", async () => {
+    window.location.hash = "#/flashcard?deck=deck-1&review=due";
+    apiGet.mockImplementation(async (path: string) => {
+      if (path === "/flashcard/decks") return [deck];
+      throw new Error("unavailable");
+    });
+    renderPage();
+    expect(await screen.findByText("Tekrar kuyruğu yüklenemedi")).toBeTruthy();
+    apiGet.mockResolvedValue([card]);
+    fireEvent.click(screen.getByRole("button", { name: "Yeniden dene" }));
+    expect(await screen.findByRole("button", { name: /Kart sorusu/ })).toBeTruthy();
+  });
+
+  it("sayaç cache tazelemesi devam eden oturumu sıfırlamaz", async () => {
+    window.location.hash = "#/flashcard?deck=deck-1&review=due";
+    const { client } = renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: /Kart sorusu/ }));
+    fireEvent.click(screen.getByRole("button", { name: /İyi/ }));
+    expect(await screen.findByText(/1 kart tekrar edildi/)).toBeTruthy();
+    act(() => client.setQueryData(["flashcard", "review", "due", "deck-1", ""], []));
+    expect(screen.getByText(/1 kart tekrar edildi/)).toBeTruthy();
+    expect(screen.queryByText("Kuyruk boş")).toBeNull();
+  });
+
   it("destek listeler, yenisini olusturur ve tazeler", async () => {
     renderPage();
 

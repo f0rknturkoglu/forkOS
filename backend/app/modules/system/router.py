@@ -350,7 +350,7 @@ async def reddit_news(
     """
     setting = await session.get(Setting, "news.subreddits")
     value = setting.value if setting and isinstance(setting.value, list) else None
-    subs = [str(s) for s in (value or news.DEFAULT_SUBREDDITS)]
+    subs = [str(s) for s in (news.DEFAULT_SUBREDDITS if value is None else value)]
     try:
         return await news.reddit_posts(subs, limit)
     except httpx.HTTPError as exc:

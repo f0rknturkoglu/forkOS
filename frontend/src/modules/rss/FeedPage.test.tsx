@@ -111,7 +111,7 @@ describe("Okuma Akışı sayfası", () => {
     renderPage();
 
     expect(await screen.findByText("RSS yazısı")).toBeTruthy();
-    expect(screen.getByText("Reddit gönderisi")).toBeTruthy();
+    expect(await screen.findByText("Reddit gönderisi")).toBeTruthy();
     expect(screen.getByText("HN hikayesi")).toBeTruthy();
     expect(screen.getByText("owner/repo")).toBeTruthy();
 
