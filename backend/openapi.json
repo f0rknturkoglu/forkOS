@@ -5733,6 +5733,100 @@
         "title": "EvaluationRequirementOut",
         "type": "object"
       },
+      "ExperienceOut": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "feed": {
+            "$ref": "#/components/schemas/FeedPreferences"
+          },
+          "first_run": {
+            "title": "First Run",
+            "type": "boolean"
+          },
+          "onboarding": {
+            "$ref": "#/components/schemas/OnboardingState"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revision",
+          "first_run",
+          "counts"
+        ],
+        "title": "ExperienceOut",
+        "type": "object"
+      },
+      "ExperienceUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "feed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedPreferences"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "onboarding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OnboardingState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "ExperienceUpdate",
+        "type": "object"
+      },
       "FamilyOut": {
         "description": "Bir Hermes fazinin (H0–H7) disa vurulan ozeti.",
         "properties": {
@@ -5762,6 +5856,52 @@
         "title": "FamilyOut",
         "type": "object"
       },
+      "FeedBundle": {
+        "additionalProperties": false,
+        "properties": {
+          "channels": {
+            "items": {
+              "enum": [
+                "hn",
+                "gh",
+                "hf",
+                "reddit",
+                "rss"
+              ],
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Channels",
+            "type": "array"
+          },
+          "feed_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Feed Ids",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "FeedBundle",
+        "type": "object"
+      },
       "FeedIn": {
         "properties": {
           "category": {
@@ -5774,6 +5914,11 @@
               }
             ],
             "title": "Category"
+          },
+          "probe": {
+            "default": true,
+            "title": "Probe",
+            "type": "boolean"
           },
           "title": {
             "default": "",
@@ -6000,6 +6145,48 @@
           "error_count"
         ],
         "title": "FeedOut",
+        "type": "object"
+      },
+      "FeedPreferences": {
+        "additionalProperties": false,
+        "properties": {
+          "bundles": {
+            "items": {
+              "$ref": "#/components/schemas/FeedBundle"
+            },
+            "maxItems": 12,
+            "title": "Bundles",
+            "type": "array"
+          },
+          "providers": {
+            "items": {
+              "enum": [
+                "hn",
+                "gh",
+                "hf",
+                "reddit"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Providers",
+            "type": "array"
+          },
+          "rss_enabled": {
+            "default": false,
+            "title": "Rss Enabled",
+            "type": "boolean"
+          },
+          "subreddits": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Subreddits",
+            "type": "array"
+          }
+        },
+        "title": "FeedPreferences",
         "type": "object"
       },
       "FeedUpdate": {
@@ -9977,6 +10164,118 @@
           "source_status"
         ],
         "title": "ObservationLivenessOut",
+        "type": "object"
+      },
+      "OnboardingState": {
+        "additionalProperties": false,
+        "properties": {
+          "active_step": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Step"
+          },
+          "active_tour": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Tour"
+          },
+          "dismissed_hints": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 80,
+            "title": "Dismissed Hints",
+            "type": "array"
+          },
+          "feed_setup": {
+            "default": "pending",
+            "enum": [
+              "pending",
+              "chosen",
+              "skipped"
+            ],
+            "title": "Feed Setup",
+            "type": "string"
+          },
+          "journey": {
+            "anyOf": [
+              {
+                "enum": [
+                  "general",
+                  "goal",
+                  "planning",
+                  "learning",
+                  "career"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Journey"
+          },
+          "phase": {
+            "default": "welcome",
+            "enum": [
+              "welcome",
+              "journey",
+              "sources",
+              "tour",
+              "checklist"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "skipped_steps": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 80,
+            "title": "Skipped Steps",
+            "type": "array"
+          },
+          "status": {
+            "default": "new",
+            "enum": [
+              "new",
+              "in_progress",
+              "completed",
+              "dismissed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "visited_steps": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 80,
+            "title": "Visited Steps",
+            "type": "array"
+          }
+        },
+        "title": "OnboardingState",
         "type": "object"
       },
       "OpenTodoOut": {
@@ -27107,9 +27406,68 @@
         ]
       }
     },
+    "/api/news/huggingface-papers": {
+      "get": {
+        "operationId": "huggingface_papers_api_news_huggingface_papers_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 30,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Huggingface Papers",
+        "tags": [
+          "system"
+        ]
+      }
+    },
     "/api/news/reddit": {
       "get": {
-        "description": "Bugun panelindeki reddit akisi -- tech/CS subredditleri.\n\nSunucudan cekilir: reddit tarayiciya 403 doner (bkz. news.py).\nKaynak listesi \"news.subreddits\" ayarindan; yoksa varsayilanlar.",
+        "description": "Bugun panelindeki reddit akisi -- tech/CS subredditleri.\n\nSunucudan cekilir: reddit tarayiciya 403 doner (bkz. news.py).\nYalnız kaydedilmiş opt-in kaynak listesi kullanılır.",
         "operationId": "reddit_news_api_news_reddit_get",
         "parameters": [
           {
@@ -34395,6 +34753,66 @@
           }
         },
         "summary": "Career Ops Doctor",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/experience": {
+      "get": {
+        "operationId": "get_experience_api_system_experience_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperienceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Experience",
+        "tags": [
+          "system"
+        ]
+      },
+      "put": {
+        "operationId": "put_experience_api_system_experience_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperienceUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperienceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Experience",
         "tags": [
           "system"
         ]

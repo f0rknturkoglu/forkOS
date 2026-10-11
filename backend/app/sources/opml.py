@@ -21,6 +21,8 @@ def parse_opml(content: bytes | str) -> list[OpmlFeed]:
     """Ic ice gecmis outline'lari duzlestirir. Ayni URL bir kez doner."""
     if isinstance(content, str):
         content = content.encode()
+    if len(content) > 2_000_000 or b"<!DOCTYPE" in content.replace(b"\x00",b"").upper() or b"<!ENTITY" in content.replace(b"\x00",b"").upper():
+        raise ValueError("OPML boyut sınırı aşıldı veya DTD/entity içeriyor")
     root = ElementTree.fromstring(content)
     body = root.find("body")
     if body is None:

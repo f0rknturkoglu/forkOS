@@ -10,6 +10,7 @@ class FeedIn(BaseModel):
     url: str
     title: str = ""
     category: str | None = None
+    probe: bool = True
 
     @field_validator("url")
     @classmethod
@@ -17,6 +18,8 @@ class FeedIn(BaseModel):
         v = v.strip()
         if not v.lower().startswith(("http://", "https://")):
             raise ValueError("url http(s) ile baslamali")
+        from app.sources.public_http import validate_public_url
+        validate_public_url(v)
         return v
 
 

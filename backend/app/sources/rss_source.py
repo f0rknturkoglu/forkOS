@@ -14,6 +14,7 @@ import feedparser
 import httpx
 
 from app.sources.base import RawItem
+from app.sources.public_http import get_public
 
 USER_AGENT = "forkOS/0.1 (+local-only personal reader)"
 TIMEOUT = httpx.Timeout(20.0, connect=10.0)
@@ -73,6 +74,8 @@ def _content(entry) -> str | None:
 
 def parse_entries(raw: bytes) -> list[RawItem]:
     """Bytes -> RawItem. Ag'dan bagimsiz oldugu icin dogrudan test edilebilir."""
+    if b"<!DOCTYPE" in raw.replace(b"\x00",b"").upper() or b"<!ENTITY" in raw.replace(b"\x00",b"").upper():
+        raise ValueError("RSS DTD veya entity bildirimi içeremez")
     parsed = feedparser.parse(raw)
     items: list[RawItem] = []
     for entry in parsed.entries:
@@ -94,6 +97,8 @@ def parse_entries(raw: bytes) -> list[RawItem]:
 
 def feed_title(raw: bytes, fallback: str) -> tuple[str, str | None, str | None]:
     """(baslik, site_url, logo) -- feed ekleme sirasinda entity.title ve avatar icin."""
+    if b"<!DOCTYPE" in raw.replace(b"\x00",b"").upper() or b"<!ENTITY" in raw.replace(b"\x00",b"").upper():
+        raise ValueError("RSS DTD veya entity bildirimi içeremez")
     parsed = feedparser.parse(raw)
     title = (parsed.feed.get("title") or "").strip() or fallback
     image = None
@@ -106,6 +111,8 @@ def feed_title(raw: bytes, fallback: str) -> tuple[str, str | None, str | None]:
 
 def feed_image(raw: bytes) -> str | None:
     """Channel logosu. Avatari olmayan feed'lerde None -- onyuz harf avatarina duser."""
+    if b"<!DOCTYPE" in raw.replace(b"\x00",b"").upper() or b"<!ENTITY" in raw.replace(b"\x00",b"").upper():
+        raise ValueError("RSS DTD veya entity bildirimi içeremez")
     parsed = feedparser.parse(raw)
     if parsed.feed.get("image"):
         href = parsed.feed["image"].get("href")
@@ -153,9 +160,9 @@ class RssSource:
 
     async def fetch_result(self, client: httpx.AsyncClient | None = None) -> FetchResult:
         owns_client = client is None
-        client = client or httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=True)
+        client = client or httpx.AsyncClient(timeout=TIMEOUT, trust_env=False)
         try:
-            response = await client.get(self.url, headers=self._headers())
+            response = await get_public(client, self.url, headers=self._headers())
             if response.status_code == 304:
                 return FetchResult(status=NOT_MODIFIED, etag=self.etag,
                                    last_modified=self.last_modified)

@@ -34,6 +34,7 @@ from app.modules.rss.schemas import FeedIn, FeedItemOut, FeedOut, FeedUpdate
 from app.modules.system.models import Setting
 from app.sources.base import RawItem
 from app.sources.opml import parse_opml
+from app.sources.public_http import get_public
 from app.sources.rss_source import (
     EMPTY,
     ERROR,
@@ -67,8 +68,8 @@ STARTER_FEEDS: tuple[FeedIn, ...] = (
 async def _probe_title(url: str) -> tuple[str, str | None, str | None]:
     """(baslik, site_url, logo). Ag hatasi feed eklemeyi ENGELLEMEZ."""
     try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            response = await client.get(url)
+        async with httpx.AsyncClient(timeout=10.0, trust_env=False) as client:
+            response = await get_public(client, url)
             response.raise_for_status()
             return feed_title(response.content, url)
     except Exception:
@@ -79,6 +80,8 @@ async def add_feed(
     session: AsyncSession, data: FeedIn, *, probe: bool = True,
 ) -> tuple[Feed, bool]:
     """Doner: (feed, created). Ayni URL ikinci kez eklenirse mevcut kayit doner."""
+    from sqlalchemy import text
+    await session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:url))"), {"url": data.url})
     existing = (await session.execute(
         select(Feed).where(Feed.url == data.url)
     )).scalar_one_or_none()
@@ -103,47 +106,8 @@ async def add_feed(
 
 
 async def ensure_starter_feeds(session: AsyncSession) -> tuple[int, int]:
-    """Kanonik başlangıç beslemelerini bir kez ve idempotent biçimde kur.
-
-    İşaret ilk başarılı kurulumdan sonra kalır. Böylece kullanıcı daha sonra
-    bir başlangıç beslemesini silerse uygulama her açılışta onu geri eklemez.
-    Başlıklar sabit verildiği için kurulum sırasında dış ağa probe atılmaz;
-    normal RSS yenilemesi beslemeleri daha sonra çeker.
-    """
-    marker = await session.get(Setting, STARTER_FEEDS_SETTING_KEY)
-    if (
-        marker is not None
-        and isinstance(marker.value, dict)
-        and marker.value.get("version") == STARTER_FEEDS_VERSION
-    ):
-        return 0, 0
-
-    added = 0
-    skipped = 0
-    for starter in STARTER_FEEDS:
-        feed, created = await add_feed(session, starter, probe=False)
-        if created:
-            added += 1
-        else:
-            skipped += 1
-            if feed.category != starter.category:
-                feed.category = starter.category
-                await touch_entity(
-                    session,
-                    feed.id,
-                    search_text=f"{starter.url} {starter.category or ''}",
-                )
-
-    marker_value = {
-        "version": STARTER_FEEDS_VERSION,
-        "urls": [starter.url for starter in STARTER_FEEDS],
-    }
-    if marker is None:
-        session.add(Setting(key=STARTER_FEEDS_SETTING_KEY, value=marker_value))
-    else:
-        marker.value = marker_value
-    await session.commit()
-    return added, skipped
+    """Legacy startup entry: V1 never creates starter subscriptions or rewrites user feeds."""
+    return 0, 0
 
 
 async def update_feed(
@@ -410,9 +374,9 @@ async def fetch_full_text(session: AsyncSession, item: FeedItem) -> str | None:
         return None
     try:
         async with httpx.AsyncClient(
-            timeout=15.0, follow_redirects=True, headers=_FULL_TEXT_HEADERS,
+            timeout=15.0, follow_redirects=True, headers=_FULL_TEXT_HEADERS, trust_env=False,
         ) as client:
-            response = await client.get(item.url)
+            response = await get_public(client, item.url)
             response.raise_for_status()
         return extract_full_text(response.content)
     except Exception:
@@ -563,6 +527,9 @@ async def poll_interval_minutes(session: AsyncSession) -> int:
 
 async def due_feeds(session: AsyncSession, *, interval_minutes: int | None = None) -> list[Feed]:
     """Suresi gelmis feed'ler. last_fetched_at NULL olanlar hep once gelir (catch-up)."""
+    from app.modules.system.experience import enabled
+    if not await enabled(session, "rss"):
+        return []
     # 0 gecerli bir deger (catch-up "hepsini simdi cek" der) -- "or" ile ezme
     interval = (
         await poll_interval_minutes(session) if interval_minutes is None else interval_minutes
@@ -654,6 +621,9 @@ async def poll_feed(session: AsyncSession, feed: Feed) -> tuple[str, int]:
     Worker da, "simdi yenile" butonu da BURAYI cagirir -- mantik tek yerde.
     Doner: (status, eklenen_item_sayisi)
     """
+    from app.modules.system.experience import enabled
+    if not await enabled(session, "rss"):
+        return "disabled", 0
     source_id = f"rss:{feed.id}"
     run = await run_svc.start_run(session, source_id)
     result = await source_for(feed).fetch_result()
@@ -695,6 +665,9 @@ async def refresh_all(concurrency: int = 8, *, ignore_interval: bool = False) ->
     from app.db import SessionLocal  # yerel import: doner bagimlilik olusmasin
 
     async with SessionLocal() as session:
+        from app.modules.system.experience import enabled
+        if not await enabled(session, "rss"):
+            return 0
         feeds = await due_feeds(
             session,
             interval_minutes=0 if ignore_interval else None,

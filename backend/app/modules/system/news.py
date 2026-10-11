@@ -1,11 +1,13 @@
 """Bugun panelindeki haber akislari.
 
 Reddit RSS, Hacker News ve GitHub tarayıcıdan değil backend'den çekilir.
-TTL cache dış isteği sınırlar. HN/GitHub SourceAdapter çalışmaları source_run
-üretir; Reddit mevcut kısa ömürlü proxy/cache sözleşmesini kullanır.
+TTL cache ve kaynak kilidi dış isteği sınırlar. Tüm seçilmiş haber sağlayıcıları
+SourceAdapter üzerinden source_run üretir; Reddit RSS proxy sözleşmesini korur.
 """
+
 from __future__ import annotations
 
+import asyncio
 import re
 import time
 from dataclasses import dataclass
@@ -20,6 +22,8 @@ from app.sources.news import (
     GitHubTrendingSource,
     HackerNewsSource,
     cached_items,
+    cooldown_remaining,
+    record_cooldown,
     store_cached_items,
 )
 
@@ -96,7 +100,7 @@ async def reddit_posts(subreddits: list[str], limit: int) -> list[dict]:
         return cached.items[:limit]
 
     url = f"https://www.reddit.com/r/{key}/hot/.rss?limit=40"
-    async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=True, trust_env=False) as client:
         response = await client.get(url, headers={"User-Agent": USER_AGENT})
         response.raise_for_status()
 
@@ -119,14 +123,35 @@ async def reddit_posts(subreddits: list[str], limit: int) -> list[dict]:
             }
         )
 
+    if len(_cache) >= 32 and key not in _cache:
+        _cache.pop(min(_cache, key=lambda identity: _cache[identity].at))
     _cache[key] = _CacheEntry(at=now, items=items)
     return items[:limit]
 
 
+_source_locks: dict[str, asyncio.Lock] = {}
+
+
 async def fetch_news_source(session: AsyncSession, source, limit: int) -> list[dict]:
-    cached = cached_items(source.id)
+    if source.id not in _source_locks:
+        if len(_source_locks) >= 32:
+            unused = next((key for key, lock in _source_locks.items() if not lock.locked()), None)
+            if unused is not None:
+                _source_locks.pop(unused)
+        _source_locks[source.id] = asyncio.Lock()
+    async with _source_locks[source.id]:
+        return await _fetch_news_source(session, source, limit)
+
+
+async def _fetch_news_source(session: AsyncSession, source, limit: int) -> list[dict]:
+    cached = cached_items(source.id, ttl=source.interval_minutes * 60)
     if cached is not None:
         return [item.extra for item in cached[:limit]]
+    remaining = cooldown_remaining(source.id)
+    if remaining:
+        raise RuntimeError(
+            f"Kaynak hız sınırı: yaklaşık {int(remaining) + 1} saniye sonra yeniden dene"
+        )
 
     run = await runs.start_run(session, source.id)
     try:
@@ -139,6 +164,8 @@ async def fetch_news_source(session: AsyncSession, source, limit: int) -> list[d
             await runs.check_stalled(session, source.id)
             await session.commit()
     except Exception as exc:
+        if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (429, 503):
+            record_cooldown(source.id, exc.response)
         await runs.finish_run(session, run, status=runs.ERROR, error=str(exc))
         await session.commit()
         raise
@@ -151,3 +178,23 @@ async def hacker_news(session: AsyncSession, limit: int) -> list[dict]:
 
 async def github_trending(session: AsyncSession, limit: int) -> list[dict]:
     return await fetch_news_source(session, GitHubTrendingSource(), limit)
+
+
+class RedditNewsSource:
+    """Optional existing Reddit RSS proxy, participating in canonical SourceRun health."""
+
+    interval_minutes = 10
+
+    def __init__(self, subreddits):
+        import hashlib
+
+        self.subreddits = subreddits
+        self.id = "news:reddit:" + hashlib.sha256(",".join(subreddits).encode()).hexdigest()[:12]
+
+    async def fetch(self):
+        from app.sources.base import RawItem
+
+        return [
+            RawItem(external_id=item["id"], title=item["title"], url=item["url"], extra=item)
+            for item in await reddit_posts(self.subreddits, 40)
+        ]

@@ -2321,6 +2321,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/news/huggingface-papers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Huggingface Papers */
+        get: operations["huggingface_papers_api_news_huggingface_papers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/news/reddit": {
         parameters: {
             query?: never;
@@ -2333,7 +2350,7 @@ export interface paths {
          * @description Bugun panelindeki reddit akisi -- tech/CS subredditleri.
          *
          *     Sunucudan cekilir: reddit tarayiciya 403 doner (bkz. news.py).
-         *     Kaynak listesi "news.subreddits" ayarindan; yoksa varsayilanlar.
+         *     Yalnız kaydedilmiş opt-in kaynak listesi kullanılır.
          */
         get: operations["reddit_news_api_news_reddit_get"];
         put?: never;
@@ -4843,6 +4860,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/experience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Experience */
+        get: operations["get_experience_api_system_experience_get"];
+        /** Put Experience */
+        put: operations["put_experience_api_system_experience_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/refresh": {
         parameters: {
             query?: never;
@@ -7231,6 +7266,36 @@ export interface components {
             /** Terms */
             terms?: string[];
         };
+        /** ExperienceOut */
+        ExperienceOut: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            feed?: components["schemas"]["FeedPreferences"];
+            /** First Run */
+            first_run: boolean;
+            onboarding?: components["schemas"]["OnboardingState"];
+            /** Revision */
+            revision: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Version
+             * @default 1
+             * @constant
+             */
+            version: 1;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /** ExperienceUpdate */
+        ExperienceUpdate: {
+            feed?: components["schemas"]["FeedPreferences"] | null;
+            onboarding?: components["schemas"]["OnboardingState"] | null;
+            /** Revision */
+            revision: string;
+        };
         /**
          * FamilyOut
          * @description Bir Hermes fazinin (H0–H7) disa vurulan ozeti.
@@ -7245,10 +7310,29 @@ export interface components {
             /** Tool Count */
             tool_count: number;
         };
+        /** FeedBundle */
+        FeedBundle: {
+            /** Channels */
+            channels?: ("hn" | "gh" | "hf" | "reddit" | "rss")[];
+            /** Feed Ids */
+            feed_ids?: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+        };
         /** FeedIn */
         FeedIn: {
             /** Category */
             category?: string | null;
+            /**
+             * Probe
+             * @default true
+             */
+            probe: boolean;
             /**
              * Title
              * @default
@@ -7326,6 +7410,20 @@ export interface components {
             unread: number;
             /** Url */
             url: string;
+        };
+        /** FeedPreferences */
+        FeedPreferences: {
+            /** Bundles */
+            bundles?: components["schemas"]["FeedBundle"][];
+            /** Providers */
+            providers?: ("hn" | "gh" | "hf" | "reddit")[];
+            /**
+             * Rss Enabled
+             * @default false
+             */
+            rss_enabled: boolean;
+            /** Subreddits */
+            subreddits?: string[];
         };
         /** FeedUpdate */
         FeedUpdate: {
@@ -8807,6 +8905,45 @@ export interface components {
             source_status: string;
             /** Url */
             url: string;
+        };
+        /** OnboardingState */
+        OnboardingState: {
+            /** Active Step */
+            active_step?: string | null;
+            /** Active Tour */
+            active_tour?: string | null;
+            /** Dismissed Hints */
+            dismissed_hints?: string[];
+            /**
+             * Feed Setup
+             * @default pending
+             * @enum {string}
+             */
+            feed_setup: "pending" | "chosen" | "skipped";
+            /** Journey */
+            journey?: ("general" | "goal" | "planning" | "learning" | "career") | null;
+            /**
+             * Phase
+             * @default welcome
+             * @enum {string}
+             */
+            phase: "welcome" | "journey" | "sources" | "tour" | "checklist";
+            /** Skipped Steps */
+            skipped_steps?: string[];
+            /**
+             * Status
+             * @default new
+             * @enum {string}
+             */
+            status: "new" | "in_progress" | "completed" | "dismissed";
+            /**
+             * Version
+             * @default 1
+             * @constant
+             */
+            version: 1;
+            /** Visited Steps */
+            visited_steps?: string[];
         };
         /** OpenTodoOut */
         OpenTodoOut: {
@@ -17098,6 +17235,38 @@ export interface operations {
             };
         };
     };
+    huggingface_papers_api_news_huggingface_papers_get: {
+        parameters: {
+            query?: {
+                date?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reddit_news_api_news_reddit_get: {
         parameters: {
             query?: {
@@ -21931,6 +22100,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_experience_api_system_experience_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperienceOut"];
+                };
+            };
+        };
+    };
+    put_experience_api_system_experience_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExperienceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperienceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

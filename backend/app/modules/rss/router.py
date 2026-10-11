@@ -34,9 +34,10 @@ async def list_feeds(
 
 @router.post("/rss/feeds", response_model=FeedOut, status_code=201)
 async def add_feed(body: FeedIn, session: AsyncSession = Depends(get_session)):
-    feed, created = await service.add_feed(session, body)
-    if not created:
-        raise HTTPException(409, "bu feed zaten ekli")
+    feed, created = await service.add_feed(session, body, probe=body.probe)
+    if body.probe:
+        from app.modules.system.experience import activate_rss
+        await activate_rss(session)
     feeds = await service.list_feeds(session)
     return next(f for f in feeds if f.id == feed.id)
 
@@ -77,12 +78,14 @@ async def import_opml(
 
     Kategori, feed'i saran outline grubunun basligindan gelir.
     """
-    content = await file.read()
+    content = await file.read(2_000_001)
     try:
         added, skipped, names = await service.import_opml(session, content)
     except Exception as exc:
         raise HTTPException(422, f"OPML okunamadi: {exc}") from exc
     if added:
+        from app.modules.system.experience import activate_rss
+        await activate_rss(session)
         # Sorunun cozumu: import sonrasi yazilar aninda cekilsin diye
         # arka plan tazelemesi kuyruklanir (worker'i 30 dk beklemene gerek yok).
         background.add_task(service.refresh_all)

@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings as app_settings
 from app.core.events import log_event
 from app.core.heartbeat import WORKER_HEARTBEAT_KEY, heartbeat_is_fresh
+from app.core.local_ui import StudioRoute
 from app.core.models import SavedView
 from app.core.schemas import SavedViewCreate, SavedViewOut, SavedViewPatch
 from app.db import get_session
@@ -32,6 +33,7 @@ from app.integrations.agent import status as agent_status_svc
 from app.modules.system import (
     automation,
     backup,
+    experience,
     export,
     news,
     refresh,
@@ -107,6 +109,8 @@ async def settings(session: AsyncSession = Depends(get_session)):
 
 @router.put("/settings/{key:path}")
 async def put_setting(key: str, body: SettingIn, session: AsyncSession = Depends(get_session)):
+    if key == "product.experience.v1":
+        raise HTTPException(422, "Bu tercih sürümlü ürün sözleşmesiyle kaydedilmeli")
     problem = validate_setting(key, body.value)
     if problem is not None:
         raise HTTPException(422, f"{key}: {problem}")
@@ -346,14 +350,15 @@ async def reddit_news(
     """Bugun panelindeki reddit akisi -- tech/CS subredditleri.
 
     Sunucudan cekilir: reddit tarayiciya 403 doner (bkz. news.py).
-    Kaynak listesi "news.subreddits" ayarindan; yoksa varsayilanlar.
+    Yalnız kaydedilmiş opt-in kaynak listesi kullanılır.
     """
-    setting = await session.get(Setting, "news.subreddits")
-    value = setting.value if setting and isinstance(setting.value, list) else None
-    subs = [str(s) for s in (news.DEFAULT_SUBREDDITS if value is None else value)]
+    if not await experience.enabled(session, "reddit"):
+        return []
+    prefs = await experience.read(session)
+    subs = prefs.feed.subreddits
     try:
-        return await news.reddit_posts(subs, limit)
-    except httpx.HTTPError as exc:
+        return await news.fetch_news_source(session, news.RedditNewsSource(subs), limit)
+    except (httpx.HTTPError, RuntimeError) as exc:
         raise HTTPException(502, f"reddit okunamadi: {exc}") from exc
 
 
@@ -363,6 +368,8 @@ async def hacker_news(
     session: AsyncSession = Depends(get_session),
 ):
     try:
+        if not await experience.enabled(session, "hn"):
+            return []
         return await news.hacker_news(session, limit)
     except (httpx.HTTPError, RuntimeError) as exc:
         raise HTTPException(502, f"Hacker News okunamadı: {exc}") from exc
@@ -374,6 +381,8 @@ async def github_trending(
     session: AsyncSession = Depends(get_session),
 ):
     try:
+        if not await experience.enabled(session, "gh"):
+            return []
         return await news.github_trending(session, limit)
     except (httpx.HTTPError, RuntimeError) as exc:
         raise HTTPException(502, f"GitHub okunamadı: {exc}") from exc
@@ -598,3 +607,34 @@ async def career_ops_doctor():
     adapter = CareerOpsAdapter()
     res = await adapter.doctor()
     return res.model_dump()
+
+
+
+experience_router = APIRouter(route_class=StudioRoute)
+
+
+@experience_router.get("/system/experience", response_model=experience.ExperienceOut)
+async def get_experience(session: AsyncSession = Depends(get_session)):
+    return await experience.read(session)
+
+
+@experience_router.put("/system/experience", response_model=experience.ExperienceOut)
+async def put_experience(body: experience.ExperienceUpdate, session: AsyncSession = Depends(get_session)):
+    return await experience.update(session, body)
+
+
+@router.get("/news/huggingface-papers")
+async def huggingface_papers(date: str | None = None, limit: int = Query(20, ge=1, le=30), session: AsyncSession = Depends(get_session)):
+    if not await experience.enabled(session, "hf"):
+        return []
+    from app.sources.news import HuggingFacePapersSource
+    try:
+        source = HuggingFacePapersSource(date=date)
+        return await news.fetch_news_source(session, source, limit)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(502, "Hugging Face Papers alınamadı") from exc
+
+
+router.include_router(experience_router)

@@ -18,7 +18,6 @@ from app.core.heartbeat import WORKER_HEARTBEAT_KEY
 from app.modules.system import automation
 from app.modules.system.dirty import REVISION_KEY as BACKUP_REVISION_KEY
 from app.modules.system.maintenance import MAINTENANCE_KEY as MAINTENANCE_SETTING_KEY
-from app.modules.system.news import DEFAULT_SUBREDDITS
 
 DEFAULTS: dict[str, Any] = {
     "modules.disabled": [],
@@ -35,7 +34,7 @@ DEFAULTS: dict[str, Any] = {
         "authorized_countries": ["Türkiye"],
         "willing_to_relocate": False,
     },
-    "news.subreddits": list(DEFAULT_SUBREDDITS),
+    "news.subreddits": [],
     #: Arka plan otomasyonu ve profiller (bkz. app/modules/system/automation.py).
     **{key: True for key in automation.ENABLED_KEYS.values()},
     **automation.INTERVAL_DEFAULTS,

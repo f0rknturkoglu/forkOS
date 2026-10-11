@@ -296,7 +296,14 @@ async def source_health(
     session: AsyncSession = Depends(get_session),
 ):
     """Her kaynagin son kosumu. 'empty' veya 'error' goruyorsan bir sey kirilmis."""
-    return await run_svc.health(session, limit=limit)
+    from app.modules.system import experience
+    selected = {provider: await experience.enabled(session, provider) for provider in ("rss", "hn", "gh", "hf", "reddit")}
+    rows = await run_svc.health(session, limit=limit)
+    def eligible(row):
+        source = row["source"]
+        provider = "rss" if source.startswith("rss:") else "hn" if source == "news:hacker-news" else "gh" if source == "news:github-trending" else "hf" if source.startswith("news:huggingface-papers") else "reddit" if source.startswith("news:reddit:") else None
+        return provider is None or selected[provider]
+    return [row for row in rows if eligible(row)]
 
 
 from app.integrations.obsidian.router import router as obsidian_router  # noqa: E402
