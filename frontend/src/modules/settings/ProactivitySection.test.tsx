@@ -149,12 +149,12 @@ describe("ProactivitySection", () => {
   it("durumu yükleyip ana anahtarı, kural listesini ve son koşuları gösterir", async () => {
     renderSection();
 
-    const master = await screen.findByRole("checkbox", { name: "Proaktif müdahale açık" });
+    const master = await screen.findByRole("checkbox", { name: "Seçtiğim hatırlatmaları etkinleştir" });
     expect((master as HTMLInputElement).checked).toBe(false);
 
     // Kapali kural kumesi etiketleriyle gelir (ham `kind` degil).
-    expect(await screen.findByRole("checkbox", { name: "Son tarih basamakları" })).toBeTruthy();
-    expect(screen.getByRole("checkbox", { name: "Durmuş projeler" })).toBeTruthy();
+    expect(await screen.findByRole("checkbox", { name: "Önemli son tarihleri hatırlat" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Projede uzun süre hareket yoksa haber ver" })).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: "Sessizlik sonrası dönüş" })).toBeTruthy();
 
     // Durum ozeti + kosu gecmisi.
@@ -183,7 +183,7 @@ describe("ProactivitySection", () => {
   it("ana anahtar değişince PUT /proactivity/config çağırır", async () => {
     renderSection();
 
-    fireEvent.click(await screen.findByRole("checkbox", { name: "Proaktif müdahale açık" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Seçtiğim hatırlatmaları etkinleştir" }));
 
     await waitFor(() => {
       expect(lastCall("PUT", "/api/proactivity/config")?.body).toEqual({ enabled: true });

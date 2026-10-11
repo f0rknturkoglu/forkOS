@@ -10,6 +10,7 @@ import {
   fetchExecutionPlan,
   pendingExecutionPlans,
   rejectExecutionPlan,
+  recoverExecutionPlan,
   respondExecutionPlan,
   runExecutionPlan,
 } from "@/core/execution";
@@ -86,7 +87,8 @@ type Decision =
   | { kind: "reject" }
   | { kind: "cancel" }
   | { kind: "respond"; answers: Record<string, string> }
-  | { kind: "execute"; revision: string; actions: string[] };
+  | { kind: "execute"; revision: string; actions: string[] }
+  | { kind: "recover"; actions: string[] };
 
 export function PendingDecisions() {
   const [openRowId, setOpenRowId] = useState<number | null>(null);
@@ -139,12 +141,43 @@ export function PendingDecisions() {
   );
 }
 
-function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: () => void }) {
+export function PlanReviewModal({
+  planRowId,
+  onClose,
+  applyTogether = false,
+  onReprepare,
+}: {
+  planRowId: number;
+  onClose: () => void;
+  applyTogether?: boolean;
+  onReprepare?: () => void;
+}) {
   const [revisionHint, setRevisionHint] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const { data: plan } = useQuery({
+  const {
+    data: plan,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["execution-plan", planRowId],
     queryFn: () => fetchExecutionPlan(planRowId),
+  });
+  const [applyError, setApplyError] = useState("");
+  const apply = useMutation({
+    mutationFn: async () => {
+      if (!plan) throw new Error("Plan okunamadı");
+      await approveExecutionPlan(planRowId, plan.revision);
+      // Server-recorded approval is required; this exact revision is executed separately.
+      return runExecutionPlan(planRowId, plan.revision);
+    },
+    onSuccess: () => {
+      invalidateAfter("execution.write", "todo.write");
+      setApplyError("");
+    },
+    onError: (e: Error) => {
+      setApplyError(e.message + " · Sonucu kontrol et; belirsiz işlemi körlemesine tekrarlama.");
+      invalidateAfter("execution.write");
+    },
   });
 
   const decide = useMutation({
@@ -161,14 +194,21 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
           return respondExecutionPlan(planRowId, decision.answers);
         case "execute":
           return runExecutionPlan(planRowId, decision.revision);
+        case "recover":
+          return recoverExecutionPlan(planRowId);
       }
     },
     onSuccess: (_view, decision) => {
+      setApplyError("");
       invalidateAfter("execution.write");
-      if (decision.kind === "execute") {
+      if (decision.kind === "execute" || decision.kind === "recover") {
         const surfaces = decision.actions.map((action) => ACTION_SURFACE[action]).filter(Boolean);
         if (surfaces.length > 0) invalidateAfter(...surfaces);
       }
+    },
+    onError: (e: Error) => {
+      setApplyError(e.message + " · Son durumu kontrol et.");
+      invalidateAfter("execution.write");
     },
   });
 
@@ -186,7 +226,7 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
   const canRespond = plan ? canTransition(plan.state, "draft") : false;
   const canReject = plan ? canTransition(plan.state, "rejected") : false;
   const canCancel = plan ? canTransition(plan.state, "cancelled") : false;
-  const canDecide = canApprove || canExecute || canRespond || canReject || canCancel;
+  const canDecide = canApprove || canExecute || canRespond || canReject || canCancel || plan?.needs_recovery;
 
   return (
     <Modal
@@ -199,19 +239,29 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
         canDecide &&
         plan && (
           <div className="flex flex-wrap items-center gap-2">
+            {plan.needs_recovery && (
+              <Button
+                disabled={decide.isPending || apply.isPending}
+                onClick={() => decide.mutate({ kind: "recover", actions: plan.steps.map((step) => step.action) })}
+              >
+                Makbuzları denetleyip devam et
+              </Button>
+            )}
             {canApprove && (
               <Button
                 variant="primary"
-                disabled={decide.isPending || expired}
-                onClick={() => decide.mutate({ kind: "approve", revision: plan.revision })}
+                disabled={decide.isPending || apply.isPending || expired || !plan.is_current_revision}
+                onClick={() =>
+                  applyTogether ? apply.mutate() : decide.mutate({ kind: "approve", revision: plan.revision })
+                }
               >
-                Onayla
+                {applyTogether ? (apply.isPending ? "Uygulanıyor…" : "Değişiklikleri uygula") : "Onayla"}
               </Button>
             )}
             {canExecute && (
               <Button
                 variant="primary"
-                disabled={decide.isPending || expired}
+                disabled={decide.isPending || apply.isPending || expired || !plan.is_current_revision}
                 onClick={() =>
                   decide.mutate({
                     kind: "execute",
@@ -226,24 +276,32 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
             {canRespond && (
               <Button
                 variant="primary"
-                disabled={decide.isPending || !answered}
+                disabled={decide.isPending || apply.isPending || !answered}
                 onClick={() => decide.mutate({ kind: "respond", answers })}
               >
                 Yanıtla
               </Button>
             )}
             {canApprove && (
-              <Button onClick={() => setRevisionHint((current) => !current)} ariaExpanded={revisionHint}>
+              <Button
+                disabled={apply.isPending || decide.isPending}
+                onClick={() => setRevisionHint((current) => !current)}
+                ariaExpanded={revisionHint}
+              >
                 Düzenle
               </Button>
             )}
             {canReject && (
-              <Button disabled={decide.isPending} onClick={() => decide.mutate({ kind: "reject" })}>
+              <Button disabled={decide.isPending || apply.isPending} onClick={() => decide.mutate({ kind: "reject" })}>
                 Reddet
               </Button>
             )}
             {canCancel && (
-              <Button variant="danger" disabled={decide.isPending} onClick={() => decide.mutate({ kind: "cancel" })}>
+              <Button
+                variant="danger"
+                disabled={decide.isPending || apply.isPending}
+                onClick={() => decide.mutate({ kind: "cancel" })}
+              >
                 İptal
               </Button>
             )}
@@ -251,10 +309,38 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
         )
       }
     >
-      {plan === undefined ? (
+      {isError ? (
+        <div role="alert" className="stack-y-2 text-meta text-danger">
+          Planın son durumu okunamadı; sonucu doğrulamadan yeniden çalıştırma.
+          <Button onClick={() => void refetch()}>Yeniden dene</Button>
+        </div>
+      ) : plan === undefined ? (
         <SkeletonRows rows={4} />
       ) : (
         <div className="stack-y-3.5">
+          {applyError && (
+            <p role="alert" className="text-meta text-danger">
+              {applyError}
+            </p>
+          )}
+          {(applyError || plan.state === "executing") && (
+            <Button disabled={apply.isPending || decide.isPending} onClick={() => void refetch()}>
+              Son durumu oku
+            </Button>
+          )}
+          {plan.needs_recovery && (
+            <p className="text-meta text-warn">
+              Yürütücü sinyali eskimiş. Devam etmek mevcut onayı ve makbuzları denetler; tamamlanan adım tekrarlanmaz,
+              sonucu belirsiz adım durdurulur. Otomatik geri alma yoktur.
+            </p>
+          )}
+          {onReprepare &&
+            (["expired", "cancelled", "rejected", "completed"].includes(plan.state) ||
+              (plan.state === "awaiting_approval" && Boolean(applyError))) && (
+              <Button disabled={apply.isPending || decide.isPending} onClick={onReprepare}>
+                Yeni seçimle tekrar hazırla
+              </Button>
+            )}
           {plan.summary && <p className="text-body text-secondary">{plan.summary}</p>}
 
           <Meta label="Neden">{plan.reason ?? "Gerekçe belirtilmemiş."}</Meta>

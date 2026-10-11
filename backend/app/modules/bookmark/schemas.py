@@ -95,6 +95,7 @@ class CreateSourceNoteIn(BaseModel):
 
 
 class BookmarkHighlightIn(BaseModel):
+    client_uuid: uuid.UUID | None = None
     text: str
     note: str | None = None
     color: str = "yellow"

@@ -23,8 +23,9 @@ from typing import Any
 
 #: Hash formatı sürümü. Format değişirse sürüm ARTIRILIR; eski revizyonlar
 #: tarihsel olarak okunabilir kalır.
+#: v3: Todo plan projection bound to approval. Old stored revisions remain readable.
 #: v2: karar girdisi (`decision_context`) revizyona dahil edildi (H7.1/B).
-REVISION_VERSION = "plan-v2"
+REVISION_VERSION = "plan-v3"
 
 #: Karar girdisi değeri için üst sınır (sınırsız metin taşıma yok).
 MAX_DECISION_VALUE = 200
@@ -41,6 +42,7 @@ def normalized_step(step: dict[str, Any], ordinal: int) -> dict[str, Any]:
         "arguments": {key: arguments[key] for key in sorted(arguments)},
         "description": str(step.get("description") or ""),
         "expected_updated_at": step.get("expected_updated_at"),
+        "expected_plan_fingerprint": step.get("expected_plan_fingerprint"),
     }
 
 

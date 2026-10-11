@@ -110,7 +110,7 @@ def _receipt_detail(value: Any) -> str | None:
 
 
 async def _fresh_target_stamp(
-    session: AsyncSession, step_arguments: dict[str, Any], expected: str | None
+    session: AsyncSession, step_arguments: dict[str, Any], expected: str | None, expected_plan: str | None = None
 ) -> tuple[bool, str | None]:
     """Hedefin GÜNCEL `updated_at` damgasını döner; adım bayatlarsa False.
 
@@ -134,6 +134,10 @@ async def _fresh_target_stamp(
     current = row.updated_at.isoformat()
     if expected is not None and current != expected:
         return False, current
+    if expected_plan is not None:
+        from app.modules.execution.planning_state import planning_fingerprint
+        if await planning_fingerprint(session, entity_id) != expected_plan:
+            return False, current
     return True, current
 
 
@@ -361,7 +365,7 @@ async def execute_plan(
             failed = True
             continue
 
-        fresh, _current = await _fresh_target_stamp(session, arguments, expected)
+        fresh, _current = await _fresh_target_stamp(session, arguments, expected, raw_step.get("expected_plan_fingerprint"))
         if not fresh:
             session.add(
                 ExecutionReceipt(

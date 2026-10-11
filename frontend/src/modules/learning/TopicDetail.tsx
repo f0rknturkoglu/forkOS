@@ -1,3 +1,4 @@
+import { ContextualHelp } from "@/core/ContextualHelp";
 /**
  * Konu calisma alani (master-detail'in sag paneli).
  *
@@ -345,6 +346,11 @@ export function TopicDetail({
 
   return (
     <div className="stack-y-5">
+      <ContextualHelp
+        key={topicId}
+        context={{ kind: "learning", entity_id: topicId }}
+        label="Bu konudan nasıl devam edebilirim?"
+      />
       <header className="stack-y-2">
         <nav aria-label="Konu yolu" className="flex flex-wrap items-center gap-1 text-meta text-muted">
           {(detail.ancestors ?? []).map((ancestor) => (

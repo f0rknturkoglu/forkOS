@@ -50,6 +50,7 @@ class ValidatedStep:
     arguments: dict[str, Any]
     description: str
     expected_updated_at: str | None
+    expected_plan_fingerprint: str | None = None
 
 
 def validate_steps(raw_steps: Any) -> list[ValidatedStep]:
@@ -126,4 +127,5 @@ def step_payload(step: ValidatedStep) -> dict[str, Any]:
         "arguments": step.arguments,
         "description": step.description,
         "expected_updated_at": step.expected_updated_at,
+        "expected_plan_fingerprint": step.expected_plan_fingerprint,
     }

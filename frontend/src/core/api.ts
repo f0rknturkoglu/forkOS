@@ -128,7 +128,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         ? undefined
         : {
             "Content-Type": "application/json",
-            ...(path.startsWith("/goals/studio/") ? { "X-ForkOS-Goal-Studio": "1" } : {}),
+            ...(path.startsWith("/goals/studio/") || path === "/execution/planning"
+              ? { "X-ForkOS-Goal-Studio": "1" }
+              : {}),
           },
       signal: controller.signal,
     });

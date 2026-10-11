@@ -8,6 +8,7 @@ import { SnoozePresetList, useRunSnoozeMutation } from "./ProactivitySnooze";
 import { Empty, IconButton, Popover, cx, relativeTime } from "./ui";
 import type { Notification } from "./types";
 import { entityRoute } from "./entityRegistry";
+import { allCommands } from "./registry";
 
 /**
  * Ust seritteki bildirim paneli.
@@ -58,7 +59,7 @@ export function NotificationPanel() {
   /* Kosu gecmisi yalniz panel acikken ve gercekten H6 bildirimi varken cekilir:
      eslesme yoksa satirda erteleme kontrolu GORUNMEZ. */
   const hasProactivity = items.some((item) => item.kind.startsWith("proactivity"));
-  const { data: proactivityData } = useQuery({
+  const { data: proactivityData, refetch: refetchRuns } = useQuery({
     queryKey: [PROACTIVITY_HISTORY_KEY],
     queryFn: proactivityHistory,
     enabled: open && hasProactivity,
@@ -85,9 +86,20 @@ export function NotificationPanel() {
     onSuccess: () => invalidateAfter("notification.write"),
   });
 
-  function openItem(item: Notification) {
+  async function openItem(item: Notification) {
+    let currentRuns = runs;
+    if (item.kind === "proactivity" && !item.entity_type && proactivityData === undefined) {
+      const latest = await refetchRuns();
+      currentRuns = Array.isArray(latest.data) ? latest.data : [];
+    }
     if (!item.read_at) read.mutate(item.id);
-    location.hash = notificationRoute(item);
+    const run = currentRuns.find((run) => run.notification_id === item.id);
+    const commandId =
+      run?.rule_kind === "weekly_review" ? "review.weekly" : run?.rule_kind === "daily_close" ? "review.daily" : null;
+    const command =
+      !item.entity_type && commandId ? allCommands().find((command) => command.id === commandId) : undefined;
+    if (command) command.run();
+    else location.hash = notificationRoute(item);
     setOpen(false);
   }
 

@@ -30,7 +30,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.heartbeat import WORKER_HEARTBEAT_KEY
+from app.core.heartbeat import WORKER_HEARTBEAT_KEY, heartbeat_is_fresh
 from app.core.models import Entity
 from app.core.time import local_today
 from app.modules.proactivity import delivery, policy, rules
@@ -1059,6 +1059,13 @@ async def status(session: AsyncSession, *, now: datetime | None = None) -> dict:
     )
     delivered_today = await _immediate_surfaces_today(session, now=moment)
     heartbeat = await session.get(Setting, WORKER_HEARTBEAT_KEY)
+    worker_active = False
+    if heartbeat and isinstance(heartbeat.value, dict):
+        try:
+            at = datetime.fromisoformat(heartbeat.value.get("at", ""))
+            worker_active = bool(at.tzinfo and heartbeat_is_fresh(at, now=moment))
+        except (ValueError, TypeError):
+            pass
     last_run_at = (
         await session.execute(select(func.max(ProactivityRun.updated_at)))
     ).scalar_one_or_none()
@@ -1083,6 +1090,7 @@ async def status(session: AsyncSession, *, now: datetime | None = None) -> dict:
         "pending_deferred": pending_deferred,
         "pending_digest": pending_digest,
         "worker_heartbeat": heartbeat.value if heartbeat else None,
+        "worker_active": worker_active,
         "last_run_at": last_run_at.isoformat() if last_run_at else None,
         "rules": [
             {

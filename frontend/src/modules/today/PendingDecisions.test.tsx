@@ -18,7 +18,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExecutionPlanView, ExecutionReceiptView } from "@/core/execution";
 import { queryClient } from "@/core/queryClient";
-import { PendingDecisions } from "./PendingDecisions";
+import { PendingDecisions, PlanReviewModal } from "./PendingDecisions";
 
 const REVISION = "plan-v1:9f2c1d4b7a6e5c3f0b9d8a7c6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f";
 const TODO_ID = "11111111-2222-3333-4444-555555555555";
@@ -172,7 +172,7 @@ beforeEach(() => {
         pending = [];
         return json(plan);
       }
-      if (method === "POST" && url.pathname.endsWith("/execute")) {
+      if (method === "POST" && (url.pathname.endsWith("/execute") || url.pathname.endsWith("/recover"))) {
         plan = executedPlan();
         return json(plan);
       }
@@ -184,6 +184,35 @@ beforeEach(() => {
       return json({});
     }),
   );
+});
+
+it("one apply interaction records approval before executing the exact displayed revision", async () => {
+  render(
+    <QueryClientProvider client={queryClient()}>
+      <PlanReviewModal planRowId={7} onClose={() => {}} applyTogether />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "Değişiklikleri uygula" }));
+  await screen.findAllByText(/STEP_STALE/);
+  expect(calls.filter((call) => call.method === "POST").map((call) => [call.path, call.body])).toEqual([
+    ["/api/execution/plans/7/approve", { revision: REVISION }],
+    ["/api/execution/plans/7/execute", { revision: REVISION }],
+  ]);
+});
+
+it("stale execution exposes receipt reconciliation instead of another execute", async () => {
+  plan = planView({ state: "executing", needs_recovery: true, decision_required: false, approved_revision: REVISION });
+  render(
+    <QueryClientProvider client={queryClient()}>
+      <PlanReviewModal planRowId={7} onClose={() => {}} />
+    </QueryClientProvider>,
+  );
+  const recover = await screen.findByRole("button", { name: "Makbuzları denetleyip devam et" });
+  expect(screen.queryByRole("button", { name: "Yürüt" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Onayla" })).toBeNull();
+  fireEvent.click(recover);
+  await waitFor(() => expect(lastCall("POST", "/api/execution/plans/7/recover")).toBeTruthy());
+  expect(lastCall("POST", "/api/execution/plans/7/execute")).toBeUndefined();
 });
 
 afterEach(() => {

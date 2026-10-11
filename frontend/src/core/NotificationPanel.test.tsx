@@ -12,6 +12,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "./ui";
 import { NotificationPanel } from "./NotificationPanel";
 
+const reviewOpen = vi.hoisted(() => vi.fn());
+vi.mock("./registry", async (original) => ({
+  ...(await original<typeof import("./registry")>()),
+  allCommands: () => [{ id: "review.weekly", label: "Haftalık değerlendirmeyi aç", run: reviewOpen }],
+}));
+
 interface Call {
   method: string;
   path: string;
@@ -95,6 +101,7 @@ function renderPanel() {
 }
 
 beforeEach(() => {
+  reviewOpen.mockClear();
   calls = [];
   vi.stubGlobal(
     "fetch",
@@ -118,6 +125,18 @@ afterEach(() => {
 });
 
 describe("NotificationPanel erteleme", () => {
+  it("weekly ritual opens the existing registered Review command", async () => {
+    const original = RUNS[0].rule_kind;
+    RUNS[0].rule_kind = "weekly_review";
+    try {
+      renderPanel();
+      fireEvent.click(await screen.findByRole("button", { name: /^Bildirimler/ }));
+      fireEvent.click(await screen.findByText("Proje durdu"));
+      await waitFor(() => expect(reviewOpen).toHaveBeenCalledOnce());
+    } finally {
+      RUNS[0].rule_kind = original;
+    }
+  });
   it("tetikleyici dugmesi ust serit taban cizgisinde: 32x32", async () => {
     renderPanel();
 

@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from urllib.parse import urlsplit
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from fastapi.routing import APIRoute
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.local_ui import StudioRoute
 from app.db import get_session
+from app.integrations.contextual import build_summary
+from app.integrations.contextual_schemas import AssistanceContext, AssistanceSummary
 from app.modules.goal import studio, studio_transport
 from app.modules.goal.studio_schemas import (
     StudioDecisionIn,
@@ -19,36 +20,12 @@ from app.modules.goal.studio_schemas import (
     StudioTurnIn,
 )
 
-
-class StudioRoute(APIRoute):
-    def get_route_handler(self):
-        handler = super().get_route_handler()
-
-        async def bounded(request: Request):
-            # No forwarded Host trust or extension/MCP approval path. Browser same-origin mutations only.
-            host = urlsplit("http://" + request.headers.get("host", "")).hostname
-            if host not in {"127.0.0.1", "localhost", "::1"}:
-                raise HTTPException(403, "Goal Studio yalnız yerel host üzerinde kullanılabilir")
-            if request.method != "GET":
-                origin = request.headers.get("origin")
-                if origin not in {"http://127.0.0.1:5173", "http://localhost:5173"}:
-                    raise HTTPException(403, "Goal Studio yazması forkOS arayüzünden gelmeli")
-                if request.headers.get("x-forkos-goal-studio") != "1":
-                    raise HTTPException(403, "Goal Studio CSRF koruması eksik")
-                if request.headers.get("content-type", "").split(";")[0] != "application/json":
-                    raise HTTPException(415, "JSON gerekli")
-                body = bytearray()
-                async for chunk in request.stream():
-                    body.extend(chunk)
-                    if len(body) > 64_000:
-                        raise HTTPException(413, "Goal Studio istek sınırı aşıldı")
-                request._body = bytes(body)
-            return await handler(request)
-
-        return bounded
-
-
 router = APIRouter(prefix="/goals/studio", tags=["goals"], route_class=StudioRoute)
+
+
+@router.post("/context", response_model=AssistanceSummary)
+async def context(body: AssistanceContext, db: AsyncSession = Depends(get_session)):
+    return await build_summary(db, body)
 
 
 @router.get("/status", response_model=StudioStatus)

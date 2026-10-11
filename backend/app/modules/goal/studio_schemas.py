@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
+from app.integrations.contextual_schemas import AssistanceContext
 from app.modules.goal.schemas import GoalIn, GoalMilestoneIn, GoalMilestonePatch, GoalPatch
 from app.modules.goal.strategy_schemas import KeyResultIn, PillarIn, PlanIn
 
@@ -140,6 +141,13 @@ class StudioProposal(Closed):
 class StudioSessionIn(Closed):
     client_uuid: UUID
     goal_id: UUID | None = None
+    context: AssistanceContext | None = None
+
+    @model_validator(mode="after")
+    def one_context(self):
+        if self.context is not None and self.goal_id is not None:
+            raise ValueError("Tek bir görüşme bağlamı seçilmeli")
+        return self
 
 
 class StudioTurnIn(Closed):
@@ -156,7 +164,7 @@ class StudioDecisionIn(Closed):
 class StudioStatus(Closed):
     state: Literal["not_configured", "unavailable", "unsupported", "ready"]
     message: str
-    provider_notice: str = "Hermes kendi yapılandırmasına göre bulut sağlayıcı kullanabilir. Bu geçit yalnız doğrulanmış yerel, araçsız profili kabul eder."
+    provider_notice: str = "Bu görüşme yalnız doğrulanmış yerel model ve araçsız Hermes profiliyle çalışır. Bulut sağlayıcı ve otomatik dış model geçişi engellenir."
 
 
 class StudioApplied(Closed):
@@ -183,3 +191,4 @@ class StudioSessionOut(Closed):
     pending_turn: StudioTurnIn | None = None
     progress: str = ""
     error: str | None = None
+    context: AssistanceContext | None = None

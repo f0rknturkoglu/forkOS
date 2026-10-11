@@ -175,7 +175,9 @@ async def convert_highlight_to_flashcard(
 ):
     try:
         card_id = await service.convert_highlight_to_flashcard(session, bookmark_id, highlight_id)
-        return {"card_id": card_id}
+        from app.modules.flashcard.models import FlashcardCard
+        card = await session.get(FlashcardCard, card_id)
+        return {"card_id": card_id, "deck_id": card.deck_id if card else None}
     except ValueError as err:
         raise HTTPException(404, str(err)) from err
 

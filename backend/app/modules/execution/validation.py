@@ -221,17 +221,19 @@ async def validate_plan(
     stamps, target_errors = await _target_state(session, validated)
     errors.extend(target_errors)
     if not errors:
-        validated = [
-            ValidatedStep(
-                step_id=step.step_id,
-                ordinal=step.ordinal,
-                action=step.action,
-                arguments=step.arguments,
-                description=step.description,
+        from app.modules.execution.planning_state import planning_fingerprint
+        prepared_steps = []
+        for step in validated:
+            stamp = None
+            if step.action == "todo_plan":
+                stamp = await planning_fingerprint(session, uuid.UUID(step.arguments["todo_id"]))
+            prepared_steps.append(ValidatedStep(
+                step_id=step.step_id, ordinal=step.ordinal, action=step.action,
+                arguments=step.arguments, description=step.description,
                 expected_updated_at=stamps.get(step.step_id, step.expected_updated_at),
-            )
-            for step in validated
-        ]
+                expected_plan_fingerprint=stamp,
+            ))
+        validated = prepared_steps
 
     if errors:
         return ValidationResult(

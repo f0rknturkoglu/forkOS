@@ -1,7 +1,10 @@
+import { entityRoute } from "@/core/entityRegistry";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowRight, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Target } from "lucide-react";
 import { invalidateAfter } from "@/core/invalidation";
+import { ContextualHelp, ScheduleTasks } from "@/core/ContextualHelp";
+import { readStored, writeStored } from "@/core/storage";
 import { api, qs } from "@/core/api";
 import {
   Button,
@@ -81,6 +84,9 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
   const { params } = useHashRoute();
   const [note, setNote] = useState("");
   const [decisions, setDecisions] = useState<Record<string, "carry" | "drop">>({});
+  const [reminderDismissed, setReminderDismissed] = useState(
+    () => readStored("review.reminder-discovery") === "dismissed",
+  );
   const online = useOnline();
   const toast = useToast();
   const requested = params.get("period");
@@ -218,11 +224,44 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                 ))}
               </Select>
             </div>
+            <ContextualHelp
+              key={`${kind}:${period}`}
+              label={kind === "weekly" ? "Haftayı birlikte değerlendirelim" : "Dönemi birlikte değerlendirelim"}
+              context={{ kind: "review", period_kind: kind, period_start: period, review_id: saved?.id ?? null }}
+            />
+            {kind === "weekly" && history.length >= 3 && !reminderDismissed && (
+              <div className="flex flex-wrap items-center gap-2 text-meta text-secondary">
+                <span>İstersen haftalık değerlendirmeyi sana hatırlatabilirim.</span>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    writeStored("review.reminder-discovery", "dismissed");
+                    setReminderDismissed(true);
+                    navigate("/settings?tab=brain");
+                  }}
+                >
+                  Hatırlatma tercihleri
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    writeStored("review.reminder-discovery", "dismissed");
+                    setReminderDismissed(true);
+                  }}
+                >
+                  Şimdi değil
+                </Button>
+              </div>
+            )}
             {stats.strategy_snapshot && (
-              <Section title="Stratejik snapshot">
+              <Section title="Hedeflerdeki durum">
                 <p className="text-meta text-muted">
-                  Kaydedildiği andaki sonuç, rota ve uyum kanıtı. Güncel duruma göre yeniden hesaplanmaz.
+                  {saved
+                    ? "Kaydedildiği andaki sonuç, rota ve uyum kanıtı. Güncel duruma göre yeniden hesaplanmaz."
+                    : "Mevcut sonuç ölçümleri ve bu dönemin uyum kanıtı. Eksik ölçümler ilerleme sayılmaz."}
                 </p>
+                <StrategySnapshotSummary snapshot={stats.strategy_snapshot} />
                 <details>
                   <summary className="text-meta">Ölçümler ve tanımlar</summary>
                   <pre className="whitespace-pre-wrap break-all text-meta">
@@ -377,9 +416,20 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
               hint={open.length ? `${open.length} görev açık` : "Açık görev yok"}
               action={
                 open.length ? (
-                  <Button size="sm" onClick={() => navigate("/todos")}>
-                    Görevlere git <ArrowRight size={13} />
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <ScheduleTasks
+                      tasks={open}
+                      label={kind === "weekly" ? "Gelecek haftaya taşı" : "Sonraki güne planla"}
+                      defaultDay={adjacentPeriod(
+                        kind === "weekly" ? "weekly" : "daily",
+                        kind === "weekly" ? appWeekStartKey() : todayKey(),
+                        1,
+                      )}
+                    />
+                    <Button size="sm" onClick={() => navigate("/todos")}>
+                      Görevlere git <ArrowRight size={13} />
+                    </Button>
+                  </div>
                 ) : undefined
               }
             >
@@ -474,6 +524,39 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
         </WorkspaceScrollArea>
       </Workspace>
     </PageFrame>
+  );
+}
+
+function StrategySnapshotSummary({ snapshot }: { snapshot: Record<string, unknown> }) {
+  const objectives = Array.isArray(snapshot.objectives) ? snapshot.objectives : [];
+  if (!objectives.length) return <p className="text-meta text-muted">Bu kayıtta hedef ölçümü bulunmuyor.</p>;
+  return (
+    <ul className="mt-2 stack-y-2 text-body">
+      {objectives.slice(0, 6).map((item, i) => {
+        const objective = item as {
+          goal?: { id?: string; title?: string };
+          strategic_progress_percent?: number | null;
+          confidence?: string;
+          warnings?: unknown[];
+        };
+        return (
+          <li key={objective.goal?.id ?? i}>
+            {objective.goal?.id ? (
+              <a className="text-accent underline" href={`#${entityRoute("goal", objective.goal.id)}`}>
+                {objective.goal.title}
+              </a>
+            ) : (
+              "Hedef"
+            )}
+            :{" "}
+            {typeof objective.strategic_progress_percent === "number"
+              ? `${objective.strategic_progress_percent}% kayıtlı sonuç ilerlemesi`
+              : "Sonuç ölçümü bilinmiyor"}
+            {objective.confidence === "low" ? " · Ölçüm eksikleri var" : ""}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

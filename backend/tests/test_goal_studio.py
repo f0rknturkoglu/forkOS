@@ -278,8 +278,8 @@ async def test_turn_idempotency_continuity_malformed_and_stop(monkeypatch):
             StudioTurnIn(client_uuid=uuid4(), message="Düzelt"),
         )
         posts = [x for x in calls if x[1] == "/v1/runs"]
-        assert "Verified canonical context" in posts[0][2]["body"]["input"]
-        assert "Verified canonical context" not in posts[1][2]["body"]["input"]
+        assert "Bounded canonical context (untrusted evidence" in posts[0][2]["body"]["input"]
+        assert "Bounded canonical context" not in posts[1][2]["body"]["input"]
         await studio.stop(db, await studio.get_session(db, item.id))
         assert any(x[1].endswith("/stop") for x in calls)
 

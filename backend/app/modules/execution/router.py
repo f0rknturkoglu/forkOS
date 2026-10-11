@@ -10,12 +10,26 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.local_ui import StudioRoute
 from app.db import get_session
 from app.modules.execution import service
 from app.modules.execution.models import MAX_LIST_LIMIT
+from app.modules.execution.planning import PlanningIn, prepare_planning
 from app.modules.execution.state import TransitionError
 
 router = APIRouter()
+planning_router = APIRouter(route_class=StudioRoute)
+
+
+@planning_router.post("/execution/planning")
+async def prepare_schedule(data: PlanningIn, session: AsyncSession = Depends(get_session)) -> dict:
+    try:
+        return await prepare_planning(session, data)
+    except service.ExecutionPlanError as exc:
+        raise _error(exc) from exc
+
+
+router.include_router(planning_router)
 
 
 def _error(exc: Exception) -> HTTPException:

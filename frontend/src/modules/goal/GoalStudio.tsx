@@ -10,6 +10,7 @@ import type { components } from "@/generated/api-schema";
 type S = components["schemas"];
 type Session = S["StudioSessionOut"];
 type Proposal = S["StudioProposal-Output"];
+type AssistanceContext = NonNullable<S["StudioSessionIn"]["context"]>;
 const operationNames: Record<string, string> = {
   "plan.create": "Plan oluştur",
   "pillar.create": "Stratejik alan oluştur",
@@ -34,14 +35,19 @@ export function GoalStudio({
   goalId,
   goals,
   onClose,
+  assistanceContext,
 }: {
   goalId: string | null;
   goals: { id: string; title: string }[];
   onClose: () => void;
+  assistanceContext?: AssistanceContext;
 }) {
+  const storageKey = assistanceContext
+    ? "assistance.session." + JSON.stringify(assistanceContext)
+    : "goalStudio.session";
   const [context, setContext] = useState(goalId ?? "");
   const [session, setSession] = useState<Session | null>(null);
-  const [resume, setResume] = useState(() => readStored("goalStudio.session") ?? "");
+  const [resume, setResume] = useState(() => readStored(storageKey) ?? "");
   const [message, setMessage] = useState("");
   const [pendingTurn, setPendingTurn] = useState<{ client_uuid: string; message: string } | null>(null);
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -54,9 +60,13 @@ export function GoalStudio({
     retry: false,
   });
   const adopt = (next: Session) => {
+    if (JSON.stringify(next.context ?? null) !== JSON.stringify(assistanceContext ?? null)) {
+      setError("Bu görüşme farklı bir bağlama ait; yeni görüşme aç.");
+      return;
+    }
     setSession(next);
     setResume(next.id);
-    writeStored("goalStudio.session", next.id);
+    writeStored(storageKey, next.id);
     setProposal(next.revision?.proposal ?? null);
     setEditorDirty(false);
     setPendingTurn(next.pending_turn ?? null);
@@ -96,7 +106,7 @@ export function GoalStudio({
     void streamGoalStudio(id, controller.signal, (text) => setLive((old) => (old + text).slice(-20000)))
       .catch(() => undefined)
       .finally(() => void reconcile());
-    const timer = setInterval(() => void reconcile(), 3000);
+    const timer = setInterval(() => void reconcile(), 10000);
     return () => {
       disposed = true;
       controller.abort();
@@ -123,17 +133,19 @@ export function GoalStudio({
     );
   return (
     <section
-      aria-label="Hermes Goal Studio"
+      aria-label={assistanceContext ? "Bağlam hakkında görüşme" : "Hermes Goal Studio"}
       className="min-w-0 rounded-card border border-subtle bg-surface p-4 stack-y-4"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="flex-1 text-heading">Hermes ile hedef hazırla</h2>
+        <h2 className="flex-1 text-heading">
+          {assistanceContext ? "Bunun hakkında konuş" : "Hermes ile hedef hazırla"}
+        </h2>
         <Button onClick={onClose}>Kapat</Button>
       </div>
       <p role="status" className="text-meta text-secondary">
         {status.data?.message ??
           (status.isError
-            ? "Hermes durumu alınamadı; manuel hedefleri kullanabilirsin."
+            ? "Hermes durumu alınamadı; yerel özet ve normal işlemleri kullanabilirsin."
             : "Bağlantı kontrol ediliyor…")}
       </p>
       <Button disabled={status.isFetching} onClick={() => void status.refetch()}>
@@ -142,29 +154,31 @@ export function GoalStudio({
       <details className="text-meta text-muted">
         <summary>Bağlam ve gizlilik</summary>
         <p>
-          {status.data?.provider_notice} Yalnız seçtiğin hedefin kayıtları ve yazdığın mesajlar iletilir. H2 hafızası
-          otomatik okunmaz. Sohbet onay sayılmaz.
+          {status.data?.provider_notice} Yalnız seçili bağlamın sınırlı kaynak özeti ve yazdığın mesajlar iletilir.
+          Hafıza adayları ve günlük gövdeleri otomatik gönderilmez. Sohbet onay sayılmaz.
         </p>
       </details>
       {!session && (
         <div className="flex flex-wrap items-end gap-2">
-          <Field label="Görüşme bağlamı">
-            <Select value={context} onChange={setContext}>
-              <option value="">Yeni hedef</option>
-              {goals.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.title}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {!assistanceContext && (
+            <Field label="Görüşme bağlamı">
+              <Select value={context} onChange={setContext}>
+                <option value="">Yeni hedef</option>
+                {goals.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <Button
             disabled={mutation.isPending}
             onClick={() =>
               run(() =>
                 api.post<Session>("/goals/studio/sessions", {
                   client_uuid: crypto.randomUUID(),
-                  goal_id: context || null,
+                  ...(assistanceContext ? { context: assistanceContext } : { goal_id: context || null }),
                 }),
               )
             }
@@ -213,7 +227,7 @@ export function GoalStudio({
               {session.error}
             </p>
           )}
-          <div role="log" aria-label="Hedef görüşmesi" className="max-h-80 overflow-y-auto stack-y-3">
+          <div role="log" aria-label="Bağlam görüşmesi" className="max-h-80 overflow-y-auto stack-y-3">
             {session.messages.map((m, i) => (
               <div key={i} className="rounded-card bg-surface-sunken p-3">
                 <p className="text-meta text-muted">
@@ -251,7 +265,13 @@ export function GoalStudio({
             }}
             className="stack-y-2"
           >
-            <Field label="Neyi başarmak istiyorsun? / Taslağı nasıl değiştirelim?">
+            <Field
+              label={
+                assistanceContext
+                  ? "Bu bağlam hakkında neyi değerlendirelim?"
+                  : "Neyi başarmak istiyorsun? / Taslağı nasıl değiştirelim?"
+              }
+            >
               <Textarea
                 ariaLabel="Hermes mesajı"
                 value={message}
@@ -263,7 +283,7 @@ export function GoalStudio({
               Hermes’e gönder
             </Button>
           </form>
-          {proposal && session.revision && (
+          {!assistanceContext && proposal && session.revision && (
             <div className="border-t border-subtle pt-4 stack-y-3">
               <h3 className="text-heading">Taslak · {session.revision.id.slice(0, 8)}</h3>
               <p className="text-body">{proposal.rationale}</p>

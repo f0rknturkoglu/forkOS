@@ -215,19 +215,31 @@ async def test_highlight_convert_to_flashcard():
         })
         b_id = b_res.json()["id"]
 
-        hl_res = await client.post(f"/api/bookmarks/{b_id}/highlights", json={
+        highlight_body = {
+            "client_uuid": str(uuid.uuid4()),
             "text": "Bilesenler arasi gevsek baglilik temel ilkedir.",
             "note": "Soru: Temel ilke nedir?",
             "color": "green",
             "anchor_index": 0,
-        })
+        }
+        hl_res = await client.post(f"/api/bookmarks/{b_id}/highlights", json=highlight_body)
         hl_id = hl_res.json()["id"]
+        repeated = await client.post(f"/api/bookmarks/{b_id}/highlights", json=highlight_body)
+        assert repeated.json() == hl_res.json()
+        highlights = (await client.get(f"/api/bookmarks/{b_id}/highlights")).json()
+        assert len(highlights) == 1
+        changed = await client.post(f"/api/bookmarks/{b_id}/highlights", json={**highlight_body, "text": "Farklı içerik"})
+        assert changed.status_code == 409
 
         # Flashcard'a donustur
         conv_res = await client.post(f"/api/bookmarks/{b_id}/highlights/{hl_id}/convert-to-flashcard")
         assert conv_res.status_code == 200
         card_id = conv_res.json()["card_id"]
         assert card_id is not None
+        retry = await client.post(f"/api/bookmarks/{b_id}/highlights/{hl_id}/convert-to-flashcard")
+        assert retry.status_code == 200
+        assert retry.json() == conv_res.json()
+        assert conv_res.json()["deck_id"] is not None
 
         # Kartin destede olustugunu dogrula
         decks_res = await client.get("/api/flashcard/decks")
@@ -241,6 +253,8 @@ async def test_highlight_convert_to_flashcard():
         cards = cards_res.json()
         matched = next((c for c in cards if c["id"] == card_id), None)
         assert matched is not None
+        assert len(cards) == 1
+        assert matched["reps"] == 0
         assert "Soru: Temel ilke nedir?" in matched["front"]
         assert "Bilesenler arasi gevsek baglilik temel ilkedir." in matched["back"]
 

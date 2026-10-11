@@ -280,14 +280,17 @@ async def list_cards(
     return [card_out(card) for card in cards]
 
 
-async def create_card(session: AsyncSession, deck_id, data) -> dict | None:
+async def create_card(session: AsyncSession, deck_id, data, *, commit: bool = True) -> dict | None:
     """Kart ekler; `reversible` ise tersi de (Arka -> On) ayni desteye girer."""
     if await session.get(FlashcardDeck, deck_id) is None:
         return None
     card = await _add_card(session, deck_id, data.front, data.back, reversible=False)
     if data.reversible and data.back.strip() != data.front.strip():
         await _add_card(session, deck_id, data.back, data.front, reversible=True)
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return card_out(card)
 
 

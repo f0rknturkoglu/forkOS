@@ -1,3 +1,4 @@
+import { ScheduleTasks } from "@/core/ContextualHelp";
 import { invalidateAfter } from "@/core/invalidation";
 import { useMemo, useState } from "react";
 import { DndContext, type DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
@@ -226,6 +227,14 @@ export function WeeklyPlannerPage() {
                 : "Görevleri günlere sürükleyerek yerleştir."}
             </p>
           </WorkspacePaneHeader>
+          {selectedTask && selectedTitle && (
+            <div className="px-3 py-2">
+              <ScheduleTasks
+                tasks={[{ id: selectedTask, title: selectedTitle }]}
+                label="Seçili görev için değişikliği incele"
+              />
+            </div>
+          )}
           <PlanViews view="week" />
           <div className="border-b border-subtle bg-surface-sunken p-3">
             <TodoComposer key={isoDay(week)} defaultPlanDay={isoDay(week)} />

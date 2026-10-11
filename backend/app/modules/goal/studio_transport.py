@@ -118,7 +118,7 @@ async def status():
     if not settings.hermes_goal_api_key or not settings.hermes_goal_profile_config:
         return StudioStatus(
             state="not_configured",
-            message="Hermes Goal Studio profili yapılandırılmamış; manuel hedefler kullanılabilir.",
+            message="Hermes yerel yardım profili yapılandırılmamış; normal işlemler ve yerel özetler kullanılabilir.",
         )
     try:
         verified_profile()

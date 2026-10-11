@@ -1,3 +1,4 @@
+import { ContextualHelp } from "@/core/ContextualHelp";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
@@ -183,6 +184,7 @@ export function JobDetail({ item }: { item: Opportunity }) {
   return (
     <div className="flex flex-col gap-4">
       <JobSummary item={item} online={online} />
+      <ContextualHelp key={item.id} context={{ kind: "career", entity_id: item.id }} label="Sonraki adımım ne?" />
       <Tabs<JobTab> ariaLabel="İş ilanı sekmeleri" value={tab} onChange={setTab} items={[...TAB_ITEMS]} />
       <div role="tabpanel" aria-label={TAB_LABELS[tab]} id={`job-tabpanel-${tab}`}>
         {tab === "ozet" && <JobOverview item={item} online={online} />}

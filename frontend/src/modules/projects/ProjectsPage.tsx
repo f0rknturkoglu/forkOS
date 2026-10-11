@@ -1,4 +1,5 @@
 import { invalidateAfter } from "@/core/invalidation";
+import { ContextualHelp } from "@/core/ContextualHelp";
 import { useEffect, useState } from "react";
 import { navigate, useHashRoute } from "@/app/router";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -205,6 +206,11 @@ export function ProjectsPage() {
           />
           <WorkspaceScrollArea className="p-4">
             <div id="project-view" role="tabpanel" className="mx-auto max-w-4xl stack-y-4">
+              <ContextualHelp
+                key={current.id}
+                context={{ kind: "project", entity_id: current.id }}
+                label="Nerede kalmıştım?"
+              />
               <ProjectViewContent key={`${current.id}:${view}`} project={current} view={view} onView={setView} />
             </div>
           </WorkspaceScrollArea>

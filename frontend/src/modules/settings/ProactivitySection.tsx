@@ -46,13 +46,13 @@ import {
 
 /** Kapali kural kumesi -> insan dili (backend `models.RULE_KINDS`). */
 const RULE_LABELS: Record<string, string> = {
-  morning_continuity: "Sabah sürekliliği",
-  daily_close: "Gün kapanışı",
-  weekly_review: "Haftalık gözden geçirme",
-  deadline_staircase: "Son tarih basamakları",
+  morning_continuity: "Sabah günümün yönünü göster",
+  daily_close: "Akşam günü toparlamamı hatırlat",
+  weekly_review: "Haftalık değerlendirmeyi hatırlat",
+  deadline_staircase: "Önemli son tarihleri hatırlat",
   continuity_gap: "Sessizlik sonrası dönüş",
-  project_stalled: "Durmuş projeler",
-  strategy_attention: "Stratejik dikkat (isteğe bağlı)",
+  project_stalled: "Projede uzun süre hareket yoksa haber ver",
+  strategy_attention: "Hedef ölçümlerinde dikkat gerektiren durumu bildir",
 };
 
 /** Kural varsayilan saatleri (backend `service.RULE_DEFAULTS`). */
@@ -122,13 +122,13 @@ export function ProactivitySection({ online }: { online: boolean }) {
   const statusQuery = useQuery({
     queryKey: [PROACTIVITY_STATUS_KEY],
     queryFn: proactivityStatus,
-    refetchInterval: 60_000,
+    refetchInterval: (query) => (query.state.data?.enabled ? 60_000 : false),
   });
   const rulesQuery = useQuery({ queryKey: [PROACTIVITY_RULES_KEY], queryFn: proactivityRules });
   const historyQuery = useQuery({
     queryKey: [PROACTIVITY_HISTORY_KEY],
     queryFn: proactivityHistory,
-    refetchInterval: 60_000,
+    refetchInterval: statusQuery.data?.enabled ? 60_000 : false,
   });
 
   const configMutation = useMutation({
@@ -195,31 +195,38 @@ export function ProactivitySection({ online }: { online: boolean }) {
   const status = statusQuery.data;
   if (!status) {
     return (
-      <Section title="Proaktivite">
+      <Section title="forkOS ne zaman yardımcı olsun?">
         <Spinner label="Proaktivite durumu yükleniyor…" />
       </Section>
     );
   }
 
-  const busy = !online;
+  const busy = !online || configMutation.isPending || ruleMutation.isPending;
   const rules = Array.isArray(rulesQuery.data) ? rulesQuery.data : [];
   const runs = Array.isArray(historyQuery.data) ? historyQuery.data : [];
   const failures = status.recent_failures ?? [];
   const heartbeat = status.worker_heartbeat?.at;
+  const workerActive = status.worker_active === true;
 
   return (
-    <Section title="Proaktivite" hint={status.enabled ? "açık" : "kapalı"}>
+    <Section title="forkOS ne zaman yardımcı olsun?" hint={status.enabled ? "açık" : "kapalı"}>
       <p className="mb-3 text-meta text-muted">
         forkOS yalnızca açtığın kurallar çerçevesinde kendiliğinden devreye girer ve varsayılan olarak kapalıdır. Uygun
         an yoksa hiçbir bildirim çıkmaz: sessiz kalmak başarısızlık değildir.
       </p>
 
+      {!workerActive && (
+        <p className="mb-3 text-meta text-warn">
+          Zamanlanmış bildirim teslimi etkin görünmüyor: güncel worker sinyali yok. Tercihlerin kaydedilir; teslim için
+          worker çalışmalı.
+        </p>
+      )}
       <div className="stack-y-3">
         <Checkbox
           checked={status.enabled}
           disabled={busy}
           onChange={(next) => configMutation.mutate({ enabled: next })}
-          label="Proaktif müdahale açık"
+          label="Seçtiğim hatırlatmaları etkinleştir"
         />
 
         <div className="grid gap-3 sm:grid-cols-3">
@@ -315,7 +322,7 @@ export function ProactivitySection({ online }: { online: boolean }) {
                     <Field label="Gün" className="w-36">
                       <Select
                         className="w-full"
-                        ariaLabel="Haftalık gözden geçirme günü"
+                        ariaLabel="Haftalık değerlendirmeyi hatırlat günü"
                         disabled={busy}
                         value={String(rule.config["weekday"] ?? 6)}
                         onChange={(next) =>

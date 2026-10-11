@@ -16,6 +16,8 @@ import {
   X,
 } from "lucide-react";
 import { api, qs } from "@/core/api";
+import { BookmarkLearningAttach } from "./BookmarkLearningAttach";
+import { entityRoute } from "@/core/entityRegistry";
 import { invalidateAfter } from "@/core/invalidation";
 import { openObsidianUri, type VaultItem } from "@/core/obsidian";
 import { createTask, invalidateTaskWrite } from "@/core/tasks";
@@ -114,6 +116,7 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
   } | null>(null);
   const [selectedColor, setSelectedColor] = useState<HighlightColor>("yellow");
   const [highlightNote, setHighlightNote] = useState("");
+  const [createdCard, setCreatedCard] = useState<{ card_id: string; deck_id: string | null } | null>(null);
 
   const [localReadStatus, setLocalReadStatus] = useState<string>(bookmark?.read_status ?? "unread");
   const [localFavorite, setLocalFavorite] = useState<boolean>(bookmark?.favorite ?? false);
@@ -237,11 +240,28 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
 
   // Vurgu Ekle
   const addHighlight = useMutation({
-    mutationFn: (data: { text: string; note?: string; color: HighlightColor }) =>
-      api.post<BookmarkHighlight>(`/bookmarks/${bookmark?.id}/highlights`, {
+    mutationFn: async (data: { text: string; note?: string; color: HighlightColor }) => {
+      // Keep only a digest and UUID until delivery; a lost reply reuses the same highlight.
+      const digest = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(JSON.stringify({ bookmark: bookmark?.id, ...data })),
+      );
+      const key =
+        "forkos.highlight.request." + [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+      const identity = safeGetStorage(key, "") || crypto.randomUUID();
+      safeSetStorage(key, identity);
+      const result = await api.post<BookmarkHighlight>(`/bookmarks/${bookmark?.id}/highlights`, {
+        client_uuid: identity,
         ...data,
         anchor_index: 0,
-      }),
+      });
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        /* Storage may be unavailable. */
+      }
+      return result;
+    },
     onSuccess: () => {
       invalidateAfter("bookmark.write");
       toast.push("Vurgu kaydedildi", { tone: "ok" });
@@ -250,6 +270,10 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
       refetch();
     },
   });
+
+  useEffect(() => {
+    setCreatedCard(null);
+  }, [bookmark?.id]);
 
   // Vurgu Sil
   const deleteHighlight = useMutation({
@@ -264,9 +288,13 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
   // Vurguyu Flashcard'a Donustur
   const convertHighlightToFlashcard = useMutation({
     mutationFn: (highlightId: string) =>
-      api.post<{ card_id: string }>(`/bookmarks/${bookmark?.id}/highlights/${highlightId}/convert-to-flashcard`, {}),
-    onSuccess: () => {
+      api.post<{ card_id: string; deck_id: string | null }>(
+        `/bookmarks/${bookmark?.id}/highlights/${highlightId}/convert-to-flashcard`,
+        {},
+      ),
+    onSuccess: (result) => {
       invalidateAfter("flashcard.write", "link.write");
+      setCreatedCard(result);
       toast.push("Flashcard karti olusturuldu", { tone: "ok" });
     },
   });
@@ -393,6 +421,21 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
         </div>
 
         {/* Ust Arac Cubugu */}
+        <div className="shrink-0 border-b border-subtle px-4 py-2">
+          <BookmarkLearningAttach key={bookmark.id} bookmarkId={bookmark.id} />
+          {createdCard && (
+            <p role="status" className="mt-2 text-meta text-ok">
+              Kart kaydedildi.{" "}
+              <a className="underline" href={`#${entityRoute("flashcard_deck", createdCard.deck_id ?? "")}`}>
+                Desteyi aç
+              </a>{" "}
+              ·{" "}
+              <a className="underline" href="#/learning?view=review">
+                Tekrar kuyruğu
+              </a>
+            </p>
+          )}
+        </div>
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-subtle bg-surface px-4 py-2.5 shrink-0">
           {/* Sol Kisim: Kapat, Alan Adi, Koleksiyon */}
           <div className="flex items-center gap-2 min-w-0">
@@ -733,7 +776,11 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
                 <span>Vurgula</span>
               </Button>
 
-              <IconButton title="Flashcard yap" onClick={handleConvertSelectionToFlashcard}>
+              <IconButton
+                title="Flashcard yap"
+                disabled={addHighlight.isPending || convertHighlightToFlashcard.isPending}
+                onClick={handleConvertSelectionToFlashcard}
+              >
                 <Layers size={14} />
               </IconButton>
 

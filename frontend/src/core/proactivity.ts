@@ -54,6 +54,7 @@ interface ProactivityStatus {
   pending_digest: number;
   /** `worker.heartbeat` ayari: `{ at }` — worker hic kosmadiysa `null`. */
   worker_heartbeat: { at?: string } | null;
+  worker_active?: boolean;
   last_run_at: string | null;
   rules: ProactivityRule[];
   recent_failures: ProactivityFailure[];

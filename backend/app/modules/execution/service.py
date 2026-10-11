@@ -430,7 +430,7 @@ async def _verify_freshness(session: AsyncSession, plan: ExecutionPlan) -> bool:
     for raw_step in plan.steps or []:
         arguments = dict(raw_step.get("arguments") or {})
         ok, _current = await execution_mod._fresh_target_stamp(
-            session, arguments, raw_step.get("expected_updated_at")
+            session, arguments, raw_step.get("expected_updated_at"), raw_step.get("expected_plan_fingerprint")
         )
         if not ok:
             return False

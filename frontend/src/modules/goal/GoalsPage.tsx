@@ -1,3 +1,4 @@
+import { ContextualHelp } from "@/core/ContextualHelp";
 import { GoalStudio } from "./GoalStudio";
 import { useHashRoute } from "@/app/router";
 import { RelatedPanel } from "@/core/RelatedPanel";
@@ -302,6 +303,13 @@ export function GoalsPage() {
                     data={data}
                     onSaved={setSelected}
                   />
+                  {objective && (
+                    <ContextualHelp
+                      key={objective.goal.id}
+                      context={{ kind: "goal", entity_id: objective.goal.id }}
+                      label="Bu hedefte ilerliyor muyum?"
+                    />
+                  )}
                   {objective && (
                     <ObjectiveDetail key={objective.goal.id} objective={objective} providers={data.providers} />
                   )}

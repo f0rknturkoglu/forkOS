@@ -116,6 +116,67 @@ async def get_candidate(
     return row
 
 
+async def contextual_candidates(session, *, entity_id, refs, allow_global=False):
+    """Filtered views of existing, supported candidates; no generation or promotion on read."""
+    from app.integrations.judgment.memory_sources import read_memory_source
+    from app.modules.semantic_memory.policy import is_privacy_blocked
+
+    rows = await session.scalars(
+        select(AgentSemanticCandidate)
+        .where(
+            AgentSemanticCandidate.status.in_(("ready", "needs_review")),
+            AgentSemanticCandidate.sensitivity == "normal",
+            AgentSemanticCandidate.primary_evidence_class.in_(("explicit_user", "canonical_source")),
+            AgentSemanticCandidate.suggested_destination.in_(("durable_vault", "hot_memory")),
+        )
+        .order_by(AgentSemanticCandidate.last_seen_at.desc(), AgentSemanticCandidate.id)
+        .limit(30)
+    )
+    result = []
+    for candidate in rows:
+        support = candidate.evidence_refs or []
+        related = bool(entity_id and candidate.scope_project == entity_id) or any(
+            entry.get("ref") in refs for entry in support
+        )
+        global_preference = (
+            allow_global and candidate.scope == "global"
+            and candidate.kind in {"preference", "correction", "constraint"}
+            and candidate.primary_evidence_class == "explicit_user"
+        )
+        if not (related or global_preference) or not support or candidate.warnings:
+            continue
+        if is_privacy_blocked(candidate.statement) or (
+            candidate.valid_to and candidate.valid_to <= datetime.now(UTC)
+        ) or (candidate.valid_from and candidate.valid_from > datetime.now(UTC)):
+
+            continue
+        supported = True
+        for entry in support:
+            source = await read_memory_source(session, str(entry.get("ref", "")))
+            if not source or source.revision != entry.get("source_revision") or (
+                candidate.primary_evidence_class == "explicit_user" and (source.role != "user" or not source.evidence_digest)
+            ) or (
+                candidate.primary_evidence_class == "canonical_source" and source.role != "canonical"
+            ):
+                supported = False
+                break
+            ref = str(entry.get("ref", ""))
+            if ref.startswith("episode_item:"):
+                row = (await session.execute(
+                    select(AgentSessionEpisodeTurn.semantic_memory_eligible)
+                    .join(AgentSessionEpisodeItem, AgentSessionEpisodeItem.episode_turn_id == AgentSessionEpisodeTurn.id)
+                    .where(AgentSessionEpisodeItem.id == int(ref.split(":", 1)[1]))
+                )).scalar_one_or_none()
+                if row is not True:
+                    supported = False
+                    break
+        if supported:
+            result.append(_to_read(candidate))
+        if len(result) == 3:
+            break
+    return result
+
+
 async def _check_promotion_sources(
     session: AsyncSession, candidate: AgentSemanticCandidate
 ) -> None:
@@ -142,6 +203,12 @@ async def _check_promotion_sources(
     for entry in refs:
         ref = str(entry.get("ref") or "")
         family, _, value = ref.partition(":")
+        if entry.get("source_revision"):
+            from app.integrations.judgment.memory_sources import read_memory_source
+            source = await read_memory_source(session, ref)
+            if source is None or source.revision != entry["source_revision"]:
+                await mark_stale()
+                raise HTTPException(409, {"code": "SEMANTIC_SOURCE_STALE", "message": "Kaynak incelemeden sonra değişmiş veya erişilemiyor"})
         if family == "episode_item":
             try:
                 item_id = int(value)

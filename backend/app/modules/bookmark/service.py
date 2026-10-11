@@ -551,11 +551,32 @@ async def update_progress(
 
 
 async def add_highlight(
-    session: AsyncSession, bookmark_id: uuid.UUID, data: BookmarkHighlightIn
+    session: AsyncSession, bookmark_id: uuid.UUID, data: BookmarkHighlightIn, *, commit: bool = True
 ) -> BookmarkHighlightOut | None:
     bookmark = await session.get(Bookmark, bookmark_id)
     if bookmark is None:
         return None
+
+    if data.client_uuid:
+        from pydantic import BaseModel
+
+        from app.modules.bookmark.receipts import capture_once
+
+        class HighlightIdentity(BaseModel):
+            client_uuid: uuid.UUID
+            bookmark_id: uuid.UUID
+            highlight: dict
+
+        identity = HighlightIdentity(client_uuid=data.client_uuid, bookmark_id=bookmark_id,
+                                     highlight=data.model_dump(mode="json", exclude={"client_uuid"}))
+
+        async def write():
+            result = await add_highlight(session, bookmark_id,
+                                         data.model_copy(update={"client_uuid": None}), commit=False)
+            return result.model_dump(mode="json")
+
+        result, _ = await capture_once(session, identity, "bookmark_highlight", write)
+        return BookmarkHighlightOut.model_validate(result)
 
     highlight = BookmarkHighlight(
         id=uuid.uuid4(),
@@ -580,7 +601,10 @@ async def add_highlight(
             "snippet": highlight.text[:80],
         },
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return BookmarkHighlightOut.model_validate(highlight)
 
 
@@ -631,21 +655,37 @@ async def convert_highlight_to_flashcard(
     if hl is None:
         raise ValueError("Highlight bulunamadi")
 
+    from pydantic import BaseModel
+
     from app.core.links import link
+    from app.modules.bookmark.receipts import capture_once
     from app.modules.flashcard import service as flashcard_svc
     from app.modules.flashcard.schemas import CardIn
 
-    deck = await flashcard_svc._find_or_create_deck(session, "Yer İmleri ve Okuma")
-    front = hl.note.strip() if hl.note else f"[{entity.title}] Alıntı"
-    back = hl.text.strip()
+    class ConversionIdentity(BaseModel):
+        client_uuid: uuid.UUID
+        bookmark_id: uuid.UUID
+        highlight_id: uuid.UUID
 
-    card_dict = await flashcard_svc.create_card(session, deck.id, CardIn(front=front, back=back))
-    if card_dict is None:
-        raise ValueError("Kart olusturulamadi")
-    card_id = card_dict["id"]
-    await link(session, card_id, bookmark.id, "generated_from")
-    await session.commit()
-    return card_id
+    identity = ConversionIdentity(
+        client_uuid=uuid.uuid5(bookmark_id, "highlight_to_card:" + str(highlight_id)),
+        bookmark_id=bookmark_id, highlight_id=highlight_id,
+    )
+
+    async def write():
+        # One receipt transaction includes the canonical card, source link and event.
+        deck = await flashcard_svc._find_or_create_deck(session, "Yer İmleri ve Okuma")
+        front = hl.note.strip() if hl.note else f"[{entity.title}] Alıntı"
+        card_dict = await flashcard_svc.create_card(
+            session, deck.id, CardIn(front=front, back=hl.text.strip()), commit=False,
+        )
+        if card_dict is None:
+            raise ValueError("Kart olusturulamadi")
+        await link(session, card_dict["id"], bookmark.id, "generated_from")
+        return {"id": str(card_dict["id"]), "deck_id": str(deck.id)}
+
+    result, _ = await capture_once(session, identity, "highlight_flashcard", write)
+    return uuid.UUID(result["id"])
 
 
 async def bulk_action(session: AsyncSession, data: BookmarkBulkActionIn) -> int:

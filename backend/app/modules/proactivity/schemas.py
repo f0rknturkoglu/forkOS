@@ -56,6 +56,7 @@ class ProactivityStatusOut(BaseModel):
     pending_deferred: int
     pending_digest: int
     worker_heartbeat: dict | None = None
+    worker_active: bool = False
     last_run_at: str | None = None
     rules: list[ProactivityRuleOut]
     recent_failures: list[ProactivityFailureOut]

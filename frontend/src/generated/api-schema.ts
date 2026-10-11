@@ -1456,6 +1456,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/execution/planning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare Schedule */
+        post: operations["prepare_schedule_api_execution_planning_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/execution/plans": {
         parameters: {
             query?: never;
@@ -1966,6 +1983,23 @@ export interface paths {
         /** Pillar Update */
         put: operations["pillar_update_api_goals_strategy_plans__plan_id__pillars__pillar_id__put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/studio/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Context */
+        post: operations["context_api_goals_studio_context_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5506,6 +5540,36 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /** AssistanceSummary */
+        AssistanceSummary: {
+            coverage?: components["schemas"]["Coverage"] | null;
+            /** Facts */
+            facts?: components["schemas"]["ContextFact"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Links */
+            links?: components["schemas"]["ContextLink"][];
+            /** Memory Candidates */
+            memory_candidates?: components["schemas"]["SemanticCandidateRead"][];
+            /** Sources */
+            sources?: components["schemas"]["SourceRef"][];
+            /** Strategy Snapshot */
+            strategy_snapshot?: {
+                [key: string]: unknown;
+            } | null;
+            /** Title */
+            title: string;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+            /** Warnings */
+            warnings?: string[];
+        };
         /** AttachBookmarkIn */
         AttachBookmarkIn: {
             /**
@@ -5633,6 +5697,8 @@ export interface components {
              * @default 0
              */
             anchor_index: number;
+            /** Client Uuid */
+            client_uuid?: string | null;
             /**
              * Color
              * @default yellow
@@ -6198,6 +6264,19 @@ export interface components {
             /** Updated */
             updated: number;
         };
+        /** CareerContext */
+        CareerContext: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "career";
+        };
         /** CareerGoalReviewProgress */
         CareerGoalReviewProgress: {
             /** Completed Milestones */
@@ -6369,6 +6448,40 @@ export interface components {
             id: string | null;
             /** Title */
             title: string;
+        };
+        /** ContextFact */
+        ContextFact: {
+            /**
+             * Status
+             * @default fact
+             * @enum {string}
+             */
+            status: "fact" | "candidate" | "missing";
+            /** Support Refs */
+            support_refs?: string[];
+            /** Text */
+            text: string;
+            /** Timestamp */
+            timestamp?: string | null;
+        };
+        /** ContextLink */
+        ContextLink: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Route */
+            route: string;
+            /**
+             * Schedulable
+             * @default false
+             */
+            schedulable: boolean;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
         };
         /**
          * ContextOut
@@ -6567,6 +6680,38 @@ export interface components {
             score: number;
             /** Suggestions */
             suggestions?: string[];
+        };
+        /**
+         * Coverage
+         * @description Dönem kapsamı ve dürüstlük bayrakları (§47/§97).
+         */
+        Coverage: {
+            /**
+             * Comparable
+             * @description Tam dönemlerle sayısal karşılaştırma yapılabilir mi.
+             * @default true
+             */
+            comparable: boolean;
+            /** Days */
+            days: number;
+            /**
+             * Partial
+             * @description Dönem henüz tamamlanmadı.
+             * @default false
+             */
+            partial: boolean;
+            /**
+             * Period End
+             * @description ISO-8601, saat dilimli (hariç).
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * @description ISO-8601, saat dilimli.
+             */
+            period_start: string;
+            /** Reference Date */
+            reference_date?: string | null;
         };
         /**
          * CramCardOut
@@ -7417,6 +7562,19 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** GoalContext */
+        GoalContext: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "goal";
+        };
         /** GoalIn */
         GoalIn: {
             /** Description */
@@ -8245,6 +8403,19 @@ export interface components {
             question: string;
             /** Warning */
             warning?: string | null;
+        };
+        /** LearningContext */
+        LearningContext: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "learning";
         };
         /** LifecycleEventIn */
         LifecycleEventIn: {
@@ -9303,6 +9474,36 @@ export interface components {
             /** Start Min */
             start_min?: number | null;
         };
+        /** PlanningContext */
+        PlanningContext: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "planning";
+            /** Todo Ids */
+            todo_ids: string[];
+        };
+        /** PlanningIn */
+        PlanningIn: {
+            /**
+             * Client Uuid
+             * Format: uuid
+             */
+            client_uuid: string;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Todo Ids */
+            todo_ids: string[];
+        };
         /** PomodoroAnalytics */
         PomodoroAnalytics: {
             /** Completed */
@@ -9582,10 +9783,28 @@ export interface components {
             recent_failures: components["schemas"]["ProactivityFailureOut"][];
             /** Rules */
             rules: components["schemas"]["ProactivityRuleOut"][];
+            /**
+             * Worker Active
+             * @default false
+             */
+            worker_active: boolean;
             /** Worker Heartbeat */
             worker_heartbeat?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** ProjectContext */
+        ProjectContext: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "project";
         };
         /** ProjectIn */
         ProjectIn: {
@@ -10030,6 +10249,26 @@ export interface components {
              * @default 0
              */
             review_count: number;
+        };
+        /** ReviewContext */
+        ReviewContext: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "review";
+            /**
+             * Period Kind
+             * @enum {string}
+             */
+            period_kind: "daily" | "weekly" | "monthly" | "yearly";
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /** Review Id */
+            review_id?: string | null;
         };
         /** ReviewNotePatch */
         ReviewNotePatch: {
@@ -10646,6 +10885,52 @@ export interface components {
              * Format: date-time
              */
             until: string;
+        };
+        /**
+         * SourceRef
+         * @description İncelenebilir kaynak referansı (§88/§89).
+         *
+         *     Deterministik ve tekrarlanabilirdir; mutlak dosya yolu taşımaz.
+         */
+        SourceRef: {
+            /**
+             * Domain
+             * @enum {string}
+             */
+            domain: "operational" | "review" | "vault" | "evidence" | "aggregate";
+            /** Entity Id */
+            entity_id?: string | null;
+            /** Evidence Id */
+            evidence_id?: string | null;
+            /**
+             * Excerpt
+             * @description Sınırlı kaynak alıntısı.
+             */
+            excerpt?: string | null;
+            /**
+             * Kind
+             * @description Kaynak türü, ör. 'event', 'review', 'daily_note', 'aggregate'.
+             */
+            kind: string;
+            /**
+             * Locator
+             * @description Dosya içi konum (göreli yol + satır aralığı).
+             */
+            locator?: string | null;
+            /**
+             * Ref
+             * @description Deterministik referans, ör. 'event:12345' veya 'vault:10 Daily/….md:L12-L18'.
+             */
+            ref: string;
+            /** Timestamp */
+            timestamp?: string | null;
+            /** Title */
+            title?: string | null;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
         };
         /**
          * SourceRefreshIn
@@ -11271,11 +11556,15 @@ export interface components {
              * Format: uuid
              */
             client_uuid: string;
+            /** Context */
+            context?: (components["schemas"]["ReviewContext"] | components["schemas"]["ProjectContext"] | components["schemas"]["GoalContext"] | components["schemas"]["CareerContext"] | components["schemas"]["LearningContext"] | components["schemas"]["PlanningContext"]) | null;
             /** Goal Id */
             goal_id?: string | null;
         };
         /** StudioSessionOut */
         StudioSessionOut: {
+            /** Context */
+            context?: (components["schemas"]["ReviewContext"] | components["schemas"]["ProjectContext"] | components["schemas"]["GoalContext"] | components["schemas"]["CareerContext"] | components["schemas"]["LearningContext"] | components["schemas"]["PlanningContext"]) | null;
             /** Error */
             error?: string | null;
             /**
@@ -11303,7 +11592,7 @@ export interface components {
             message: string;
             /**
              * Provider Notice
-             * @default Hermes kendi yapılandırmasına göre bulut sağlayıcı kullanabilir. Bu geçit yalnız doğrulanmış yerel, araçsız profili kabul eder.
+             * @default Bu görüşme yalnız doğrulanmış yerel model ve araçsız Hermes profiliyle çalışır. Bulut sağlayıcı ve otomatik dış model geçişi engellenir.
              */
             provider_notice: string;
             /**
@@ -14907,6 +15196,41 @@ export interface operations {
             };
         };
     };
+    prepare_schedule_api_execution_planning_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanningIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_plans_api_execution_plans_get: {
         parameters: {
             query?: {
@@ -15956,6 +16280,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PillarOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    context_api_goals_studio_context_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewContext"] | components["schemas"]["ProjectContext"] | components["schemas"]["GoalContext"] | components["schemas"]["CareerContext"] | components["schemas"]["LearningContext"] | components["schemas"]["PlanningContext"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistanceSummary"];
                 };
             };
             /** @description Validation Error */

@@ -1,3 +1,4 @@
+import { ScheduleTasks } from "@/core/ContextualHelp";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -252,6 +253,14 @@ export function TodayAgendaWidget() {
         </p>
       )}
 
+      {openTodos.length > 0 && (
+        <div className="flex justify-end">
+          <ScheduleTasks
+            tasks={openTodos.slice(0, 10).map((todo) => ({ id: todo.id, title: todo.title }))}
+            label="Görevlerin planını düzenle"
+          />
+        </div>
+      )}
       {/* Tek Satırlık Hızlı Görev Ekleme Formu */}
       <form onSubmit={handleQuickAdd} className="flex items-center gap-2">
         <Input

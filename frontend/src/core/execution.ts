@@ -8,7 +8,7 @@
  *   yurutme   execute                  -> onayli TAM revizyonu H1 uzerinden uygular
  *
  * Bu yuzden burada "plani duzenle" diye bir uc YOKTUR: plan IMMUTABLE bir
- * revizyondur (`plan-v1:<sha256>`), icerik degisikligi YENI revizyon demektir
+ * revizyondur (`plan-v3:<sha256>`; eski v1/v2 kayıtlar korunur), icerik degisikligi YENI revizyon demektir
  * ve onu Hermes hazirlar. Onay sunucu tarafinda bir KAYITTIR ve her zaman bir
  * revizyona baglanir; bu yuzden approve/execute cagrilari revizyonu acikca
  * gonderir (eski revizyona verilen onay `APPROVAL_STALE` ile reddedilir).
@@ -45,6 +45,7 @@ export interface ExecutionStepView {
   description: string;
   /** Onay bu damgaya baglanir; hedef sonradan degisirse adim `STEP_STALE` olur. */
   expected_updated_at: string | null;
+  expected_plan_fingerprint?: string | null;
 }
 
 /** Adim basina TEK makbuz (`execution_receipt`). */
@@ -96,6 +97,8 @@ export interface ExecutionPlanView {
   decision_required: boolean;
   final_status: string | null;
   failure_code: string | null;
+  needs_recovery?: boolean;
+  lease_age_seconds?: number | null;
   receipts: ExecutionReceiptView[];
   created_at: string;
   updated_at: string;
@@ -211,3 +214,7 @@ export const cancelExecutionPlan = (planRowId: number) =>
 /** `POST /execution/plans/{id}/execute` — YALNIZ onayli revizyon yurutulur. */
 export const runExecutionPlan = (planRowId: number, revision: string) =>
   api.post<ExecutionPlanView>(`/execution/plans/${planRowId}/execute`, { revision });
+
+/** Server rechecks stale executor ownership and receipts before continuing the approved revision. */
+export const recoverExecutionPlan = (planRowId: number) =>
+  api.post<ExecutionPlanView>(`/execution/plans/${planRowId}/recover`, {});
