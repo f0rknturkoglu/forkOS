@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from app.core.entity import create_entity
 from app.core.events import log_event
-from app.core.models import Link
+from app.core.models import Event, Link
 from app.db import SessionLocal
 from app.modules.goal import service, strategy
 from app.modules.goal.metrics import MetricContext, numeric_progress, trajectory
@@ -168,7 +168,8 @@ async def test_busy_low_confidence_and_immutable_history(monkeypatch):
                 s, verb="todo.completed", entity_id=todo.id, entity_type="todo", payload={}
             )
         await s.commit()
-        read = await strategy.overview(s)
+        last_event = await s.scalar(select(Event.occurred_at).order_by(Event.occurred_at.desc()).limit(1))
+        read = await strategy.overview(s, now=last_event + timedelta(seconds=1))
         assert read.alignment.percent == 100 and read.objectives[0].strategic_progress_percent == 10
         assert "BUSY_NOT_PROGRESSING" in {f.code for f in read.findings}
         saved = strategy.snapshot(read)

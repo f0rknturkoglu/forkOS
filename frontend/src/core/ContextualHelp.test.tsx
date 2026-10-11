@@ -28,7 +28,7 @@ beforeEach(() => {
   vi.resetAllMocks();
 });
 afterEach(cleanup);
-it("closed entries cause zero requests; summary does not start Hermes and restores focus", async () => {
+it("local summary is directly visible; Hermes starts only after submitting a message", async () => {
   vi.mocked(api.post).mockResolvedValue({
     title: "Proje özeti",
     generated_at: "2026-10-11T12:00:00Z",
@@ -40,13 +40,15 @@ it("closed entries cause zero requests; summary does not start Hermes and restor
   });
   show(<ContextualHelp context={{ kind: "project", entity_id: "p1" }} label="Nerede kalmıştım?" />);
   expect(api.get).not.toHaveBeenCalled();
-  expect(api.post).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Nerede kalmıştım?" }));
+
   expect(await screen.findByText("Bilinmiyor: Sonuç bilinmiyor")).toBeTruthy();
   expect(api.post).toHaveBeenCalledExactlyOnceWith("/goals/studio/context", { kind: "project", entity_id: "p1" });
   expect(screen.queryByText("Hermes görüşmesi")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Kapat" }));
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Nerede kalmıştım?" }));
+  expect(screen.getByRole("button", { name: "Nerede kalmıştım?" })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Hermes'e sor"), { target: { value: "Sıradaki iş ne?" } });
+  fireEvent.click(screen.getByRole("button", { name: "Gönder" }));
+  expect(await screen.findByText("Hermes görüşmesi")).toBeTruthy();
 });
 it("summary failure stays dismissible with deliberate retry", async () => {
   vi.mocked(api.post).mockRejectedValue(new Error("unavailable"));
@@ -56,7 +58,6 @@ it("summary failure stays dismissible with deliberate retry", async () => {
       label="Haftayı birlikte değerlendirelim"
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Haftayı birlikte değerlendirelim" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Yeniden dene" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Kapat" }));

@@ -29,6 +29,10 @@ async def test_health_hides_orphan_rss_runs(client: AsyncClient):
             {"id": active_id},
         )
         await connection.execute(
+            text("insert into feed (id, url) values (:id, 'https://example.com/feed')"),
+            {"id": active_id},
+        )
+        await connection.execute(
             text(
                 "insert into source_run (source, status, error, finished_at) "
                 "values (:active, 'error', 'active', now()), "

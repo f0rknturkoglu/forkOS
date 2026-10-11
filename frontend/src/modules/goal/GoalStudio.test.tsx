@@ -31,16 +31,42 @@ const draft = {
     },
   },
 };
-function show() {
+function show(initialMessage?: string) {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <GoalStudio goalId={null} goals={[]} onClose={vi.fn()} />
+      <GoalStudio goalId={null} goals={[]} onClose={vi.fn()} initialMessage={initialMessage} />
     </QueryClientProvider>,
   );
 }
 beforeEach(() => {
   localStorage.clear();
   vi.mocked(api.get).mockResolvedValue({ state: "not_configured", message: "Hermes yapılandırılmamış" });
+});
+it("an explicit initial message creates a session and sends one turn without extra clicks", async () => {
+  vi.mocked(api.get).mockResolvedValue({ state: "ready" });
+  vi.mocked(api.post).mockResolvedValue({ ...draft, revision: null, state: "drafting" });
+  show("Nerede kalmıştım?");
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2));
+  expect(api.post).toHaveBeenNthCalledWith(
+    1,
+    "/goals/studio/sessions",
+    expect.objectContaining({ client_uuid: expect.any(String), goal_id: null }),
+  );
+  expect(api.post).toHaveBeenNthCalledWith(
+    2,
+    "/goals/studio/sessions/session/turns",
+    expect.objectContaining({ client_uuid: expect.any(String), message: "Nerede kalmıştım?" }),
+  );
+});
+it("a lost first turn response retries its original identity", async () => {
+  vi.mocked(api.get).mockResolvedValue({ state: "ready" });
+  vi.mocked(api.post)
+    .mockResolvedValueOnce({ ...draft, revision: null, state: "drafting" })
+    .mockRejectedValueOnce(new Error("Yanıt kayboldu"));
+  show("Devam edelim");
+  fireEvent.click(await screen.findByRole("button", { name: "Gönderimi yeniden dene" }));
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(3));
+  expect(vi.mocked(api.post).mock.calls[2]).toEqual(vi.mocked(api.post).mock.calls[1]);
 });
 afterEach(() => {
   cleanup();

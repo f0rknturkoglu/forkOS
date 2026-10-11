@@ -92,8 +92,11 @@ async def _add_feed(url: str) -> uuid.UUID:
     """Feed'i servis uzerinden ekler (probe KAPALI: dis aga cikilmaz)."""
     async with SessionLocal() as session:
         feed, created = await rss_service.add_feed(
-            session, FeedIn(url=url, title="Teshis feed"), probe=False
+            session, FeedIn(url=f"https://example.com/{uuid.uuid4()}.xml", title="Teshis feed"), probe=False
         )
+        # Eski kayıtlar yeni URL doğrulamasından önce oluşturulmuş olabilir.
+        # Teşhis testinin amacı bu kalıcı eski URL'lerin sırlarını maskelemek.
+        feed.url = url
         await session.commit()
         assert created
         return feed.id

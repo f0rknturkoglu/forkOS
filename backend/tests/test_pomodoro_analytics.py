@@ -13,8 +13,19 @@ async def client():
 
 
 @pytest.mark.asyncio
-async def test_pomodoro_analytics_groups_daily_minutes_and_topics(client: AsyncClient):
-    now = datetime.now(UTC)
+async def test_pomodoro_analytics_groups_daily_minutes_and_topics(client: AsyncClient, monkeypatch):
+    from app.modules.pomodoro import service
+
+    now = datetime(2026, 1, 14, 12, tzinfo=UTC)
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz) if tz else now.replace(tzinfo=None)
+
+    original_today = service.local_today
+    monkeypatch.setattr(service, "datetime", FixedDateTime)
+    monkeypatch.setattr(service, "local_today", lambda at=None: original_today(at or now))
     for hours, minutes in ((3, 50), (2, 25)):
         response = await client.post(
             "/api/pomodoro",

@@ -10,6 +10,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/core/ui";
+import { experienceFixture } from "@/core/onboarding/testFixtures";
+import { hydrateEntityRegistry } from "@/core/entityRegistry";
 import { FeedPage } from "./FeedPage";
 
 interface Call {
@@ -62,6 +64,7 @@ const REPO = {
 };
 
 function bodyFor(path: string): unknown {
+  if (path.startsWith("/system/experience")) return experienceFixture();
   if (path.startsWith("/rss/items")) return [RSS_ITEM];
   if (path.startsWith("/rss/stats")) return { unread: 7, feeds: 3, broken: 0 };
   if (path.startsWith("/news/reddit")) return [REDDIT];
@@ -71,6 +74,17 @@ function bodyFor(path: string): unknown {
 }
 
 beforeEach(() => {
+  hydrateEntityRegistry([
+    {
+      type: "feed_item",
+      label: "Yazı",
+      label_plural: "Yazılar",
+      route: "/rss?item={id}",
+      icon: "Rss",
+      searchable: true,
+      linkable: false,
+    },
+  ]);
   calls = [];
   failPaths = [];
   vi.stubGlobal(
@@ -131,15 +145,14 @@ describe("Okuma Akışı sayfası", () => {
     const external = screen.getByRole("link", { name: "HN hikayesi" });
     expect(external.getAttribute("target")).toBe("_blank");
     // RSS satırı yerel okuyucuya gider (dış bağlantı değil).
-    expect(screen.queryByRole("link", { name: "RSS yazısı" })).toBeNull();
-    expect(screen.getByRole("button", { name: "RSS yazısı" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "RSS yazısı" }).getAttribute("href")).toBe("#/rss?item=r1");
   });
 
   it("F6: kaynak filtresi listeyi daraltır", async () => {
     renderPage();
 
     await screen.findByText("RSS yazısı");
-    fireEvent.click(screen.getByRole("tab", { name: "GitHub" }));
+    fireEvent.click(screen.getByRole("tab", { name: "GitHub · Yeni ve Popüler" }));
 
     await waitFor(() => expect(screen.getByText("owner/repo")).toBeTruthy());
     expect(screen.queryByText("RSS yazısı")).toBeNull();
@@ -178,15 +191,24 @@ describe("Okuma Akışı sayfası", () => {
         const url = new URL(String(input), "http://localhost");
         const path = url.pathname.replace(/^\/api/, "") + url.search;
         calls.push({ path });
-        return new Response(JSON.stringify(path.startsWith("/rss/stats") ? { unread: 0 } : []), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify(
+            path.startsWith("/system/experience")
+              ? experienceFixture()
+              : path.startsWith("/rss/stats")
+                ? { unread: 0 }
+                : [],
+          ),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }),
     );
     renderPage();
 
-    expect(await screen.findByText("Bu kaynakta yeni bir şey yok.")).toBeTruthy();
+    expect(await screen.findByText("Bu seçkide henüz içerik yok")).toBeTruthy();
   });
 
   it("okunmamış RSS sayısı başlıkta görünür", async () => {

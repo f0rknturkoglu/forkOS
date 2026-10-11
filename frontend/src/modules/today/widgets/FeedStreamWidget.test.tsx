@@ -2,6 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { experienceFixture } from "@/core/onboarding/testFixtures";
 import { FeedStreamWidget } from "./FeedStreamWidget";
 
 const harness = vi.hoisted(() => ({
@@ -20,9 +21,15 @@ vi.mock("@/app/router", () => ({ navigate: vi.fn() }));
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: vi.fn(({ queryKey }: { queryKey: string[] }) => {
-    switch (queryKey[0]) {
+    const key =
+      queryKey[0] === "settings" && queryKey[1] === "feed"
+        ? ({ hn: "hacker-news", gh: "github-trending", hf: "papers", reddit: "reddit-news" } as Record<string, string>)[
+            queryKey[2]
+          ]
+        : queryKey[0];
+    switch (key) {
       case "settings":
-        return { data: {}, isPending: false, isLoading: false, isError: false };
+        return { data: experienceFixture(), isPending: false, isLoading: false, isError: false };
       case "items":
         return {
           data:
@@ -45,6 +52,7 @@ vi.mock("@tanstack/react-query", () => ({
         };
       case "rss-stats":
         return { data: { unread: 1 }, isError: false, refetch: vi.fn() };
+      case "papers":
       case "reddit-news":
         return { data: [], isError: false, refetch: vi.fn() };
       case "hacker-news":

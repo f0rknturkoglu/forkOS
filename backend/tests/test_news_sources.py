@@ -46,6 +46,11 @@ async def test_news_endpoint_uses_backend_owned_adapter(
     monkeypatch: pytest.MonkeyPatch,
 ):
     clear_news_cache()
+    from app.modules.system.experience import KEY, ExperienceData, FeedPreferences
+    from app.modules.system.models import Setting
+    async with SessionLocal() as db:
+        db.add(Setting(key=KEY,value=ExperienceData(feed=FeedPreferences(providers=["hn"])).model_dump(mode="json")))
+        await db.commit()
     monkeypatch.setattr(
         news_service,
         "HackerNewsSource",

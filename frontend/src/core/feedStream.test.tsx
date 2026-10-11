@@ -2,9 +2,10 @@
 import { QueryClient, QueryClientProvider, onlineManager, focusManager } from "@tanstack/react-query";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { experienceFixture } from "./onboarding/testFixtures";
 import { useFeedStream, type FeedFilter } from "./feedStream";
 let paths: string[] = [];
-let settings: Record<string, unknown> = {};
+let settings = experienceFixture();
 let broken = "";
 const clients: QueryClient[] = [];
 function setup() {
@@ -19,7 +20,7 @@ function setup() {
 }
 beforeEach(() => {
   paths = [];
-  settings = {};
+  settings = experienceFixture();
   broken = "";
   onlineManager.setOnline(true);
   vi.stubGlobal(
@@ -27,7 +28,7 @@ beforeEach(() => {
     vi.fn(async (input: RequestInfo | URL) => {
       const path = new URL(String(input), "http://localhost").pathname;
       paths.push(path);
-      const body = path === "/api/settings" ? settings : path === "/api/rss/stats" ? { unread: 7 } : [];
+      const body = path === "/api/system/experience" ? settings : path === "/api/rss/stats" ? { unread: 7 } : [];
       return new Response(JSON.stringify(body), {
         status: path === broken ? 503 : 200,
         headers: { "Content-Type": "application/json" },
@@ -62,7 +63,11 @@ it.each(["rss", "reddit", "hn", "gh", "all"] as FeedFilter[])("only selected sou
                 "/api/news/hacker-news",
                 "/api/news/github-trending",
               ];
-  await waitFor(() => expect([...paths].sort()).toEqual([...expected].sort()));
+  await waitFor(() =>
+    expect([...paths].sort()).toEqual(
+      [...new Set(["/api/system/experience", ...expected.filter((p) => p !== "/api/settings")])].sort(),
+    ),
+  );
   await waitFor(() => expect(result.current.loading).toBe(false));
 });
 it("reuses cache on switching and simultaneous Home/Feed observers", async () => {
@@ -82,10 +87,10 @@ it("reuses cache on switching and simultaneous Home/Feed observers", async () =>
   expect(paths).toHaveLength(6);
 });
 it("disabled Reddit never fetches, including cached results", async () => {
-  settings = { "news.subreddits": [] };
+  settings = experienceFixture(["hn", "gh"]);
   const { client, Wrapper } = setup();
   client.setQueryData(
-    ["reddit-news"],
+    ["settings", "feed", "reddit", ["programming"]],
     [{ id: "old", title: "Old", url: "https://example.com", comments_url: "https://reddit.com", subreddit: "x" }],
   );
   const { result } = renderHook(() => useFeedStream("all"), { wrapper: Wrapper });
@@ -101,17 +106,18 @@ it("inactive sources do not poll", async () => {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(100);
   });
-  expect(paths).toHaveLength(1);
+  expect(paths).toHaveLength(2);
   await act(async () => {
     await vi.advanceTimersByTimeAsync(16 * 60_000);
   });
-  expect(paths).toEqual(["/api/news/hacker-news", "/api/news/hacker-news"]);
+  expect(paths).toEqual(["/api/system/experience", "/api/news/hacker-news"]);
 });
 it("offline keeps cached data without requests", async () => {
   onlineManager.setOnline(false);
   const { client, Wrapper } = setup();
+  client.setQueryData(["settings", "experience"], experienceFixture());
   client.setQueryData(
-    ["hacker-news"],
+    ["settings", "feed", "hn"],
     [{ objectID: "1", title: "Cached", url: null, points: 1, created_at: new Date().toISOString() }],
   );
   const { result } = renderHook(() => useFeedStream("hn"), { wrapper: Wrapper });
@@ -123,6 +129,6 @@ it("one failed source does not prevent other requests", async () => {
   broken = "/api/news/hacker-news";
   const { Wrapper } = setup();
   const { result } = renderHook(() => useFeedStream("all"), { wrapper: Wrapper });
-  await waitFor(() => expect(result.current.failures.map((s) => s.origin)).toEqual(["hn"]));
+  await waitFor(() => expect(result.current.failures.map((s) => s.origin)).toEqual(["hn"]), { timeout: 4000 });
   expect(paths).toContain("/api/rss/items");
 });

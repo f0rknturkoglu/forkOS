@@ -84,7 +84,7 @@ async def test_settings_defaults_skip_dead_json_keys(client: AsyncClient):
     assert payload["rss.retention_days"] == 90
     assert payload["today.widget_hidden"] == []
     assert payload["opportunity.career_profile"]["authorized_countries"] == ["Türkiye"]
-    assert payload["news.subreddits"]
+    assert payload["news.subreddits"] == []
 
 
 # ── Tip dogrulamasi ─────────────────────────────────────────────────────

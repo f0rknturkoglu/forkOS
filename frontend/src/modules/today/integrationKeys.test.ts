@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { experienceFixture } from "@/core/onboarding/testFixtures";
 import { RssPage } from "@/modules/rss/RssPage";
 import { TodayAgendaWidget } from "./TodayAgendaWidget";
 
@@ -18,6 +19,10 @@ const harness = vi.hoisted(() => ({
   mutations: [] as MutationOptions[],
 }));
 
+vi.mock("@/app/router", () => ({
+  navigate: vi.fn(),
+  useHashRoute: () => ({ path: "/rss", params: new URLSearchParams() }),
+}));
 vi.mock("@/core/api", () => ({
   api: { del: harness.apiDel, get: vi.fn(), post: harness.apiPost },
   qs: vi.fn(() => ""),
@@ -39,9 +44,11 @@ vi.mock("@tanstack/react-query", () => ({
   }),
   useQuery: vi.fn((options: QueryOptions) => {
     harness.queries.push(options);
-    return options.queryKey[0] === "today-agenda"
-      ? { data: undefined, isLoading: false, isError: true, refetch: vi.fn() }
-      : { data: [] };
+    return options.queryKey[1] === "experience"
+      ? { data: experienceFixture() }
+      : options.queryKey[0] === "today-agenda"
+        ? { data: undefined, isLoading: false, isError: true, refetch: vi.fn() }
+        : { data: [] };
   }),
 }));
 

@@ -52,8 +52,8 @@ async def _seed(verbs: list[str], *, payload: dict | None = None) -> uuid.UUID:
         for verb in verbs:
             if verb == "pomodoro.completed":
                 focus = await create_entity(session, type="pomodoro_session", title="Recorded focus")
-                session.add(PomodoroSession(id=focus.id, started_at=datetime.now(UTC) - timedelta(hours=1),
-                    ended_at=datetime.now(UTC), kind="focus", planned_min=25, actual_min=25))
+                session.add(PomodoroSession(id=focus.id, started_at=datetime.now(UTC),
+                    ended_at=datetime.now(UTC), kind="focus", planned_min=25, actual_min=0))
         await session.commit()
         return entity.id
 

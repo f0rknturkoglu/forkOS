@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as UiKit from "@/core/ui";
 import type { SourceCoverageRow } from "@/core/types";
 import { HealthPage } from "./HealthPage";
+import { experienceFixture } from "@/core/onboarding/testFixtures";
 
 type MutationOptions = { mutationFn?: (...args: unknown[]) => unknown; onSuccess?: (...args: unknown[]) => void };
 type QueryOptions = { queryKey: readonly unknown[]; queryFn: () => unknown };
@@ -45,7 +46,10 @@ vi.mock("@tanstack/react-query", () => ({
   },
   useQuery: (options: QueryOptions) => {
     harness.queries.push(options);
-    const entry = harness.state[String(options.queryKey[0])] ?? {};
+    const entry =
+      options.queryKey[1] === "experience"
+        ? { data: experienceFixture() }
+        : (harness.state[String(options.queryKey[0])] ?? {});
     const isError = entry.isError ?? false;
     return {
       data: entry.data,
@@ -346,7 +350,9 @@ describe("Sistem Durumu — bilgi mimarisi", () => {
 
     // Her sorgu fonksiyonu GERÇEKTEN çağrılır: eksik bir import/yanlış yol
     // statik render'da görünmez (canlıda ReferenceError olurdu).
-    harness.apiGet.mockResolvedValue([]);
+    harness.apiGet.mockImplementation(async (path: string) =>
+      path === "/system/experience" ? experienceFixture() : [],
+    );
     for (const query of harness.queries) {
       await expect(query.queryFn()).resolves.not.toThrow();
     }

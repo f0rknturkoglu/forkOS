@@ -16,6 +16,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { allTodayWidgets, setTodayWidgetHidden } from "@/core/registry";
 import { ToastProvider } from "@/core/ui";
+import { experienceFixture } from "@/core/onboarding/testFixtures";
 import { TodayPage } from "./TodayPage";
 
 vi.hoisted(() => {
@@ -70,6 +71,7 @@ const AGENDA = {
 
 /** Uç bazlı asgari gövde: şekil bilinmiyorsa boş liste Home için güvenlidir. */
 function bodyFor(path: string): unknown {
+  if (path.startsWith("/api/system/experience")) return experienceFixture();
   if (path.startsWith("/api/today/agenda")) return AGENDA;
   if (path.startsWith("/api/settings")) return {};
   return [];
@@ -77,6 +79,7 @@ function bodyFor(path: string): unknown {
 
 /** Çekirdek yüzeylerin dokunduğu uçlar: biri düşerse Home eksik kalır. */
 const CORE_ENDPOINTS = [
+  "/api/system/experience",
   "/api/execution/plans",
   "/api/today/agenda",
   "/api/todos",
