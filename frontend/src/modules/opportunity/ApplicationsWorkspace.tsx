@@ -127,7 +127,7 @@ function statusOf(item: Opportunity): string {
 /** Sorgu hatasında boş-liste yerine gösterilen rol=alert bloğu. */
 function QueryFailure({ message, onRetry, retrying }: { message: string; onRetry: () => void; retrying?: boolean }) {
   return (
-    <div role="alert" className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3">
+    <div role="alert" className="stack-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3">
       <p className="text-meta text-danger">{message}</p>
       <Button size="sm" disabled={retrying} onClick={onRetry}>
         Tekrar dene
@@ -226,7 +226,7 @@ function BreakdownTable({
       {shown.length === 0 ? (
         <Empty>Veri yok.</Empty>
       ) : (
-        <div className="divide-y divide-subtle">
+        <div className="stack-divide-y divide-subtle">
           {shown.map((row) => {
             const label = labelFor ? labelFor(row) : row.label;
             return (
@@ -254,7 +254,7 @@ function VolumeBars({ rows }: { rows: FunnelVolumeRow[] }) {
   const max = Math.max(1, ...rows.map((row) => row.applied));
   if (rows.length === 0) return <Empty>Veri yok.</Empty>;
   return (
-    <div className="space-y-1.5">
+    <div className="stack-y-1.5">
       {rows.map((row) => (
         <div key={row.period} className="flex items-center gap-2">
           <span className="w-20 shrink-0 text-meta tabular-nums text-muted">{row.period}</span>
@@ -359,7 +359,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
   const sparse = applicationsTotal < 3;
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Tabs
           value={mode}
@@ -413,7 +413,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
               Keşfedilen ilanlar bu listede görünmez. Bir ilandan "Başvur" ile başvuru kaydı aç.
             </Empty>
           ) : (
-            <div className="divide-y divide-subtle">
+            <div className="stack-divide-y divide-subtle">
               {rows.map((item) => {
                 const status = statusOf(item);
                 const next = applicationNextAction(item);
@@ -498,14 +498,14 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
                       <span className="label-caps truncate text-secondary">{column.title}</span>
                       <span className="numeral text-meta tabular-nums text-muted">{columnRows.length}</span>
                     </div>
-                    <div className="space-y-2">
+                    <div className="stack-y-2">
                       {columnRows.length === 0 ? (
                         <p className="rounded-control border border-dashed border-subtle px-2 py-3 text-center text-micro text-muted">
                           Kayıt yok
                         </p>
                       ) : (
                         columnRows.map((item) => (
-                          <div key={item.id} className="space-y-2 rounded-control border border-subtle bg-surface p-2">
+                          <div key={item.id} className="stack-y-2 rounded-control border border-subtle bg-surface p-2">
                             <button type="button" onClick={() => onOpen(item.id)} className="block w-full text-left">
                               <span className="block truncate text-meta font-medium text-primary">{item.title}</span>
                               <span className="block truncate text-micro text-muted">
@@ -537,7 +537,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
       )}
 
       {mode === "followup" && (
-        <div className="space-y-4">
+        <div className="stack-y-4">
           <Section
             title="Yaklaşan takipler"
             hint={followups.isError ? "okunamadı" : `${(followups.data ?? []).length} kayıt`}
@@ -556,7 +556,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
             ) : (followups.data ?? []).length === 0 ? (
               <Empty>Takipli başvuru yok.</Empty>
             ) : (
-              <div className="space-y-1.5">
+              <div className="stack-y-1.5">
                 {(followups.data ?? []).map((item) => (
                   <RecordLink
                     key={item.id}
@@ -657,7 +657,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
                   {funnel.isLoading ? (
                     <SkeletonRows rows={4} />
                   ) : (
-                    <div className="space-y-1.5">
+                    <div className="stack-y-1.5">
                       <CohortRow
                         label="Başvuru → görüşme"
                         reached={cohort.interview ?? 0}
@@ -698,7 +698,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
                     ) : (funnelData?.by_status ?? []).every((row) => row.count === 0) ? (
                       <Empty>Henüz başvuru yok.</Empty>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div className="stack-y-1.5">
                         {(funnelData?.by_status ?? []).map((row) => (
                           <div key={row.status} className="flex items-center gap-2">
                             <span className="w-24 shrink-0 truncate text-meta text-secondary">
@@ -725,7 +725,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
                     ) : !reasonRows.some((row) => row.count > 0) ? (
                       <Empty>Henüz red kaydı yok.</Empty>
                     ) : (
-                      <div className="divide-y divide-subtle">
+                      <div className="stack-divide-y divide-subtle">
                         {reasonRows.map((row) => (
                           <div key={row.reason} className="flex items-center gap-2 py-1.5">
                             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
@@ -796,7 +796,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
             ) : (followups.data ?? []).length === 0 ? (
               <Empty>Takipli başvuru yok.</Empty>
             ) : (
-              <div className="space-y-1.5">
+              <div className="stack-y-1.5">
                 {(followups.data ?? []).slice(0, 5).map((item) => (
                   <RecordLink
                     key={item.id}
@@ -828,7 +828,7 @@ export function ApplicationsWorkspace({ online, onOpen }: ApplicationsWorkspaceP
             ) : (silence.data ?? []).length === 0 ? (
               <Empty>21 günü aşan yanıtsız görüşme yok.</Empty>
             ) : (
-              <div className="space-y-1.5">
+              <div className="stack-y-1.5">
                 {(silence.data ?? []).map((item) => (
                   <button
                     key={item.id}

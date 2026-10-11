@@ -93,7 +93,7 @@ function WeatherPanel() {
       {daily && forecast.length > 0 && (
         <div className="absolute left-0 top-full z-popover sm:left-auto sm:right-0 mt-1 w-64 rounded-card border border-subtle bg-surface-raised p-3 shadow-overlay">
           <p className="mb-2 text-meta font-medium text-primary">Dört günlük tahmin</p>
-          <div className="space-y-1.5">
+          <div className="stack-y-1.5">
             {forecast.map((day, index) => {
               const DayIcon = weatherIcon(daily.weather_code[index]);
               return (

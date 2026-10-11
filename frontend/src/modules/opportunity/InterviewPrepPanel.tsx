@@ -89,7 +89,7 @@ export function InterviewPrepPanel() {
   if (isError) {
     return (
       <Section title="Mülakat hazırlığı" hint="okunamadı">
-        <div role="alert" className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3">
+        <div role="alert" className="stack-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3">
           <p className="text-meta text-danger">
             Mülakat hazırlığı yüklenemedi: {error instanceof Error ? error.message : "bilinmeyen hata"}
           </p>
@@ -112,7 +112,7 @@ export function InterviewPrepPanel() {
 
   return (
     <Section title="Mülakat hazırlığı" hint={`${upcoming.length} başvuruda yaklaşan görüşme`}>
-      <div className="space-y-4">
+      <div className="stack-y-4">
         {storiesFailed && (
           <p role="alert" className="text-meta text-danger">
             Hikâye bankası okunamadı: eşleşen hikâye adları gösterilemiyor.
@@ -147,7 +147,7 @@ export function InterviewPrepPanel() {
                 </p>
               )}
 
-              <div className="mt-3 space-y-3">
+              <div className="mt-3 stack-y-3">
                 {interviews.map((interview) => {
                   const items = [
                     { id: "notes", label: "Görüşme notlarını ve gündemi gözden geçir", done: Boolean(interview.notes) },
@@ -182,7 +182,7 @@ export function InterviewPrepPanel() {
                             : "Tarih belirtilmedi"}
                         </span>
                       </div>
-                      <div className="mt-2 space-y-1">
+                      <div className="mt-2 stack-y-1">
                         {items.map((item) => (
                           <div key={item.id} className="flex items-center gap-2">
                             <Checkbox
@@ -209,7 +209,7 @@ export function InterviewPrepPanel() {
                   <span className="text-meta font-medium text-secondary">
                     Bu kurumun gereksinimlerine en yakın hikâyeler
                   </span>
-                  <ul className="mt-1 space-y-1">
+                  <ul className="mt-1 stack-y-1">
                     {relevant.map((entry) => (
                       <li
                         key={entry.requirement}
@@ -233,7 +233,7 @@ export function InterviewPrepPanel() {
                   <span className={cx("text-meta font-medium", salary.inconsistent ? "text-warn" : "text-secondary")}>
                     Ücret beyanları
                   </span>
-                  <ul className="mt-1 space-y-1">
+                  <ul className="mt-1 stack-y-1">
                     {salary.claims.map((claim) => (
                       <li key={`${claim.interview_id}-${claim.stage}`} className="text-meta text-secondary">
                         <span className="text-muted">{claim.stage}:</span> {claim.statement}

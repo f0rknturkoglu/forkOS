@@ -102,7 +102,7 @@ export function OpportunityDeepEvaluationSection({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       {/* Staleness Banner */}
       {evaluation.is_stale && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-control border border-warn/30 bg-warn/10 p-3 text-warn">
@@ -155,7 +155,7 @@ export function OpportunityDeepEvaluationSection({
           <span className="mb-2 block text-micro font-medium uppercase tracking-wider text-secondary">
             Temel Gereksinimler & Kanıtlar ({evaluation.must_have.length})
           </span>
-          <div className="space-y-2">
+          <div className="stack-y-2">
             {evaluation.must_have.map((req, idx) => (
               <div key={idx} className="rounded-control border border-subtle bg-surface p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -188,7 +188,7 @@ export function OpportunityDeepEvaluationSection({
           <span className="mb-2 block text-micro font-medium uppercase tracking-wider text-muted">
             Tercih Sebebi Gereksinimler ({evaluation.nice_to_have.length})
           </span>
-          <div className="space-y-2">
+          <div className="stack-y-2">
             {evaluation.nice_to_have.map((req, idx) => (
               <div key={idx} className="rounded-control border border-subtle bg-surface p-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -210,7 +210,7 @@ export function OpportunityDeepEvaluationSection({
             Öne Çıkan Güçlü Yönler
           </span>
           {evaluation.strengths && evaluation.strengths.length > 0 ? (
-            <ul className="space-y-1 text-meta text-primary">
+            <ul className="stack-y-1 text-meta text-primary">
               {evaluation.strengths.map((str, i) => (
                 <li key={i} className="flex items-start gap-1.5">
                   <span className="text-ok">•</span>
@@ -229,7 +229,7 @@ export function OpportunityDeepEvaluationSection({
             Eksik veya Geliştirilmesi Gerekenler
           </span>
           {evaluation.missing_requirements && evaluation.missing_requirements.length > 0 ? (
-            <ul className="space-y-1 text-meta text-primary">
+            <ul className="stack-y-1 text-meta text-primary">
               {evaluation.missing_requirements.map((mis, i) => (
                 <li key={i} className="flex items-start gap-1.5">
                   <span className="text-danger">•</span>

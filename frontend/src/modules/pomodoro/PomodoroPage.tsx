@@ -193,10 +193,10 @@ export function PomodoroPage() {
             }
           />
 
-          <WorkspaceScrollArea className="space-y-4 p-4 sm:p-6">
+          <WorkspaceScrollArea className="stack-y-4 p-4 sm:p-6">
             {tab === "focus" && (
               <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,0.72fr)]">
-                <div className="space-y-3">
+                <div className="stack-y-3">
                   <FocusGarden
                     points={analytics?.daily ?? []}
                     totalMinutes={analytics?.minutes ?? 0}
@@ -224,7 +224,7 @@ export function PomodoroPage() {
                   />
                 </div>
 
-                <div className="space-y-3">
+                <div className="stack-y-3">
                   <FocusTrend points={analytics?.daily ?? []} />
                   <SessionList
                     sessions={sessions.slice(0, 8)}
@@ -247,7 +247,7 @@ export function PomodoroPage() {
             )}
 
             {tab === "stats" && (
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 stack-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-title text-primary">Odak analizi</h2>
@@ -344,7 +344,7 @@ function FocusGarden({
         </div>
       ) : (
         <div
-          className="mt-3 grid min-h-64 grid-cols-7 divide-x divide-subtle border-y border-subtle"
+          className="mt-3 grid min-h-64 grid-cols-7 stack-divide-x divide-subtle border-y border-subtle"
           role="img"
           aria-label="Haftalık odak bahçesi"
         >
@@ -519,7 +519,7 @@ function FocusComposer({
             ))}
           </div>
         </div>
-        <div className="space-y-3">
+        <div className="stack-y-3">
           <Field label="Konu">
             <Input value={topic} onChange={onTopic} placeholder="Neye odaklanıyorsun?" className="w-full" />
           </Field>
@@ -549,7 +549,7 @@ function ContextBreakdown({ analytics }: { analytics: PomodoroAnalytics | undefi
       {contexts.length === 0 ? (
         <Empty>Bağlam dağılımı için henüz odak kaydı yok.</Empty>
       ) : (
-        <div className="space-y-4">
+        <div className="stack-y-4">
           {contexts.map((item) => (
             <div key={item.context_entity_id ?? item.title}>
               <div className="mb-1.5 flex items-center gap-2 text-meta">
@@ -727,7 +727,7 @@ function FocusSettings({
   onUseDefault: () => void;
 }) {
   return (
-    <div className="mt-4 max-w-2xl space-y-3">
+    <div className="mt-4 max-w-2xl stack-y-3">
       <Section title="Görünüm">
         <Checkbox
           checked={value.amoled}

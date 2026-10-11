@@ -214,7 +214,7 @@ export function ProactivitySection({ online }: { online: boolean }) {
         an yoksa hiçbir bildirim çıkmaz: sessiz kalmak başarısızlık değildir.
       </p>
 
-      <div className="space-y-3">
+      <div className="stack-y-3">
         <Checkbox
           checked={status.enabled}
           disabled={busy}
@@ -273,7 +273,7 @@ export function ProactivitySection({ online }: { online: boolean }) {
           label="Odak oturumu sürerken dürtme (bugün/yarın biten son tarihler hariç)"
         />
 
-        <div className="space-y-2">
+        <div className="stack-y-2">
           {rules.map((rule) => (
             <div key={rule.kind} className="rounded-control border border-subtle p-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -409,13 +409,13 @@ export function ProactivitySection({ online }: { online: boolean }) {
               oluşur.
             </p>
           ) : (
-            <div className="space-y-2">
-              <ul className="divide-y divide-subtle">
+            <div className="stack-y-2">
+              <ul className="stack-divide-y divide-subtle">
                 {runsList(runs.slice(0, VISIBLE_RUNS), busy, (id) => unsnooze.mutate(id), unsnooze.isPending)}
               </ul>
               {runs.length > VISIBLE_RUNS && (
                 <Disclosure summary={`Tüm koşular (${runs.length})`}>
-                  <ul className="divide-y divide-subtle">
+                  <ul className="stack-divide-y divide-subtle">
                     {runsList(runs.slice(VISIBLE_RUNS), busy, (id) => unsnooze.mutate(id), unsnooze.isPending)}
                   </ul>
                 </Disclosure>
@@ -430,7 +430,7 @@ export function ProactivitySection({ online }: { online: boolean }) {
         {failures.length > 0 && (
           <div className="rounded-control border border-warn-border bg-warn-surface p-2.5">
             <p className="mb-1 text-meta font-medium text-warn">Son kural hataları</p>
-            <ul className="space-y-0.5">
+            <ul className="stack-y-0.5">
               {failures.map((failure) => (
                 <li key={`${failure.rule_kind}-${failure.at}`} className="text-micro text-warn">
                   {failure.rule_kind ? (RULE_LABELS[failure.rule_kind] ?? failure.rule_kind) : "kural yok"} ·{" "}

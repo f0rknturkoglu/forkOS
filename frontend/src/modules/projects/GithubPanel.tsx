@@ -338,7 +338,7 @@ export function GithubPanel({ project }: { project: Project }) {
 
 function GithubLoading() {
   return (
-    <div role="status" aria-label="GitHub verisi yükleniyor" className="animate-pulse space-y-3 p-3.5">
+    <div role="status" aria-label="GitHub verisi yükleniyor" className="animate-pulse stack-y-3 p-3.5">
       <div className="h-8 rounded-control bg-surface-sunken" />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[0, 1, 2, 3].map((item) => (

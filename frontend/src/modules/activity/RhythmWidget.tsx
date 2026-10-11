@@ -82,7 +82,7 @@ export function RhythmWidget() {
       {counters.length === 0 && applicationsToday === 0 ? (
         <p className="text-meta text-muted">Henüz veri yok. Hareket ettikçe burada toplanır.</p>
       ) : (
-        <div className="space-y-4">
+        <div className="stack-y-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {counters.map(([name, value]) => (
               <div key={name} className="rounded-card border border-subtle bg-surface px-3 py-2">

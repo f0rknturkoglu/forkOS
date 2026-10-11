@@ -70,11 +70,11 @@ export function ServiceHealthWidget() {
     lastBackupAt !== null && changesPending && Date.now() - lastBackupAt > STALE_BACKUP_HOURS * 3_600_000;
 
   return (
-    <Section title="Servis sağlığı" hint="worker kalp atışı · yedek tazeliği" bodyClassName="space-y-3">
+    <Section title="Servis sağlığı" hint="worker kalp atışı · yedek tazeliği" bodyClassName="stack-y-3">
       {workerState !== "ready" ? (
         <SectionFallback state={workerState} what="Worker durumu" onRetry={() => void stats.refetch()} />
       ) : (
-        <div className="space-y-1">
+        <div className="stack-y-1">
           <div className="flex items-center justify-between gap-2 text-meta">
             <span className="flex items-center gap-1.5 text-muted">
               <Activity size={13} className="text-icon" aria-hidden="true" /> Worker
@@ -91,7 +91,7 @@ export function ServiceHealthWidget() {
       {backupState !== "ready" ? (
         <SectionFallback state={backupState} what="Yedek durumu" onRetry={() => void backup.refetch()} />
       ) : (
-        <div className="space-y-1">
+        <div className="stack-y-1">
           <div className="flex items-center justify-between gap-2 text-meta">
             <span className="flex items-center gap-1.5 text-muted">
               <DatabaseBackup size={13} className="text-icon" aria-hidden="true" /> Yedek

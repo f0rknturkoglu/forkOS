@@ -24,7 +24,7 @@ export function CareerStrategyPanel() {
         </div>
       )}
       {query.data && (
-        <div className="space-y-5">
+        <div className="stack-y-5">
           <p className="text-body text-primary">{query.data.summary}</p>
           <p className="text-meta text-secondary">Son değerlendirmeden beri: {query.data.what_changed}</p>
           <div>
@@ -47,7 +47,7 @@ export function CareerStrategyPanel() {
           <div>
             <h3 className="text-body font-semibold text-primary">Şimdi ne yapmalıyım?</h3>
             {query.data.primary_action ? (
-              <div className="space-y-2">
+              <div className="stack-y-2">
                 <p className="text-body text-primary">{query.data.primary_action.title}</p>
                 <p className="text-meta text-secondary">{query.data.primary_action.why}</p>
                 {query.data.alternatives.map((action) => (
@@ -68,7 +68,7 @@ export function CareerStrategyPanel() {
               <p className="text-meta text-muted">Bu dönemde yeterli örnekli tekrarlayan açık yok.</p>
             )}
             {query.data.signals.slice(0, 3).map((signal) => (
-              <div key={signal.title} className="space-y-1 py-2">
+              <div key={signal.title} className="stack-y-1 py-2">
                 <p className="text-body text-primary">{signal.title}</p>
                 <div className="flex flex-wrap gap-2">
                   <Chip tone="neutral">n={signal.sample_size}</Chip>

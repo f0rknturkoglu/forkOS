@@ -27,7 +27,7 @@ export function OpportunityConnectionsSection({ id }: { id: string }) {
       {data.connections.length === 0 ? (
         <p className="mt-3 text-meta text-muted">Yerel LinkedIn bağlantı ağında bu kurumla eşleşen kişi yok.</p>
       ) : (
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-3 stack-y-2">
           {data.connections.map((connection) => (
             <li
               key={connection.id}

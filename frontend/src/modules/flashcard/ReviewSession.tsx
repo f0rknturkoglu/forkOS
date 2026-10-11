@@ -115,7 +115,7 @@ export function ReviewSession({
     const successRate = done > 0 ? Math.round(((done - again.length) / done) * 100) : 0;
     return (
       <Section title="Oturum tamamlandı">
-        <div className="space-y-4 py-4 text-center">
+        <div className="stack-y-4 py-4 text-center">
           <CheckCircle2 size={28} className="mx-auto text-ok" />
           <p className="text-title text-primary">{done} kart tekrar edildi</p>
           <div className="flex flex-wrap items-center justify-center gap-2 text-meta">
@@ -170,7 +170,7 @@ export function ReviewSession({
           Durdur
         </Button>
       }
-      bodyClassName="space-y-4"
+      bodyClassName="stack-y-4"
     >
       {/* Oturum ilerlemesi: kalan kart sayisiyla birlikte. */}
       <div className="flex items-center gap-3">

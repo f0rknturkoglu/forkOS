@@ -332,9 +332,9 @@ export function CaptureDialog() {
           </button>
         </div>
 
-        <div className="space-y-3 p-4">
+        <div className="stack-y-3 p-4">
           {kind === "flashcard" ? (
-            <div className="space-y-2">
+            <div className="stack-y-2">
               <Select value={deckId} onChange={setDeckId} ariaLabel="Kart destesi">
                 <option value="">Deste seç…</option>
                 {decks.map((deck) => (
@@ -372,7 +372,7 @@ export function CaptureDialog() {
               className="w-full"
             />
           ) : (
-            <div className="space-y-2">
+            <div className="stack-y-2">
               <Input
                 value={title}
                 onChange={setTitle}
@@ -391,7 +391,7 @@ export function CaptureDialog() {
           )}
 
           {kind === "task" && parsed && parsed.consumed.length > 0 && (
-            <div className="space-y-1 rounded-card border border-accent-border bg-accent-surface/40 px-3 py-2">
+            <div className="stack-y-1 rounded-card border border-accent-border bg-accent-surface/40 px-3 py-2">
               <p className="text-meta text-accent">Metinden çözüldü — onaylamadan önce düzenleyebilirsin:</p>
               <div className="flex flex-wrap items-center gap-1">
                 {parsed.consumed.map((part) => (
@@ -407,7 +407,7 @@ export function CaptureDialog() {
           )}
 
           {kind === "task" && (
-            <div className="space-y-2.5">
+            <div className="stack-y-2.5">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="mr-1 text-meta text-muted">Öncelik</span>
                 {PRIORITIES.map((item) => (
@@ -487,7 +487,7 @@ export function CaptureDialog() {
           )}
 
           {kind === "note" && (
-            <div className="space-y-2.5">
+            <div className="stack-y-2.5">
               <p className="text-micro text-muted">Not forkOS'a değil, Obsidian Vault'una (00 Inbox) yazılır.</p>
               <div>
                 <span className="mb-1 block text-meta text-muted">İlişkilendir (opsiyonel)</span>

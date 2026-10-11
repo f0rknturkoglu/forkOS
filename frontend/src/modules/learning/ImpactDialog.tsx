@@ -81,12 +81,12 @@ export function ImpactDialog({
           Silme etkisi alınamadı. Konu silinmedi; bağlantını kontrol edip tekrar dene.
         </p>
       ) : (
-        <div className="space-y-3">
+        <div className="stack-y-3">
           <p className="flex items-start gap-2 text-body text-secondary">
             <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" />
             Aşağıdaki kayıtlar bu konuyla birlikte silinir ya da bağlantısız kalır:
           </p>
-          <dl className="divide-y divide-subtle rounded-card border border-subtle">
+          <dl className="stack-divide-y divide-subtle rounded-card border border-subtle">
             {IMPACT_ROWS.map((row) => (
               <div key={row.key} className="flex items-center justify-between gap-3 px-3 py-2">
                 <dt className="text-body text-secondary">{row.label}</dt>

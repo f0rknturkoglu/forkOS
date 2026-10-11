@@ -275,7 +275,7 @@ export function ImportDialog({
       }
     >
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="min-w-0 space-y-3 lg:col-span-2">
+        <div className="min-w-0 stack-y-3 lg:col-span-2">
           {fileNotice && (
             <p
               role="status"
@@ -342,7 +342,7 @@ export function ImportDialog({
             </Field>
           </div>
 
-          <div className="space-y-2">
+          <div className="stack-y-2">
             <Checkbox
               checked={updateExisting}
               onChange={setUpdateExisting}
@@ -375,7 +375,7 @@ export function ImportDialog({
           {result && (
             <div
               role="status"
-              className="space-y-1 rounded-card border border-ok-border bg-ok-surface p-3 text-meta text-ok"
+              className="stack-y-1 rounded-card border border-ok-border bg-ok-surface p-3 text-meta text-ok"
             >
               <p className="text-body">
                 <strong>{result.area_title}</strong> güncellendi.
@@ -394,7 +394,7 @@ export function ImportDialog({
           )}
         </div>
 
-        <aside className="min-w-0 space-y-2 self-start rounded-card border border-subtle bg-surface-sunken p-3">
+        <aside className="min-w-0 stack-y-2 self-start rounded-card border border-subtle bg-surface-sunken p-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="label-caps text-secondary">Yapay zekaya sor</span>
             <Button size="sm" onClick={copyPrompt} className={cx(copied && "border-ok text-ok")}>
@@ -441,7 +441,7 @@ function PreviewPanel({
 }) {
   const totals = preview.totals;
   return (
-    <div className="space-y-3 rounded-card border border-subtle bg-surface-sunken p-3">
+    <div className="stack-y-3 rounded-card border border-subtle bg-surface-sunken p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Chip tone={preview.area.exists ? "accent" : "ok"}>{preview.area.exists ? "Eşleşen alan" : "Yeni alan"}</Chip>
         <span className="text-body text-primary">{preview.area.title}</span>
@@ -496,7 +496,7 @@ function NodeList({ label, nodes, changes = false }: { label: string; nodes: Imp
       <p className="label-caps text-secondary">
         {label} ({nodes.length})
       </p>
-      <ul className="mt-1 space-y-0.5">
+      <ul className="mt-1 stack-y-0.5">
         {shown.map((node) => (
           <li key={`${label}-${node.path}`} className="text-meta text-secondary">
             <span className="text-muted">{node.path}</span>
@@ -520,7 +520,7 @@ function ConflictList({ label, conflicts }: { label: string; conflicts: ImportCo
       <p className="label-caps text-danger">
         {label} ({conflicts.length})
       </p>
-      <ul className="mt-1 space-y-0.5">
+      <ul className="mt-1 stack-y-0.5">
         {shown.map((conflict) => (
           <li key={`${label}-${conflict.path}`} className="text-meta text-danger">
             <span className="text-secondary">{conflict.path}</span> — {conflict.reason}

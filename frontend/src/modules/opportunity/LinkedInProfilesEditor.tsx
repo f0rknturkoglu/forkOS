@@ -54,7 +54,7 @@ export function LinkedInProfilesEditor({ online }: { online: boolean }) {
       <p className="mb-2 text-meta text-muted">
         Bu yerel profiller LinkedIn kaynağını elle yenilediğinde kullanılır; aramalar repoya kaydedilmez.
       </p>
-      <div className="space-y-2">
+      <div className="stack-y-2">
         {editing.map((row, index) => (
           <div
             key={index}

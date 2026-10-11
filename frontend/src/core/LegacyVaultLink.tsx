@@ -33,7 +33,7 @@ export function LegacyVaultLink() {
         ? `Not açılamadı. ${query.error.message}`
         : `“${query.data?.title}” Obsidian'a gönderildi.`;
   return (
-    <div className="mx-auto max-w-2xl space-y-4 p-8">
+    <div className="mx-auto max-w-2xl stack-y-4 p-8">
       <p className="text-title">Obsidian not bağlantısı</p>
       <p role={query.error || !valid ? "alert" : "status"} className="text-body text-secondary">
         {message}

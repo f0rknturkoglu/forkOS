@@ -80,7 +80,7 @@ export function RequirementsSection({
       {requirementsFailed ? (
         <div
           role="alert"
-          className="mb-3 space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
+          className="mb-3 stack-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
         >
           <p className="text-meta text-danger">
             Gereksinimler yüklenemedi:{" "}
@@ -229,7 +229,7 @@ export function ApplicationSection({ id, online, documents }: { id: string; onli
       {appPending ? (
         <Spinner label="Başvuru bilgisi yükleniyor…" />
       ) : appFailed ? (
-        <div role="alert" className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3">
+        <div role="alert" className="stack-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3">
           <p className="text-meta text-danger">
             {!online
               ? "Çevrimdışısın: başvuru bilgisi şu an okunamıyor."
@@ -245,7 +245,7 @@ export function ApplicationSection({ id, online, documents }: { id: string; onli
       ) : (
         <>
           {!app && (
-            <div className="space-y-2">
+            <div className="stack-y-2">
               <Select value={cvDraft} onChange={setCvDraft} ariaLabel="Kullanılan CV" className="w-full border-strong">
                 <option value="">CV seç (varsa)</option>
                 {documents.map((doc) => (
@@ -305,7 +305,7 @@ export function ApplicationSection({ id, online, documents }: { id: string; onli
             </div>
           )}
           {app && !editingApp && (
-            <div className="space-y-2 text-meta text-secondary">
+            <div className="stack-y-2 text-meta text-secondary">
               {app.cv_title && (
                 <p>
                   CV: <strong className="text-primary">{app.cv_title}</strong>
@@ -346,7 +346,7 @@ export function ApplicationSection({ id, online, documents }: { id: string; onli
             </div>
           )}
           {app && editingApp && (
-            <div className="space-y-2">
+            <div className="stack-y-2">
               <Select value={cvDraft} onChange={setCvDraft} ariaLabel="Kullanılan CV" className="w-full border-strong">
                 <option value="">CV seç (varsa)</option>
                 {documents.map((doc) => (
@@ -569,7 +569,7 @@ export function ReplyProcessorSection({ id, status, online }: { id: string; stat
         }
       />
       {expanded && (
-        <div className="space-y-3">
+        <div className="stack-y-3">
           <Textarea
             value={replyText}
             onChange={(value) => {
@@ -680,7 +680,7 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
       {interviewsFailed && (
         <div
           role="alert"
-          className="mb-3 space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
+          className="mb-3 stack-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
         >
           <p className="text-meta text-danger">
             Görüşmeler yüklenemedi: {interviewsError instanceof Error ? interviewsError.message : "bilinmeyen hata"}
@@ -691,7 +691,7 @@ export function InterviewsSection({ id, online }: { id: string; online: boolean 
         </div>
       )}
       {!interviewsFailed && interviews.length > 0 && (
-        <ul className="mb-3 space-y-1.5">
+        <ul className="mb-3 stack-y-1.5">
           {interviews.map((iv) => (
             <li
               key={iv.id}
@@ -882,7 +882,7 @@ export function OpportunityKnowledgeSection({
       {isError ? (
         <div
           role="alert"
-          className="mt-4 space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
+          className="mt-4 stack-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
         >
           <p className="text-meta text-danger">
             Vault kaydı okunamadı: {error instanceof Error ? error.message : "bilinmeyen hata"}

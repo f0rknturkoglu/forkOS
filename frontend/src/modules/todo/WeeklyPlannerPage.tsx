@@ -102,7 +102,7 @@ function DayColumn({
           </IconButton>
         ) : null}
       </div>
-      <div className="space-y-2">
+      <div className="stack-y-2">
         {slots.map((slot) => (
           <DraggableCard
             key={slot.id}

@@ -92,7 +92,7 @@ export function ScoreRangeControl({ min, max, onChange, disabled }: Props) {
         ariaLabel="Skor aralığı"
         className="left-0 top-[calc(100%+0.375rem)] w-[min(22rem,calc(100vw-2rem))] p-3"
       >
-        <div className="space-y-3">
+        <div className="stack-y-3">
           <div className="flex flex-wrap items-center gap-1.5">
             {SCORE_PRESETS.map((preset) => {
               const presetActive = min === preset.min && max === preset.max;

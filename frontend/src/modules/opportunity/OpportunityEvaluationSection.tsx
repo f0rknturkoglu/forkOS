@@ -181,7 +181,7 @@ export function OpportunityEvaluationSection({
     draft.recommendation === "pursue" ? "ok" : draft.recommendation === "consider" ? "warn" : "danger";
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       {draft.notes && draft.notes.includes("İlan metni çok kısa") && (
         <div className="rounded-card border border-warn-border bg-warn-surface p-3 text-meta text-warn">
           <strong>İlan metni uyarısı:</strong> {draft.notes}
@@ -226,7 +226,7 @@ export function OpportunityEvaluationSection({
             <span className="numeral text-display text-primary">{draft.score}</span>
             <span className="text-micro text-muted">100 üzerinden</span>
           </div>
-          <div className="space-y-2">
+          <div className="stack-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <Chip tone={recommendationTone}>{recommendationLabel(draft.recommendation)}</Chip>
               {editing ? (
@@ -293,7 +293,7 @@ export function OpportunityEvaluationSection({
           {draft.gate.geo_mismatch && <Chip tone="danger">Konum uyuşmazlığı</Chip>}
         </div>
         {draft.gate.reasons.length > 0 && (
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-meta text-secondary">
+          <ul className="mt-3 list-disc stack-y-1 pl-5 text-meta text-secondary">
             {draft.gate.reasons.map((reason) => (
               <li key={reason}>{reason}</li>
             ))}
@@ -303,7 +303,7 @@ export function OpportunityEvaluationSection({
 
       <section className="rounded-card border border-subtle bg-surface p-4">
         <SectionHeader label="Pass 1 · İlan gereksinimleri" hint={`${draft.requirements.length} gereksinim`} />
-        <div className="divide-y divide-subtle">
+        <div className="stack-divide-y divide-subtle">
           {draft.requirements.map((requirement) => (
             <div key={requirement.id} className="py-3 first:pt-0 last:pb-0">
               <div className="flex flex-wrap items-center gap-2">
@@ -357,7 +357,7 @@ export function OpportunityEvaluationSection({
           label="Pass 2 · Aday eşleşmesi"
           hint={draft.candidate_source === "document" ? draft.candidate_document_title : "yerel yetenek profili"}
         />
-        <div className="space-y-3">
+        <div className="stack-y-3">
           {draft.matches.map((match) => (
             <div key={match.requirement_id} className="rounded-control border border-subtle bg-surface-sunken p-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -380,7 +380,7 @@ export function OpportunityEvaluationSection({
               </div>
               <p className="mt-1.5 text-meta text-secondary">{match.evidence}</p>
               {editing ? (
-                <div className="mt-2 space-y-2">
+                <div className="mt-2 stack-y-2">
                   <Textarea
                     value={match.gap_mitigation ?? ""}
                     onChange={(value) => patchMatch(match.requirement_id, { gap_mitigation: value || null })}

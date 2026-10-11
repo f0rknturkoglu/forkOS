@@ -195,7 +195,7 @@ export function TodoPage() {
         <div className="border-b border-subtle bg-surface-sunken p-3">
           <TodoComposer defaultRecurring={path === "/habits"} />
         </div>
-        <WorkspaceScrollArea className="space-y-3 p-3">
+        <WorkspaceScrollArea className="stack-y-3 p-3">
           {isLoading ? (
             <SkeletonRows rows={8} />
           ) : visible.length === 0 ? (

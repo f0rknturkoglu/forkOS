@@ -71,7 +71,7 @@ export function RhythmChart({
   const activeBreakdown = activePoint ? calculateBreakdown(activePoint) : null;
 
   return (
-    <div className={cx("relative space-y-3", className)}>
+    <div className={cx("relative stack-y-3", className)}>
       {/* Popover / Detay Kartı */}
       {activeBreakdown && activePoint && (
         <div

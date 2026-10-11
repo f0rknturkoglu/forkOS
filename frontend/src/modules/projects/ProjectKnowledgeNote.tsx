@@ -88,12 +88,12 @@ export function ProjectKnowledgeNote({ project }: { project: Project }) {
         <div className="rounded-control border border-danger-border bg-danger-surface p-3 text-meta">
           <div className="flex items-start gap-2 text-danger">
             <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-            <div className="space-y-1">
+            <div className="stack-y-1">
               <p className="font-medium">
                 Bu kimlik birden fazla Obsidian dosyasında kullanılıyor. Çakışmayı Vault içinde çöz ve indeksi yenile.
               </p>
               {conflictPaths && conflictPaths.length > 0 && (
-                <ul className="list-disc list-inside text-micro text-danger/80 font-mono space-y-0.5 mt-1">
+                <ul className="list-disc list-inside text-micro text-danger/80 font-mono stack-y-0.5 mt-1">
                   {conflictPaths.map((p) => (
                     <li key={p}>{p}</li>
                   ))}

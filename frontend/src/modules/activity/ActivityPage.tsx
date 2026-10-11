@@ -143,7 +143,7 @@ export function ActivityPage() {
       <Workspace>
         <WorkspacePaneHeader eyebrow="Etkinlik" title="Etkinlik & Ritim" />
 
-        <WorkspaceScrollArea className="space-y-4 p-3">
+        <WorkspaceScrollArea className="stack-y-4 p-3">
           {/* Katman 1: Ritim -- bugun nerede oldugun ve son bir yilin. */}
           <SectionHeader label="Ritim" />
           <MetricStrip className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -203,7 +203,7 @@ export function ActivityPage() {
               haritanin kendi kontrol satirindadir -- sayfa filtresi degildir.
               Kayit/aktif gun sayilari haritanin alt seridinde, secilen
               aralikla tutarli olarak yasar (ikinci bir sorgu yok). */}
-          <div className="space-y-2">
+          <div className="stack-y-2">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="label-caps text-muted">Harita aralığı</span>
               <Tabs
@@ -221,7 +221,7 @@ export function ActivityPage() {
 
           {/* Katman 2: aylik gelisim -- ikincil; kirilim tooltip'te. */}
           {monthly.length > 0 && (
-            <Section title="Trend" hint="aylık özet" bodyClassName="space-y-2 px-3.5 py-3">
+            <Section title="Trend" hint="aylık özet" bodyClassName="stack-y-2 px-3.5 py-3">
               <MonthlyBars points={monthly} />
               <p className="text-meta text-muted">
                 Son {monthly.length} ayda {monthly.reduce((sum, point) => sum + monthTotal(point), 0)} hareket
@@ -274,7 +274,7 @@ export function ActivityPage() {
                 />
               </div>
 
-              <div className="mt-3 space-y-2">
+              <div className="mt-3 stack-y-2">
                 {isLoading ? (
                   <SkeletonRows rows={6} />
                 ) : data.length === 0 ? (
@@ -314,7 +314,7 @@ export function ActivityPage() {
                               <ArrowUpRight size={14} />
                             </a>
                           </summary>
-                          <ul className="divide-y divide-subtle border-t border-subtle px-3.5">
+                          <ul className="stack-divide-y divide-subtle border-t border-subtle px-3.5">
                             {dayEvents.map((event) => {
                               const Icon = verbIcon(event.verb);
                               const link = entityLink(event);

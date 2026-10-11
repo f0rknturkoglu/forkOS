@@ -93,7 +93,7 @@ const TAB_IDS = new Set(TABS.map((tab) => tab.id));
  * varyant noktası burasıdır: sekme başına özel sarmalayıcı yazılmaz.
  */
 function Pane({ children, width = "form" }: { children: React.ReactNode; width?: "form" | "wide" }) {
-  return <div className={cx("mx-auto space-y-4", width === "wide" ? "max-w-4xl" : "max-w-3xl")}>{children}</div>;
+  return <div className={cx("mx-auto stack-y-4", width === "wide" ? "max-w-4xl" : "max-w-3xl")}>{children}</div>;
 }
 
 type AutomationState = {

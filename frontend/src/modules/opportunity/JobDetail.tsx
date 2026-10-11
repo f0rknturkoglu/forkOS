@@ -205,7 +205,7 @@ function JobSummary({ item, online }: { item: Opportunity; online: boolean }) {
   const url = item.url;
 
   return (
-    <div className="space-y-3">
+    <div className="stack-y-3">
       <div className="flex flex-wrap items-center gap-1.5">
         <Chip>{kindLabel(item.kind)}</Chip>
         <Chip>{jobCategoryLabel(item.category)}</Chip>
@@ -329,7 +329,7 @@ function ListingHealthSection({ item, online }: { item: Opportunity; online: boo
 
   return (
     <Section title="İlan kalitesi ve canlılık" hint={health ? `${healthScore} / 100 Kalite` : undefined}>
-      <div className="space-y-3">
+      <div className="stack-y-3">
         <div className="flex flex-wrap items-center gap-2">
           {health && <Chip tone={scoreTone}>Kalite Puanı: {healthScore} / 100</Chip>}
           {health && (
@@ -405,7 +405,7 @@ function JobOverview({ item, online }: { item: Opportunity; online: boolean }) {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <Section title="İlan künyesi">
         <dl className="grid grid-cols-[9rem_1fr] gap-x-4 gap-y-2 text-meta">
           {rows.map(([label, value]) => (
@@ -430,7 +430,7 @@ function JobOverview({ item, online }: { item: Opportunity; online: boolean }) {
         {!item.intelligence || item.intelligence.signals.length === 0 ? (
           <Empty>Bu ilan için yerel risk sinyali bulunmadı.</Empty>
         ) : (
-          <ul className="space-y-2">
+          <ul className="stack-y-2">
             {item.intelligence.signals.map((signal) => (
               <li key={signal.code} className="rounded-control border border-subtle bg-surface-sunken px-3 py-2">
                 <div className="flex flex-wrap items-center gap-2">
@@ -463,7 +463,7 @@ function JobFit({ item, online }: { item: Opportunity; online: boolean }) {
   const evaluation = item.evaluation ?? null;
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       {/* (a) Genel uygunluk — kural tabanli puan, aciklanabilir bilesenlerle. */}
       <Section title="Genel uygunluk" hint={item.score_source ?? "henüz hesaplanmadı"}>
         {item.score === null || item.score === undefined ? (
@@ -533,7 +533,7 @@ function JobFit({ item, online }: { item: Opportunity; online: boolean }) {
             {typeof matchEvidence?.coverage === "number" && (
               <p className="mb-3 text-meta text-muted">Kanıt kapsamı: %{Math.round(matchEvidence.coverage * 100)}</p>
             )}
-            <div className="space-y-3">
+            <div className="stack-y-3">
               {item.skill_match && item.skill_match.matched.length > 0 && (
                 <div>
                   <span className="mb-1.5 block text-micro font-medium uppercase tracking-wider text-secondary">
@@ -657,7 +657,7 @@ function JobApplication({ item, online }: { item: Opportunity; online: boolean }
   const allowedApplication = item.allowed_application_transitions ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <Section title="Başvuru hattı" hint={item.application_status ? "CRM" : "henüz başvurulmadı"}>
         {item.application_status ? (
           <div className="flex flex-wrap items-center gap-3">
@@ -775,7 +775,7 @@ function JobApplication({ item, online }: { item: Opportunity; online: boolean }
         {history.length === 0 ? (
           <Empty>Henüz aşama değişikliği kaydedilmedi.</Empty>
         ) : (
-          <ol className="space-y-2">
+          <ol className="stack-y-2">
             {history.map((row) => (
               <li key={row.id} className="flex items-center gap-2 text-meta">
                 <span className="w-24 shrink-0 text-muted">
@@ -809,7 +809,7 @@ function TimelineSection({ id }: { id: string }) {
       {entries.length === 0 ? (
         <Empty>Bu fırsat için henüz zaman çizelgesi kaydı yok.</Empty>
       ) : (
-        <ol className="space-y-3">
+        <ol className="stack-y-3">
           {entries.map((entry, index) => {
             const Icon = TIMELINE_ICONS[entry.kind] ?? Compass;
             return (
@@ -841,7 +841,7 @@ function JobNotes({ item, online }: { item: Opportunity; online: boolean }) {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <OpportunityKnowledgeSection
         id={item.id}
         online={online}

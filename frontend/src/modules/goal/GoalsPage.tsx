@@ -124,7 +124,7 @@ export function GoalsPage() {
             ]}
           />
         </WorkspacePaneHeader>
-        <WorkspaceScrollArea className="min-w-0 space-y-4 p-4">
+        <WorkspaceScrollArea className="min-w-0 stack-y-4 p-4">
           {read.isPending && <p role="status">Strateji yükleniyor…</p>}
           {read.isError && (
             <div role="alert">
@@ -230,7 +230,7 @@ export function GoalsPage() {
                       </details>
                     </div>
                   ))}
-                  <div className="divide-y divide-subtle">
+                  <div className="stack-divide-y divide-subtle">
                     {data.objectives.map((o) => (
                       <button
                         type="button"
@@ -343,7 +343,7 @@ function GoalEditor({ goal, data, onSaved }: { goal?: Goal; data: Overview; onSa
   const save = useSave();
   return (
     <form
-      className="space-y-3 rounded-card border border-subtle p-3"
+      className="stack-y-3 rounded-card border border-subtle p-3"
       onSubmit={(e) => {
         e.preventDefault();
         const body = {
@@ -439,7 +439,7 @@ function ObjectiveDetail({ objective: o, providers }: { objective: Objective; pr
   const [showKR, setShowKR] = useState(false);
   const save = useSave();
   return (
-    <div className="space-y-3">
+    <div className="stack-y-3">
       <MetricStrip className="grid-cols-2 sm:grid-cols-4">
         <Metric
           label="Stratejik sonuç"
@@ -581,7 +581,7 @@ function KREditor({
   const save = useSave(onSaved);
   return (
     <form
-      className="space-y-3 rounded-card border border-subtle p-3"
+      className="stack-y-3 rounded-card border border-subtle p-3"
       onSubmit={(e) => {
         e.preventDefault();
         const body = {
@@ -670,7 +670,7 @@ function PlanEditor({ data, requested }: { data: Overview; requested: string | n
   );
   const plan = data.plans.find((p) => p.id === id);
   return (
-    <div className="space-y-3">
+    <div className="stack-y-3">
       <Select value={id} onChange={setId} ariaLabel="Düzenlenecek plan">
         <option value="">Yeni stratejik plan</option>
         {data.plans.map((p) => (
@@ -695,7 +695,7 @@ function PlanForm({ plan, onSaved }: { plan?: Plan; onSaved: (id: string) => voi
   const save = useSave();
   return (
     <form
-      className="space-y-3 rounded-card border border-subtle p-3"
+      className="stack-y-3 rounded-card border border-subtle p-3"
       onSubmit={(e) => {
         e.preventDefault();
         const body = {
@@ -753,7 +753,7 @@ function Pillars({ plan, data }: { plan: Plan; data: Overview }) {
     setId("");
   });
   return (
-    <div className="space-y-3">
+    <div className="stack-y-3">
       <RelatedPanel entityId={plan.id} />
       {data.pillars
         .filter((p) => p.plan_id === plan.id)

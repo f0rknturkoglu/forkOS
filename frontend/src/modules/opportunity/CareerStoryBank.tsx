@@ -56,13 +56,13 @@ function ApplicationUsage({ story }: { story: CareerStory }) {
   const letters = (covers.data ?? []).filter((row) => storyOverlapsText(story, row.cover_letter));
 
   return (
-    <div className="space-y-3 rounded-card border border-subtle bg-surface p-3">
+    <div className="stack-y-3 rounded-card border border-subtle bg-surface p-3">
       <div>
         <span className="text-meta font-medium text-secondary">Kullanıldığı başvurular</span>
         {usedIn.length === 0 ? (
           <p className="mt-1 text-meta text-muted">Bu hikâye henüz bir başvurunun gereksinim eşleşmesinde geçmiyor.</p>
         ) : (
-          <ul className="mt-1 space-y-1">
+          <ul className="mt-1 stack-y-1">
             {usedIn.map(({ item, requirements }) => (
               <li key={item.id} className="text-meta text-secondary">
                 <span className="text-primary">{item.title}</span>
@@ -93,7 +93,7 @@ function ApplicationUsage({ story }: { story: CareerStory }) {
         ) : letters.length === 0 ? (
           <p className="mt-1 text-meta text-muted">Örtüşen ön yazı bulunmadı (yerel kelime taraması).</p>
         ) : (
-          <ul className="mt-1 space-y-1">
+          <ul className="mt-1 stack-y-1">
             {letters.map((letter) => (
               <li key={letter.opportunity_id} className="text-meta text-secondary">
                 <span className="text-primary">{letter.title}</span>
@@ -235,11 +235,11 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
       </div>
 
       <div className={cx("grid gap-4", editorOpen ? "lg:grid-cols-2" : "")}>
-        <div className="space-y-2">
+        <div className="stack-y-2">
           {storiesFailed ? (
             <div
               role="alert"
-              className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
+              className="stack-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
             >
               <p className="text-meta text-danger">
                 Hikâyeler yüklenemedi: {storiesError instanceof Error ? storiesError.message : "bilinmeyen hata"}
@@ -283,7 +283,7 @@ export function CareerStoryBank({ focusId }: { focusId?: string | null }) {
         </div>
 
         {editorOpen && (
-          <div className="space-y-3 rounded-card border border-subtle bg-surface-sunken p-4">
+          <div className="stack-y-3 rounded-card border border-subtle bg-surface-sunken p-4">
             <div className="flex items-center gap-2">
               <Input
                 value={draft.title}

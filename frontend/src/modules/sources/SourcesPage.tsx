@@ -25,7 +25,7 @@ export function SourcesPage() {
           title="Kaynak Durumu"
           hint="Katalog, sağlık, koşu geçmişi ve disk önbelleği"
         />
-        <WorkspaceScrollArea className="space-y-4 p-4 sm:p-6">
+        <WorkspaceScrollArea className="stack-y-4 p-4 sm:p-6">
           <SourcesWorkspace
             framing="system"
             initialProblemOnly={route.params.get("filter") === "problems" || route.params.get("problem") === "1"}

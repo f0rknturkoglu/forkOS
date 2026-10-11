@@ -77,9 +77,9 @@ function AddFeed() {
   });
 
   return (
-    <div className="space-y-2">
+    <div className="stack-y-2">
       <form
-        className="space-y-2"
+        className="stack-y-2"
         onSubmit={(e) => {
           e.preventDefault();
           if (url.trim()) add.mutate();
@@ -535,7 +535,7 @@ export function RssPage() {
               <RefreshCw size={12} /> Tümünü tazele
             </button>
           </div>
-          <ul className="space-y-0.5">
+          <ul className="stack-y-0.5">
             {SMART_ORDER.map((v) => {
               const count =
                 v === "unread"
@@ -588,7 +588,7 @@ export function RssPage() {
             )}
           </div>
 
-          <div className="space-y-3">
+          <div className="stack-y-3">
             {Object.entries(grouped).map(([category, group]) => {
               const unreadSum = group.reduce((acc, f) => acc + f.unread, 0);
               const key = category;
@@ -624,7 +624,7 @@ export function RssPage() {
                     </button>
                   </div>
                   {!isClosed && (
-                    <ul className="mt-0.5 space-y-0.5">
+                    <ul className="mt-0.5 stack-y-0.5">
                       {group.map((feed) => (
                         <FeedRow
                           key={feed.id}

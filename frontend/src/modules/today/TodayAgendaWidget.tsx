@@ -244,7 +244,7 @@ export function TodayAgendaWidget() {
     <Section
       title="Bugünün planı"
       hint={agenda ? `${agenda.timed.length + agenda.checklist.length + openTodos.length} öğe` : undefined}
-      bodyClassName="space-y-4"
+      bodyClassName="stack-y-4"
     >
       {!online && (
         <p className="border-b border-subtle pb-3 text-meta text-warn">
@@ -315,7 +315,7 @@ export function TodayAgendaWidget() {
           />
 
           {/* Gün Özeti ve Ritim Durumu */}
-          <div className="rounded-card border border-subtle bg-surface-hover/30 p-3 space-y-2">
+          <div className="rounded-card border border-subtle bg-surface-hover/30 p-3 stack-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2 text-meta text-muted">
               <div className="flex items-center gap-1.5">
                 <PhaseIcon size={14} className="shrink-0 text-icon" />

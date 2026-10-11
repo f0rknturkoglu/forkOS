@@ -61,24 +61,24 @@ export function HomeGrid({ views }: { views: TodayWidgetView[] }) {
   const context = by("context").filter((view) => !view.widget.besidePlan);
 
   return (
-    <div className="space-y-7">
+    <div className="stack-y-7">
       {now.length > 0 && (
-        <section aria-label="Şimdi" className="space-y-3">
+        <section aria-label="Şimdi" className="stack-y-3">
           {now.map(widget)}
         </section>
       )}
       <div className="today-primary-grid mx-auto grid w-full items-center gap-6 lg:grid-cols-2">
-        <section aria-label="Bugünün işi" className="min-w-0 max-w-4xl space-y-4">
+        <section aria-label="Bugünün işi" className="min-w-0 max-w-4xl stack-y-4">
           {plan.map(widget)}
         </section>
         {(companions.length > 0 || attention.length > 0) && (
           <aside
             aria-label={attention.length > 0 ? "Dikkat isteyenler" : "Plan özeti"}
-            className="today-secondary min-w-0 space-y-4"
+            className="today-secondary min-w-0 stack-y-4"
           >
             {companions.map(widget)}
             {attention.length > 0 && (
-              <div className="today-attention space-y-4">
+              <div className="today-attention stack-y-4">
                 <h2 className="text-meta font-medium text-secondary">Dikkat isteyenler</h2>
                 {attention.map(widget)}
               </div>
@@ -93,7 +93,7 @@ export function HomeGrid({ views }: { views: TodayWidgetView[] }) {
             {/* Tek ağaç: dar ekranda ana sütun, ardından ikincil sütun okunur.
                 Her sütunun yüksekliği yalnız kendi widget'larını etkiler. */}
             {(["main", "secondary"] as const).map((lane) => (
-              <div key={lane} data-today-context-lane={lane} className="min-w-0 space-y-6 empty:hidden">
+              <div key={lane} data-today-context-lane={lane} className="min-w-0 stack-y-6 empty:hidden">
                 {context.filter((view) => (view.widget.contextLane ?? "main") === lane).map(widget)}
               </div>
             ))}

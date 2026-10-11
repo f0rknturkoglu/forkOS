@@ -113,7 +113,7 @@ describe("opportunity list components", () => {
         <article>row</article>
       </OpportunityCollection>,
     );
-    expect(html).toContain("divide-y");
+    expect(html).toContain("stack-divide-y");
     expect(html).not.toContain("grid-cols-3");
   });
 

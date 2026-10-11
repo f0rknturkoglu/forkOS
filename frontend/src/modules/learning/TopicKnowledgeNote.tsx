@@ -64,7 +64,7 @@ export function TopicKnowledgeNote({ topicId, topicTitle }: { topicId: string; t
 
   if (isStatusLoading) {
     return (
-      <div className="space-y-3">
+      <div className="stack-y-3">
         <SectionHeader label="Bilgi notu" />
         <Skeleton className="h-12 w-full" />
       </div>
@@ -73,7 +73,7 @@ export function TopicKnowledgeNote({ topicId, topicTitle }: { topicId: string; t
 
   if (!vaultReady) {
     return (
-      <div className="space-y-3">
+      <div className="stack-y-3">
         <SectionHeader label="Bilgi notu" />
         <p className="text-meta text-muted">
           Vault kullanılamıyor —{" "}
@@ -87,7 +87,7 @@ export function TopicKnowledgeNote({ topicId, topicTitle }: { topicId: string; t
   }
 
   return (
-    <div className="space-y-3">
+    <div className="stack-y-3">
       <SectionHeader label="Bilgi notu" hint="Obsidian'da yaşar" />
 
       <div className="rounded-card border border-subtle bg-surface px-3.5 py-3">

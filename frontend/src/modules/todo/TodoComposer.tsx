@@ -109,7 +109,7 @@ export function TodoComposer({
       </div>
 
       {open && (
-        <div className="space-y-3 border-t border-subtle px-3.5 py-3">
+        <div className="stack-y-3 border-t border-subtle px-3.5 py-3">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="mr-1 text-meta text-muted">Öncelik</span>
             {PRIORITIES.map((item) => (

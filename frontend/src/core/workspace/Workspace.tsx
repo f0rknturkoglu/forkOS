@@ -105,7 +105,7 @@ export function WorkspacePaneHeader({
 }
 
 export function WorkspaceRailContent({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("max-h-workspace-body space-y-4 overflow-y-auto p-3", className)}>{children}</div>;
+  return <div className={cx("max-h-workspace-body stack-y-4 overflow-y-auto p-3", className)}>{children}</div>;
 }
 
 export function WorkspaceRailGroup({
@@ -123,7 +123,7 @@ export function WorkspaceRailGroup({
         <h2 className="label-caps min-w-0 flex-1 truncate text-muted">{label}</h2>
         {hint ? <span className="text-meta tabular-nums text-muted">{hint}</span> : null}
       </div>
-      <div className="space-y-0.5">{children}</div>
+      <div className="stack-y-0.5">{children}</div>
     </section>
   );
 }

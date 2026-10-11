@@ -66,7 +66,7 @@ const dateText = (iso: string): string => new Date(iso).toLocaleDateString("tr-T
 
 export function ReviewView({ onOpenTopic }: { onOpenTopic: (topicId: string) => void }) {
   return (
-    <div className="space-y-5">
+    <div className="stack-y-5">
       <DailyCardReviews />
       <TopicReviewView onOpenTopic={onOpenTopic} />
     </div>
@@ -79,7 +79,7 @@ function DailyCardReviews() {
   const due = data.reduce((count, deck) => count + deck.due_count, 0);
   const fresh = data.reduce((count, deck) => count + deck.new_count, 0);
   return (
-    <section aria-label="Kart tekrarları" className="space-y-2 rounded-card border border-subtle p-3">
+    <section aria-label="Kart tekrarları" className="stack-y-2 rounded-card border border-subtle p-3">
       <SectionHeader
         label="Kart tekrarları"
         hint={
@@ -145,7 +145,7 @@ function TopicReviewView({ onOpenTopic }: { onOpenTopic: (topicId: string) => vo
 
   if (queue.isLoading) {
     return (
-      <div className="space-y-3">
+      <div className="stack-y-3">
         <p role="status" className="text-meta text-muted">
           Tekrar kuyruğu yükleniyor…
         </p>
@@ -190,7 +190,7 @@ function TopicReviewView({ onOpenTopic }: { onOpenTopic: (topicId: string) => vo
   }
 
   return (
-    <div className="space-y-5">
+    <div className="stack-y-5">
       {error && (
         <p role="alert" className="text-meta text-danger">
           {error}

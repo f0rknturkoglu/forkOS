@@ -841,7 +841,7 @@ export function SystemStatusAttention({ summary }: { summary: HealthSummary }) {
             İlgi gereken bir şey yok: bütün kalemler okunabildi ve sorun bildirmiyor.
           </p>
         ) : (
-          <ul className="space-y-1.5">
+          <ul className="stack-y-1.5">
             {items.map((item) => (
               <li key={item.key} className="flex items-start gap-2 text-meta">
                 <span
@@ -879,7 +879,7 @@ export function SystemStatusPanel() {
   const runRows = runs.data ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <div>
         <SectionHeader
           label="forkOS Doctor"

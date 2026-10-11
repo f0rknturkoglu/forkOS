@@ -9,7 +9,7 @@ export function CareerGoalsPanel() {
     queryFn: () => api.get<components["schemas"]["GoalOut"][]>("/goals"),
   });
   return (
-    <div className="space-y-2 border-t border-subtle pt-4">
+    <div className="stack-y-2 border-t border-subtle pt-4">
       <h3 className="text-body font-semibold">Hedefler</h3>
       <p className="text-meta text-muted">
         {goals.isError

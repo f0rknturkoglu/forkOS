@@ -93,8 +93,8 @@ describe("UI primitives", () => {
     );
 
     expect(html).toContain("max-w-[1600px]");
-    expect(html).toContain("divide-x");
-    expect(html).toContain("divide-y");
+    expect(html).toContain("stack-divide-x");
+    expect(html).toContain("stack-divide-y");
   });
 
   it("can keep semantic list markup while using divided-row styling", () => {

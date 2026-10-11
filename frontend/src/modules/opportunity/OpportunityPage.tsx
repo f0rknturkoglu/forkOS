@@ -320,7 +320,7 @@ export function OpportunityPage() {
         )}
         <WorkspaceScrollArea className="p-3">
           {browseEnabled ? (
-            <div className="space-y-3">
+            <div className="stack-y-3">
               <section
                 aria-label={
                   filters.section === "jobs" ? "İş ilanları" : filters.section === "announcements" ? "Duyurular" : "Çöp"
@@ -328,7 +328,7 @@ export function OpportunityPage() {
               >
                 {browse.isPending && browseEnabled ? (
                   <div
-                    className={view === "grid" ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" : "space-y-3"}
+                    className={view === "grid" ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" : "stack-y-3"}
                   >
                     {Array.from({ length: view === "grid" ? 6 : 4 }, (_, index) => (
                       <div key={index} className="h-24 rounded-card bg-surface-sunken" />

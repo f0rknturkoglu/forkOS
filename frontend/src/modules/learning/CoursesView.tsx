@@ -255,7 +255,7 @@ export function CoursesView() {
 
   if (courses.isLoading) {
     return (
-      <div className="space-y-3">
+      <div className="stack-y-3">
         <p role="status" className="text-meta text-muted">
           Kurslar yükleniyor…
         </p>
@@ -283,7 +283,7 @@ export function CoursesView() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <SectionHeader
         label="Kurslar"
         hint={`${rows.length} kurs`}
@@ -487,7 +487,7 @@ export function CoursesView() {
         }
       >
         {editing && (
-          <div className="space-y-3">
+          <div className="stack-y-3">
             <Field label="Başlık">
               <Input
                 value={editing.draft.title}
@@ -624,7 +624,7 @@ function CertificatePicker({ courseId, online, onClose }: { courseId: string; on
     .filter((hit) => hit.type === "document" || hit.type === "note");
 
   return (
-    <div className="mt-2 space-y-2 rounded-card border border-subtle bg-surface-sunken p-3">
+    <div className="mt-2 stack-y-2 rounded-card border border-subtle bg-surface-sunken p-3">
       <Field label="Sertifika bağla" hint="Yalnızca belge ve notlar sertifika olabilir">
         <Input
           value={query}
@@ -647,7 +647,7 @@ function CertificatePicker({ courseId, online, onClose }: { courseId: string; on
       ) : hits.length === 0 ? (
         <p className="text-meta text-muted">Eşleşen belge ya da not yok.</p>
       ) : (
-        <ul className="space-y-1">
+        <ul className="stack-y-1">
           {hits.map((hit) => (
             <li key={hit.id}>
               <Button

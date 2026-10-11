@@ -592,7 +592,7 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
 
               {/* Icerik */}
               {isLoading ? (
-                <div className="space-y-4 py-8">
+                <div className="stack-y-4 py-8">
                   <div className="h-4 w-3/4 animate-pulse rounded-control bg-surface-sunken" />
                   <div className="h-4 w-full animate-pulse rounded-control bg-surface-sunken" />
                   <div className="h-4 w-5/6 animate-pulse rounded-control bg-surface-sunken" />
@@ -600,11 +600,11 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
                 </div>
               ) : fullText?.content_html ? (
                 <div
-                  className="article-content leading-relaxed space-y-4 text-secondary"
+                  className="article-content leading-relaxed stack-y-4 text-secondary"
                   dangerouslySetInnerHTML={{ __html: sanitizeHtml(fullText.content_html) }}
                 />
               ) : (
-                <div className="py-8 text-center space-y-4 font-sans">
+                <div className="py-8 text-center stack-y-4 font-sans">
                   <p className="text-body text-muted">
                     Bu yer iminin tam metni henuz cekilmedi veya sayfa icerigi temizlenemedi.
                   </p>
@@ -648,7 +648,7 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
                 </IconButton>
               </header>
 
-              <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-3">
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 stack-y-3">
                 {highlights.length === 0 ? (
                   <Empty title="Henuz vurgu yok">Makale uzerinde metin secerek vurgu ve not ekleyebilirsiniz.</Empty>
                 ) : (
@@ -657,7 +657,7 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
                     return (
                       <article
                         key={h.id}
-                        className="rounded-card border border-subtle bg-surface p-3 space-y-2 shadow-xs"
+                        className="rounded-card border border-subtle bg-surface p-3 stack-y-2 shadow-xs"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span

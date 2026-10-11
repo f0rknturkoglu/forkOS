@@ -98,7 +98,7 @@ export function DayPage() {
           }
         />
 
-        <WorkspaceScrollArea className="space-y-4 p-3">
+        <WorkspaceScrollArea className="stack-y-4 p-3">
           {isLoading ? (
             <SkeletonRows rows={6} />
           ) : !data || data.events.length === 0 ? (
@@ -161,7 +161,7 @@ export function DayPage() {
                   </button>
 
                   {showSystem && (
-                    <ul className="mt-3 divide-y divide-subtle border-t border-subtle">
+                    <ul className="mt-3 stack-divide-y divide-subtle border-t border-subtle">
                       {grouped.map((row) => (
                         <li key={row.verb} className="flex items-baseline justify-between gap-3 py-2">
                           <span

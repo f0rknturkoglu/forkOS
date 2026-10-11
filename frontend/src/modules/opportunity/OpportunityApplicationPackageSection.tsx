@@ -149,7 +149,7 @@ export function OpportunityApplicationPackageSection({
   const unsupportedClaims = pkg.fact_verification?.filter((v) => v.status === "unsupported") || [];
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       {/* Header / Readiness Badge */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-control border border-subtle bg-surface p-3.5">
         <div className="flex items-center gap-3">
@@ -165,7 +165,7 @@ export function OpportunityApplicationPackageSection({
 
       {/* Unsupported Claims Alert Gate */}
       {pkg.generated_documents && pkg.generated_documents.length > 0 && (
-        <div className="space-y-2 rounded-control border border-subtle bg-surface p-3">
+        <div className="stack-y-2 rounded-control border border-subtle bg-surface p-3">
           <h4 className="text-body font-medium text-primary">Üretilen belgeler</h4>
           <p className="text-meta text-muted">
             Master CV korunur. Taslak belge bağlantısı, paketin onaylandığı anlamına gelmez.
@@ -261,7 +261,7 @@ export function OpportunityApplicationPackageSection({
 
       {/* Tab: Application Answers */}
       {activeTab === "answers" && (
-        <div className="space-y-3">
+        <div className="stack-y-3">
           {pkg.application_answers && pkg.application_answers.length > 0 ? (
             pkg.application_answers.map((ans, idx) => {
               const draftValue =
@@ -318,13 +318,13 @@ export function OpportunityApplicationPackageSection({
 
       {/* Tab: CV Changes Audit */}
       {activeTab === "cv_changes" && (
-        <div className="space-y-3">
+        <div className="stack-y-3">
           <p className="text-meta text-secondary">
             Master CV'niz korunarak ilandaki gereksinimlere göre yapılan düzenlemeler, sıralamalar ve vurgular aşağıda
             listelenmiştir.
           </p>
           {pkg.cv_change_audit && pkg.cv_change_audit.length > 0 ? (
-            <div className="space-y-2">
+            <div className="stack-y-2">
               {pkg.cv_change_audit.map((change, idx) => (
                 <div key={idx} className="rounded-control border border-subtle bg-surface p-3">
                   <div className="flex items-center gap-2">
@@ -352,7 +352,7 @@ export function OpportunityApplicationPackageSection({
 
       {/* Tab: Cover Letter */}
       {activeTab === "cover_letter" && (
-        <div className="space-y-3">
+        <div className="stack-y-3">
           {pkg.cover_letter && (
             <div className="flex flex-wrap items-center gap-2">
               <Chip

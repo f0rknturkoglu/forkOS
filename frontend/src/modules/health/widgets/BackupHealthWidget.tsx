@@ -118,7 +118,7 @@ export function BackupHealthWidget() {
       )}
 
       <Disclosure summary="Felaket kurtarma ayrıntıları" className="mt-3 border-t border-subtle pt-3">
-        <div className="space-y-2 text-meta text-muted">
+        <div className="stack-y-2 text-meta text-muted">
           <p className="flex items-start gap-2">
             <Database size={13} className="mt-0.5 shrink-0 text-icon" aria-hidden="true" />
             <span>

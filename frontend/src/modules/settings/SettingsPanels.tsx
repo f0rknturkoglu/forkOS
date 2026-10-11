@@ -203,7 +203,7 @@ export function StorageReportSection() {
       </div>
 
       {alerts.length > 0 && (
-        <ul className="mb-3 space-y-1 rounded-card border border-subtle bg-surface p-2 text-meta text-warn">
+        <ul className="mb-3 stack-y-1 rounded-card border border-subtle bg-surface p-2 text-meta text-warn">
           {alerts.map((alert) => (
             <li key={alert.key} className="flex items-center gap-1.5">
               <AlertTriangle size={13} className="shrink-0" />
@@ -216,7 +216,7 @@ export function StorageReportSection() {
       <div className="grid gap-3 text-meta sm:grid-cols-2">
         <div>
           <p className="mb-1 text-muted">Dosyalar</p>
-          <ul className="space-y-0.5">
+          <ul className="stack-y-0.5">
             {files.map(([key, bytes]) => (
               <li key={key} className="flex items-center justify-between gap-2">
                 <span className="truncate text-secondary">{FILE_LABELS[key] ?? key}</span>
@@ -227,7 +227,7 @@ export function StorageReportSection() {
         </div>
         <div>
           <p className="mb-1 text-muted">Kayıtlar</p>
-          <ul className="space-y-0.5">
+          <ul className="stack-y-0.5">
             {rows.map(([key, count]) => (
               <li key={key} className="flex items-center justify-between gap-2">
                 <span className="truncate text-secondary">{ROW_LABELS[key] ?? key}</span>
@@ -241,7 +241,7 @@ export function StorageReportSection() {
       {tables.length > 0 && (
         <div className="mt-3">
           <p className="mb-1 text-muted">En büyük tablolar</p>
-          <ul className="space-y-0.5 text-meta">
+          <ul className="stack-y-0.5 text-meta">
             {tables.slice(0, 6).map((table) => (
               <li key={table.name} className="flex items-center justify-between gap-2">
                 <span className="truncate text-secondary">{table.name}</span>

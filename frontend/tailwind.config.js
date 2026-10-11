@@ -85,7 +85,7 @@ export default {
         "display-xl": ["56px", { lineHeight: "60px", letterSpacing: "-0.02em" }],
         "display-2xl": ["72px", { lineHeight: "76px", letterSpacing: "-0.02em" }],
       },
-      borderRadius: { control: "6px", card: "8px", overlay: "12px" },
+      borderRadius: { DEFAULT: "0.25rem", sm: "0.125rem", control: "6px", card: "8px", overlay: "12px" },
       spacing: {
         control: "34px",
         touch: "44px",
@@ -118,6 +118,10 @@ export default {
         fullscreen: "70", // gecici tam ekran katmani (FocusMode, DropCapture)
       },
       boxShadow: {
+        // V3 ölçeği; xs V3 sürümünde görünüm üretmiyordu.
+        xs: "none",
+        sm: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        DEFAULT: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
         // Katman yuzeyleri (komut paleti, popover).
         overlay: "0 24px 60px -20px rgb(9 11 15 / 0.30)",
         // Kutular: kenarligi destekleyen, sakin ve anca secilen bir kabartma.

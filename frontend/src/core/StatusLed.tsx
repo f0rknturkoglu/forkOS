@@ -212,13 +212,13 @@ export function StatusLed({ hideWhenHealthy = false }: { hideWhenHealthy?: boole
           </button>
         </div>
 
-        <div className="space-y-2 border-b border-subtle px-4 py-3">
+        <div className="stack-y-2 border-b border-subtle px-4 py-3">
           {isError && (
             <p className="flex items-center gap-2 text-body text-danger">
               <AlertTriangle size={15} aria-hidden className="shrink-0" /> Yerel API'ye ulaşılamıyor.
             </p>
           )}
-          <ul className="space-y-1.5">
+          <ul className="stack-y-1.5">
             <StatusRow label="Yerel API" {...apiView} />
             <StatusRow label="Kaynaklar" {...sourcesView} />
             <StatusRow label="RSS" {...rssView} />
@@ -230,7 +230,7 @@ export function StatusLed({ hideWhenHealthy = false }: { hideWhenHealthy?: boole
         </div>
 
         {data && (
-          <div className="space-y-3 px-4 py-3">
+          <div className="stack-y-3 px-4 py-3">
             <Bar
               label="CPU"
               value={cpuUsed}

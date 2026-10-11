@@ -53,7 +53,7 @@ export function CareerInsightsPanel() {
         </div>
       )}
       {query.data && (
-        <div className="mt-3 space-y-4">
+        <div className="mt-3 stack-y-4">
           {!query.data.population && <Empty title="Bu dönemde keşfedilmiş ilan yok">Dönemi genişletebilirsin.</Empty>}
           <p className="text-meta text-muted">
             Örnek: {query.data.population}; en az {query.data.minimum_sample}. Dönem keşif tarihine göre, sonuçlar

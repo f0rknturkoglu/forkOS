@@ -164,7 +164,7 @@ export function MetricStrip({ children, className }: { children: ReactNode; clas
   return (
     <div
       className={cx(
-        "grid divide-x divide-subtle overflow-hidden rounded-card border border-subtle bg-surface shadow-card",
+        "grid stack-divide-x divide-subtle overflow-hidden rounded-card border border-subtle bg-surface shadow-card",
         className,
       )}
     >
@@ -225,7 +225,7 @@ export function RowList({
   onKeyDown?: React.KeyboardEventHandler<HTMLElement>;
 }) {
   return (
-    <Component className={cx("divide-y divide-subtle", className)} onKeyDown={onKeyDown}>
+    <Component className={cx("stack-divide-y divide-subtle", className)} onKeyDown={onKeyDown}>
       {children}
     </Component>
   );
@@ -899,7 +899,7 @@ export function Disclosure({
         <ChevronDown size={13} className={cx("transition", open && "rotate-180")} />
         {summary}
       </Button>
-      {open && <div className="mt-2 space-y-2">{children}</div>}
+      {open && <div className="mt-2 stack-y-2">{children}</div>}
     </div>
   );
 }
@@ -1250,7 +1250,7 @@ export function Skeleton({ className }: { className?: string }) {
 /** Liste iskeleti: `rows` adet esit yukseklikte satir. */
 export function SkeletonRows({ rows = 5, className }: { rows?: number; className?: string }) {
   return (
-    <div aria-hidden className="w-full space-y-2">
+    <div aria-hidden className="w-full stack-y-2">
       {Array.from({ length: rows }, (_, index) => (
         <Skeleton key={index} className={cx("h-10", className)} />
       ))}

@@ -168,7 +168,7 @@ export function DropCapture() {
       <div className="rounded-overlay border-2 border-dashed border-accent bg-surface px-8 py-7 text-center shadow-overlay">
         <Download size={26} className="mx-auto text-accent" />
         <p className="mt-3  text-title text-primary">{busy ? "Kaydediliyor…" : "Bırak, yakalayayım"}</p>
-        <ul className="mt-3 space-y-1 text-meta text-secondary">
+        <ul className="mt-3 stack-y-1 text-meta text-secondary">
           <li className="flex items-center justify-center gap-1.5">
             <Link2 size={13} className="text-icon" /> Bağlantı → gelen kutusu
           </li>

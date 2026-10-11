@@ -253,7 +253,7 @@ export function WorkspaceHeader({
             ariaLabel="Diğer araçlar ve ayarlar"
             className="right-0 top-[calc(100%+0.375rem)] w-[min(22rem,calc(100vw-1.5rem))] p-3"
           >
-            <div className="space-y-3">
+            <div className="stack-y-3">
               {/* Görünüm / Tema */}
               <div className="flex items-center justify-between gap-2 border-b border-subtle pb-2.5">
                 <span className="text-body text-secondary">Görünüm</span>
@@ -279,7 +279,7 @@ export function WorkspaceHeader({
               </div>
 
               {/* Yenileme Kapsamı */}
-              <header className="space-y-1">
+              <header className="stack-y-1">
                 <div className="flex items-center justify-between">
                   <h3 className="text-heading text-primary">Yenileme kapsamı</h3>
                   {isRefreshing && <Chip tone="accent">çalışıyor</Chip>}
@@ -292,7 +292,7 @@ export function WorkspaceHeader({
                 </p>
               </header>
 
-              <ul className="space-y-1">
+              <ul className="stack-y-1">
                 {REFRESH_SCOPES.map((option) => (
                   <li key={option.id}>
                     <button
@@ -315,13 +315,13 @@ export function WorkspaceHeader({
                 ))}
               </ul>
 
-              <div className="space-y-1 border-t border-subtle pt-2 text-micro text-muted">
+              <div className="stack-y-1 border-t border-subtle pt-2 text-micro text-muted">
                 <p>{summary}</p>
                 {!online && <p className="text-warn">Çevrimdışısın: yenileme başlatılamaz.</p>}
               </div>
 
               {activeSourceBatch && (
-                <div className="space-y-2 border-t border-subtle pt-2" aria-live="polite">
+                <div className="stack-y-2 border-t border-subtle pt-2" aria-live="polite">
                   <div className="flex flex-wrap items-center gap-2 text-meta">
                     <span className="font-medium text-primary">Kaynak çekimi</span>
                     <Chip tone="accent">%{activeSourceBatch.progress_pct}</Chip>
@@ -347,7 +347,7 @@ export function WorkspaceHeader({
               )}
 
               {/* Hızlı Araçlar */}
-              <div className="space-y-1 border-t border-subtle pt-2">
+              <div className="stack-y-1 border-t border-subtle pt-2">
                 <p className="px-1 text-micro font-medium uppercase tracking-[0.16em] text-muted">Hızlı Araçlar</p>
                 <button
                   type="button"

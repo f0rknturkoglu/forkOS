@@ -283,7 +283,7 @@ export function ForkjobCoreSettings({ onClose }: { onClose?: () => void }) {
   }
 
   const body = (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <Tabs
         value={section}
         onChange={setSection}
@@ -297,7 +297,7 @@ export function ForkjobCoreSettings({ onClose }: { onClose?: () => void }) {
       />
 
       {section === "profile" && (
-        <div className="space-y-4">
+        <div className="stack-y-4">
           <Section title="Basit" hint="Sık değişen tercihler">
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Mevcut konum">
@@ -324,7 +324,7 @@ export function ForkjobCoreSettings({ onClose }: { onClose?: () => void }) {
               label="Gerekirse taşınabilirim"
               className="mt-3"
             />
-            <div className="mt-3 space-y-3">
+            <div className="mt-3 stack-y-3">
               <TokenListField
                 label="Çalışma izni olan ülkeler"
                 values={authorizedCountries}
@@ -340,7 +340,7 @@ export function ForkjobCoreSettings({ onClose }: { onClose?: () => void }) {
             </div>
             <div className="mt-4">
               <span className="text-meta font-medium text-secondary">Yetenekler</span>
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 stack-y-2">
                 {skills.map((skill, index) => (
                   <div key={index} className="grid gap-1.5 sm:grid-cols-[minmax(0,1fr)_6rem_minmax(0,1fr)_auto]">
                     <Input
@@ -447,7 +447,7 @@ export function ForkjobCoreSettings({ onClose }: { onClose?: () => void }) {
             {issues.length === 0 ? (
               <p className="mt-1 text-meta text-ok">Kayda hazır: alanlar tutarlı.</p>
             ) : (
-              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-meta text-danger">
+              <ul className="mt-1 list-disc stack-y-0.5 pl-4 text-meta text-danger">
                 {issues.map((issue) => (
                   <li key={issue}>{issue}</li>
                 ))}
@@ -471,7 +471,7 @@ export function ForkjobCoreSettings({ onClose }: { onClose?: () => void }) {
 
       {section === "env" && (
         <Section title="Ortam (container env)">
-          <div className="space-y-1.5 text-meta">
+          <div className="stack-y-1.5 text-meta">
             <div className="flex items-center justify-between">
               <span className="text-muted">LINKEDIN_ALLOW_DIRECT</span>
               <Chip tone={(env?.linkedin_allow_direct ?? env?.linkein_allow_direct) ? "ok" : "neutral"}>
@@ -520,7 +520,7 @@ export function ForkjobCoreSettings({ onClose }: { onClose?: () => void }) {
             silme yalnızca ikinci onaydan sonra, onay jetonuyla çalışır.
           </p>
           {prunePreview ? (
-            <div className="space-y-3">
+            <div className="stack-y-3">
               <div className="flex flex-wrap gap-2">
                 <Chip tone="warn">{prunePreview.candidates} silinecek</Chip>
                 <Chip>{prunePreview.protected} korunacak</Chip>

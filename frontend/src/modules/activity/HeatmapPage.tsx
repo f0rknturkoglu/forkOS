@@ -50,7 +50,7 @@ export function HeatmapPage() {
           />
         </WorkspacePaneHeader>
 
-        <WorkspaceScrollArea className="space-y-3 p-3">
+        <WorkspaceScrollArea className="stack-y-3 p-3">
           <Heatmap days={active.days} />
         </WorkspaceScrollArea>
       </Workspace>

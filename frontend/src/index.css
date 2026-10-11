@@ -1,6 +1,102 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* V3 kontrol odağı ve küçük backdrop bulanıklığı. */
+@utility outline-none {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+@utility backdrop-blur-sm {
+  --tw-backdrop-blur: blur(4px);
+  backdrop-filter: var(--tw-backdrop-blur);
+}
+
+/* V3 görünümü: tema tokenları ve mevcut kontrol davranışı korunur. */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+  dialog {
+    margin: auto;
+  }
+}
+
+/* V3 kardeş aralığı. Ayrı utility adı V4 margin-bottom kuralıyla birleşmez. */
+@utility stack-y-0.5 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 0.5);
+  }
+}
+@utility stack-y-1 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 1);
+  }
+}
+@utility stack-y-1.5 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 1.5);
+  }
+}
+@utility stack-y-2 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 2);
+  }
+}
+@utility stack-y-2.5 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 2.5);
+  }
+}
+@utility stack-y-3 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 3);
+  }
+}
+@utility stack-y-3.5 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 3.5);
+  }
+}
+@utility stack-y-4 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 4);
+  }
+}
+@utility stack-y-5 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 5);
+  }
+}
+@utility stack-y-6 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 6);
+  }
+}
+@utility stack-y-7 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: calc(var(--spacing) * 7);
+  }
+}
+
+/* V3 ayraç yerleşimi: ilk satır yerine sonraki satırın başlangıcında. */
+@utility stack-divide-y {
+  & > :not([hidden]) ~ :not([hidden]) {
+    border-top-width: 1px;
+    border-bottom-width: 0;
+  }
+}
+@utility stack-divide-x {
+  & > :not([hidden]) ~ :not([hidden]) {
+    border-left-width: 1px;
+    border-right-width: 0;
+  }
+}
 
 /* Boş dönen koşullu widget'lar Today'de görünmez bir dikkat sütunu bırakmasın. */
 .today-attention:not(:has([data-today-widget]:not(:empty))),

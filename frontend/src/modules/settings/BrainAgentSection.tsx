@@ -255,7 +255,7 @@ function ReadinessSummary() {
 
   return (
     <Section title="Genel durum" hint="skor değil; her bileşen kendi durumunu söyler">
-      <div className="divide-y divide-subtle">
+      <div className="stack-divide-y divide-subtle">
         <StatusRow label="forkOS" value={forkos.label} tone={forkos.tone} />
         <StatusRow
           label="Agent bağlantısı"
@@ -293,8 +293,8 @@ function AgentConnectionCard() {
         onRetry={() => void query.refetch()}
       >
         {brain && (
-          <div className="space-y-2">
-            <div className="divide-y divide-subtle">
+          <div className="stack-y-2">
+            <div className="stack-divide-y divide-subtle">
               <StatusRow label="Sunucu" value={brain.server_name} />
               <StatusRow label="Taşıma" value={TRANSPORT_LABEL[brain.transport] ?? brain.transport} />
               <StatusRow label="Araç yüzeyi" value={`${brain.tool_count} sınırlı araç`} />
@@ -316,7 +316,7 @@ function AgentConnectionCard() {
                       ? `Son agent oturumu olayı ${relativeTime(lifecycle.data.last_event_at)}`
                       : "Henüz oturum olayı görülmedi"}
               </p>
-              <div className="mt-2 divide-y divide-subtle">
+              <div className="mt-2 stack-divide-y divide-subtle">
                 <StatusRow
                   label="Başlangıç bağlamı"
                   value={
@@ -366,7 +366,7 @@ function AgentConnectionCard() {
             </div>
 
             <Disclosure summary={`Yetenek aileleri (${brain.families.length})`}>
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 {brain.families.map((family: BrainFamilyView) => (
                   <div key={family.id} className="flex items-baseline gap-2">
                     <span className="text-meta text-primary">{family.label}</span>
@@ -423,7 +423,7 @@ function VaultCard({ online }: { online: boolean }) {
         errorLabel="Vault durumu"
         onRetry={() => void query.refetch()}
       >
-        <div className="space-y-2.5">
+        <div className="stack-y-2.5">
           <div>
             <p className={cx("text-body font-medium", TONE_TEXT[VAULT_TONE[state.kind]])}>
               {VAULT_HEADLINE[state.kind]}
@@ -482,11 +482,11 @@ function VaultCard({ online }: { online: boolean }) {
                 birleştirmez.
               </p>
               <Disclosure summary={`Çakışan kayıtlar (${conflicts.length})`}>
-                <div className="space-y-2">
+                <div className="stack-y-2">
                   {conflicts.map(([id, paths]) => (
                     <div key={id} className="text-micro">
                       <p className="font-mono text-danger">{id}</p>
-                      <ul className="mt-0.5 space-y-0.5">
+                      <ul className="mt-0.5 stack-y-0.5">
                         {paths.map((path) => (
                           <li key={path} className="break-all text-secondary">
                             {path}
@@ -509,7 +509,7 @@ function VaultCard({ online }: { online: boolean }) {
                 Bu bir kimlik çakışması değildir: dosya okunamadı ya da frontmatter&apos;ı bozuk.
               </p>
               <Disclosure summary={`Geçersiz dosyalar (${invalidFiles.length})`}>
-                <ul className="space-y-0.5">
+                <ul className="stack-y-0.5">
                   {invalidFiles.map((path) => (
                     <li key={path} className="break-all text-micro text-secondary">
                       {path}
@@ -546,7 +546,7 @@ function LocalModelCard() {
         errorLabel="Yerel model durumu"
         onRetry={() => void query.refetch()}
       >
-        <div className="space-y-2">
+        <div className="stack-y-2">
           <p className="text-meta text-secondary">
             forkOS&apos;un sınıflandırma, çıkarım ve sorgu yeniden yazma gibi küçük işleri için kullandığı isteğe bağlı
             yerel model.
@@ -555,7 +555,7 @@ function LocalModelCard() {
 
           {h4 && (
             <>
-              <div className="divide-y divide-subtle border-t border-subtle pt-1">
+              <div className="stack-divide-y divide-subtle border-t border-subtle pt-1">
                 <StatusRow label="Sağlayıcı" value={`${h4.provider} · ${h4.endpoint_class}`} />
                 <StatusRow
                   label="Erişilebilirlik"
@@ -599,8 +599,8 @@ function DecisionsCard() {
         errorLabel="Karar özeti"
         onRetry={() => void query.refetch()}
       >
-        <div className="space-y-2">
-          <div className="divide-y divide-subtle">
+        <div className="stack-y-2">
+          <div className="stack-divide-y divide-subtle">
             <StatusRow
               label="Bekleyen"
               value={summary.pending > 0 ? `${summary.pending} karar` : "karar yok"}
@@ -665,7 +665,7 @@ function HermesCard() {
         </Chip>
       }
     >
-      <div className="space-y-2.5">
+      <div className="stack-y-2.5">
         <p className="text-meta text-secondary">
           Hermes forkOS&apos;un dışında çalışır ve bu arayüze MCP üzerinden bağlanır.
         </p>
@@ -677,7 +677,7 @@ function HermesCard() {
           onRetry={() => void query.refetch()}
         >
           {endpoint && (
-            <div className="space-y-2.5">
+            <div className="stack-y-2.5">
               <div className="rounded-control border border-subtle bg-surface-sunken px-2.5 py-2">
                 <p className="text-micro text-muted">Hermes&apos;e verilecek MCP adresi</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -699,7 +699,7 @@ function HermesCard() {
               </Disclosure>
 
               <Disclosure summary="Katmanlar: Hermes Skills · Agent hafızası · f0rknbrain">
-                <div className="space-y-1 text-micro text-secondary">
+                <div className="stack-y-1 text-micro text-secondary">
                   <p>
                     <span className="font-medium text-primary">Hermes Skills</span> → Hermes&apos;in bir sistemi NASIL
                     kullanacağını öğrendiği prosedürler.
@@ -784,8 +784,8 @@ function EpisodeHandoffCard() {
         onRetry={() => void query.refetch()}
       >
         {status && (
-          <div className="space-y-2">
-            <div className="divide-y divide-subtle">
+          <div className="stack-y-2">
+            <div className="stack-divide-y divide-subtle">
               <StatusRow
                 label="Son mühürleme"
                 value={status.last_sealed_at ? formatTrDateTime(status.last_sealed_at) : "henüz yok"}
@@ -802,7 +802,7 @@ function EpisodeHandoffCard() {
             </div>
 
             {limited && (
-              <ul className="space-y-0.5">
+              <ul className="stack-y-0.5">
                 {degraded.map((code) => (
                   <li key={code} className="text-micro text-warn">
                     · {EPISODE_DEGRADED_LABEL[code] ?? EPISODE_DEGRADED_UNKNOWN}
@@ -956,9 +956,9 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
           void candidatesQuery.refetch();
         }}
       >
-        <div className="space-y-3">
+        <div className="stack-y-3">
           {status && (
-            <div className="divide-y divide-subtle">
+            <div className="stack-divide-y divide-subtle">
               <StatusRow
                 label="Kalıcı kartlar"
                 value={`${status.durable_card_count} kart`}
@@ -985,11 +985,11 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
               listelenir.
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className="stack-y-2">
               <span className="text-micro font-medium text-secondary">
                 Bekleyen Adaylar ({pendingCandidates.length})
               </span>
-              <div className="space-y-2">
+              <div className="stack-y-2">
                 {pendingCandidates.map((c) => {
                   const isReady = c.status === "ready";
                   const canPromote = isReady;
@@ -997,7 +997,7 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
                     confirmMutation.isPending || rejectMutation.isPending || promoteMutation.isPending;
 
                   return (
-                    <div key={c.id} className="rounded-card border border-subtle bg-surface-raised p-2.5 space-y-1.5">
+                    <div key={c.id} className="rounded-card border border-subtle bg-surface-raised p-2.5 stack-y-1.5">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-meta font-medium text-primary leading-snug">{c.statement}</p>
                         <Chip tone={c.status === "ready" ? "ok" : c.status === "needs_review" ? "warn" : "neutral"}>
@@ -1111,7 +1111,7 @@ export function SemanticCandidatesCard({ online = true }: { online?: boolean }) 
 export function BrainAgentSection() {
   const online = useOnline();
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <OwnershipNote />
       <ReadinessSummary />
       <div className="grid gap-4 lg:grid-cols-2">
@@ -1127,7 +1127,7 @@ export function BrainAgentSection() {
         <EpisodeHandoffCard />
       </div>
       <SemanticCandidatesCard online={online} />
-      <div className="space-y-0.5">
+      <div className="stack-y-0.5">
         <p className="text-meta text-secondary">Sessizlik başarılı bir sonuçtur.</p>
         <p className="text-micro text-muted">
           Proaktivite yalnız dikkat gerektiren durumlarda konuşur; sessiz kalmak bir hata değil, beklenen sonuçtur.

@@ -28,7 +28,7 @@ export function ActivityWidget() {
       {data.length === 0 ? (
         <Empty>Henüz hareket yok.</Empty>
       ) : (
-        <ul className="space-y-1">
+        <ul className="stack-y-1">
           {data.slice(0, 5).map((event) => (
             <li
               key={event.id}

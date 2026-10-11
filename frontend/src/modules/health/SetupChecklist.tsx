@@ -164,14 +164,14 @@ export function SetupChecklist() {
           <X size={14} aria-hidden="true" />
         </button>
       }
-      bodyClassName="space-y-3"
+      bodyClassName="stack-y-3"
     >
       <p className="text-meta text-muted">
         Çekirdek adımlar forkOS&apos;un çalışması için gerekir. Entegrasyonlar isteğe bağlıdır — eksik olmaları sorun
         değildir.
       </p>
 
-      <ul className="space-y-1.5">
+      <ul className="stack-y-1.5">
         {coreSteps.map((step) => (
           <li key={step.id} className="flex items-center gap-2 text-meta">
             {step.state === "ready" ? (
@@ -196,7 +196,7 @@ export function SetupChecklist() {
       <Disclosure
         summary={`İsteğe bağlı entegrasyonlar (${optionalReady}/${optionalSteps.length} bağlı) — kurulum için gerekli değil`}
       >
-        <ul className="space-y-1">
+        <ul className="stack-y-1">
           {optionalSteps.map((step) => (
             <li key={step.id} className="flex items-center gap-2 text-meta">
               <span className="w-36 shrink-0 text-secondary">{step.label}</span>

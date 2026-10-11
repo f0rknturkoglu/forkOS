@@ -218,7 +218,7 @@ export function ModulesSection({
             ))}
           </Select>
         </div>
-        <ul className="mt-3 divide-y divide-subtle rounded-card border border-subtle">
+        <ul className="mt-3 stack-divide-y divide-subtle rounded-card border border-subtle">
           {Object.entries(automation).map(([domain, state]) => (
             <li key={domain} className="px-3 py-2">
               <Checkbox
@@ -241,7 +241,7 @@ export function ModulesSection({
           Kapatılan modülün rotası, Home bileşenleri ve komutları devre dışı kalır; verisi silinmez ve arka plan
           güncellemesi bundan etkilenmez. Ayarlar her zaman açıktır.
         </p>
-        <ul className="divide-y divide-subtle rounded-card border border-subtle">
+        <ul className="stack-divide-y divide-subtle rounded-card border border-subtle">
           {modules.map((module) => (
             <li key={module.id} className="px-3 py-2">
               <Checkbox
@@ -501,7 +501,7 @@ export function BackupSection({
         </p>
       )}
       {backupStatus && (
-        <div className="mt-3 space-y-0.5 border-t border-subtle pt-3 text-meta text-muted">
+        <div className="mt-3 stack-y-0.5 border-t border-subtle pt-3 text-meta text-muted">
           <p>
             Son yedek: {last ? `${last.file} · ${Math.round(last.size / 1024)} KB · ${relativeTime(last.at)}` : "—"}
           </p>

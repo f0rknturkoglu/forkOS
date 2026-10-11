@@ -83,7 +83,7 @@ export function TopicProgressBar({
 }) {
   const complete = total > 0 && done === total;
   return (
-    <div className="space-y-1.5">
+    <div className="stack-y-1.5">
       <div className="flex items-baseline justify-between gap-3 text-meta">
         <span className="text-secondary">{label}</span>
         <span className={cx("numeral font-medium", complete ? "text-ok" : "text-primary")}>
@@ -171,7 +171,7 @@ function ResourceFormFields({
 }) {
   const patch = (part: Partial<ResourceForm>) => onChange({ ...form, ...part });
   return (
-    <div className="space-y-3">
+    <div className="stack-y-3">
       <Field label="Başlık">
         <Input
           value={form.title}
@@ -271,7 +271,7 @@ function BookmarkPicker({
             {query ? "Eşleşen yer imi yok." : "Öğrenme koleksiyonunda yer imi yok."}
           </p>
         ) : (
-          <ul className="space-y-1">
+          <ul className="stack-y-1">
             {bookmarks.map((bookmark) => (
               <li key={bookmark.id}>
                 <button
@@ -371,7 +371,7 @@ export function ResourceList({ topicId, addSignal = 0 }: { topicId: string; addS
   const total = progress?.total ?? 0;
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <SectionHeader
         label="Kaynaklar"
         hint={total ? `${done}/${total} tamamlandı` : undefined}

@@ -176,7 +176,7 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
           }
         />
         <WorkspaceScrollArea className="p-3">
-          <div className="space-y-5">
+          <div className="stack-y-5">
             <div className="flex flex-wrap items-center gap-2 border-b border-subtle pb-3">
               <Tabs
                 value={kind === "daily" ? "weekly" : kind}
@@ -232,7 +232,7 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
               </Section>
             )}
 
-            <div className="space-y-3">
+            <div className="stack-y-3">
               <SectionHeader label="Dönem özeti" />
               <MetricStrip className="grid-cols-2 lg:grid-cols-4">
                 {reviewMetricRows(snapshot).map((row) => (
@@ -259,7 +259,7 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                   başarı sayılmaz.
                 </p>
                 {(stats.career_goals ?? []).length > 0 && (
-                  <div className="mt-3 space-y-1 border-t border-subtle pt-3">
+                  <div className="mt-3 stack-y-1 border-t border-subtle pt-3">
                     <p className="text-meta font-semibold text-primary">Hedef adımları (milestone)</p>
                     {careerGoalReviewRows(
                       stats,
@@ -279,7 +279,7 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
               </Section>
             )}
 
-            <div className="space-y-3">
+            <div className="stack-y-3">
               <SectionHeader label="Neler oldu?" />
               <div className="grid gap-4 xl:grid-cols-2">
                 <Section title="Tamamlanan işler" hint={`${data.completed_todos.length} kayıt`}>
@@ -311,7 +311,7 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                   title="İstatistikler"
                   hint={stats.focus.minutes ? `${stats.focus.minutes} dk odak` : undefined}
                 >
-                  <div className="space-y-3">
+                  <div className="stack-y-3">
                     <Signal icon={<Target size={15} />} label="En iyi gün" value={dayLabel(stats.focus.best_day)} />
                     <Signal
                       icon={<Clock3 size={15} />}
@@ -323,7 +323,7 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                     {topics.length === 0 ? (
                       <p className="text-meta text-muted">Bu dönemde tamamlanan odak seansı yok.</p>
                     ) : (
-                      <div className="space-y-2.5">
+                      <div className="stack-y-2.5">
                         {topics.slice(0, 5).map((topic) => (
                           <div key={topic.topic}>
                             <div className="mb-1.5 flex items-center gap-3 text-meta">
@@ -386,7 +386,7 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
               {open.length === 0 ? (
                 <Empty>Açık görev kalmamış — temiz kapanış.</Empty>
               ) : (
-                <div className="space-y-3">
+                <div className="stack-y-3">
                   <p className="text-body text-secondary">
                     Açık görevler görev listende kalır; otomatik taşıma veya silme yapılmaz.
                   </p>

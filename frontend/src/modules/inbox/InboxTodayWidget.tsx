@@ -69,7 +69,7 @@ export function InboxTodayWidget() {
         {latest.length === 0 ? (
           <Empty>Gelen kutusu temiz. Bekleyen kayit yok.</Empty>
         ) : (
-          <div className="space-y-3">
+          <div className="stack-y-3">
             <RowList>
               {latest.map((bookmark) => (
                 <div

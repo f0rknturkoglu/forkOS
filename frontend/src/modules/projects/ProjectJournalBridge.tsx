@@ -54,7 +54,7 @@ export function ProjectJournalBridge({ projectId }: { projectId: string }) {
   const vaultReady = Boolean(status?.configured && status?.available);
 
   return (
-    <Section title="Günlük" hint="günlük notu Obsidian'da yaşar" bodyClassName="space-y-3">
+    <Section title="Günlük" hint="günlük notu Obsidian'da yaşar" bodyClassName="stack-y-3">
       {statusLoading ? (
         <Skeleton className="h-10 w-full" />
       ) : !vaultReady ? (

@@ -104,7 +104,7 @@ export function ProjectsPage() {
       {isLoading ? (
         <SkeletonRows rows={6} />
       ) : projects.length === 0 ? (
-        <div className="space-y-4">
+        <div className="stack-y-4">
           <Empty
             variant="page"
             title="Henüz proje yok"
@@ -204,7 +204,7 @@ export function ProjectsPage() {
             }
           />
           <WorkspaceScrollArea className="p-4">
-            <div id="project-view" role="tabpanel" className="mx-auto max-w-4xl space-y-4">
+            <div id="project-view" role="tabpanel" className="mx-auto max-w-4xl stack-y-4">
               <ProjectViewContent key={`${current.id}:${view}`} project={current} view={view} onView={setView} />
             </div>
           </WorkspaceScrollArea>
@@ -298,7 +298,7 @@ function ProjectInspector({ project }: { project: Project }) {
 
   return (
     <WorkspaceInspectorContent title="Proje detayları">
-      <div className="min-w-0 space-y-4">
+      <div className="min-w-0 stack-y-4">
         <Section
           title="Proje bilgisi"
           action={

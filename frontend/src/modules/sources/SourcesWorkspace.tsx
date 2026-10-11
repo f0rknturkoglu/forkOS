@@ -277,9 +277,9 @@ export function SourcesWorkspace({
   const refreshDisabled = !online || refresh.isPending || catalogState !== "ready";
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       {/* ── Başlık: ilerleme + dürüst toplu durum ── */}
-      <div className="space-y-2">
+      <div className="stack-y-2">
         <SyncProgress scope={syncScope} compact />
         <div className="flex flex-wrap items-center gap-2">
           <span className="label-caps text-muted">{copy.title}</span>
@@ -336,7 +336,7 @@ export function SourcesWorkspace({
             Sağlayıcı durumu alınamadı.
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="stack-y-2">
             <div className="flex flex-wrap items-center gap-2 text-meta">
               <Chip tone={careerOps.data?.core_ready ? "ok" : "danger"}>
                 {careerOps.data?.core_ready ? "çalışıyor" : "çalışmıyor"}
@@ -441,7 +441,7 @@ export function SourcesWorkspace({
           title="İlgi isteyen kaynaklar"
           hint={`Eşik backend'den gelir: devre açık, son koşu hata ya da üst üste ${SILENT_EMPTY_THRESHOLD} boş koşu`}
         >
-          <ul className="space-y-1.5">
+          <ul className="stack-y-1.5">
             {problemRows.map((row) => {
               const fatal = row.circuit_open || row.last_status === "error";
               return (
@@ -602,7 +602,7 @@ export function SourcesWorkspace({
               : "Arama ya da süzgeç ölçütünü değiştirip yeniden dene."}
           </Empty>
         ) : (
-          <ul className="divide-y divide-subtle border-y border-subtle">
+          <ul className="stack-divide-y divide-subtle border-y border-subtle">
             {visible.map((entry) => {
               const row = coverageIndex.get(entry.id);
               const run = latestRuns.get(entry.id);

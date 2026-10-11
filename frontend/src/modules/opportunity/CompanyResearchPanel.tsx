@@ -95,11 +95,11 @@ export function CompanyResearchPanel({ jobKinds }: { jobKinds: string[] }) {
           Başvuru kaydı olan bir iş ilanı oluştuğunda kurum burada listelenir.
         </Empty>
       ) : (
-        <div className="space-y-4">
+        <div className="stack-y-4">
           <div className="grid gap-3 md:grid-cols-[16rem_minmax(0,1fr)]">
-            <div className="space-y-1">
+            <div className="stack-y-1">
               <span className="text-meta font-medium text-secondary">Kurum</span>
-              <div className="max-h-64 space-y-1 overflow-y-auto">
+              <div className="max-h-64 stack-y-1 overflow-y-auto">
                 {companies.map((company) => (
                   <button
                     key={company.key}
@@ -127,7 +127,7 @@ export function CompanyResearchPanel({ jobKinds }: { jobKinds: string[] }) {
             </div>
 
             {selected && (
-              <div className="space-y-4 rounded-card border border-subtle bg-surface-sunken p-4">
+              <div className="stack-y-4 rounded-card border border-subtle bg-surface-sunken p-4">
                 <Field label="Şirket Notu" hint="Bu kurumun tüm başvurularıyla paylaşılır.">
                   <Textarea value={companyDraft} onChange={setCompanyDraft} rows={5} />
                 </Field>
@@ -141,7 +141,7 @@ export function CompanyResearchPanel({ jobKinds }: { jobKinds: string[] }) {
 
                 <div>
                   <span className="text-meta font-medium text-secondary">Bu notu paylaşan ilanlar</span>
-                  <ul className="mt-1 space-y-1">
+                  <ul className="mt-1 stack-y-1">
                     {selected.jobs.map((job) => (
                       <li key={job.id}>
                         <button
@@ -187,7 +187,7 @@ export function CompanyResearchPanel({ jobKinds }: { jobKinds: string[] }) {
               <p className="mt-1 text-meta text-muted">
                 Duyuru kayıtları şirket notuna karışmaz; duyuru notu ilan detayında ayrı tutulur.
               </p>
-              <ul className="mt-2 space-y-1">
+              <ul className="mt-2 stack-y-1">
                 {announcements.slice(0, 20).map((item) => (
                   <li key={item.id} className="flex flex-wrap items-center gap-2 text-meta text-secondary">
                     <span className="text-primary">{item.title}</span>

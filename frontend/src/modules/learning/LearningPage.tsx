@@ -329,7 +329,7 @@ export function LearningPage() {
           detailQuery.isError && !notFound(detailQuery.error) ? (
             <div
               role="alert"
-              className="mx-auto max-w-content space-y-2 rounded-card border border-danger-border bg-danger-surface px-4 py-3"
+              className="mx-auto max-w-content stack-y-2 rounded-card border border-danger-border bg-danger-surface px-4 py-3"
             >
               <p className="text-meta text-danger">Konu yüklenemedi.</p>
               <Button size="sm" onClick={() => void detailQuery.refetch()}>
@@ -337,13 +337,13 @@ export function LearningPage() {
               </Button>
             </div>
           ) : !detail ? (
-            <div className="mx-auto max-w-content space-y-3">
+            <div className="mx-auto max-w-content stack-y-3">
               <Skeleton className="h-6 w-2/3" />
               <Skeleton className="h-4 w-1/3" />
               <Skeleton className="h-40 w-full" />
             </div>
           ) : (
-            <div className="mx-auto max-w-content space-y-3">
+            <div className="mx-auto max-w-content stack-y-3">
               {breadcrumb}
               {resource && (
                 <p className="flex min-w-0 items-center gap-1.5 text-meta text-muted">
@@ -381,7 +381,7 @@ export function LearningPage() {
   );
 
   return (
-    <PageFrame className="space-y-3">
+    <PageFrame className="stack-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <Tabs
           value={view}

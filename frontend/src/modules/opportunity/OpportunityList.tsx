@@ -41,7 +41,7 @@ export function OpportunityCollection({ layout, children }: { layout: "rows" | "
     <div
       data-layout={layout}
       className={cx(
-        layout === "grid" ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" : "divide-y divide-subtle",
+        layout === "grid" ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" : "stack-divide-y divide-subtle",
       )}
     >
       {children}

@@ -254,7 +254,7 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
       {plan === undefined ? (
         <SkeletonRows rows={4} />
       ) : (
-        <div className="space-y-3.5">
+        <div className="stack-y-3.5">
           {plan.summary && <p className="text-body text-secondary">{plan.summary}</p>}
 
           <Meta label="Neden">{plan.reason ?? "Gerekçe belirtilmemiş."}</Meta>
@@ -315,7 +315,7 @@ function PlanReviewModal({ planRowId, onClose }: { planRowId: number; onClose: (
                 Plan onaya hazır değil: eksik bilgi tamamlanmadan onaylanamaz. Cevaplar mutasyon üretmez; plan yeni bir
                 revizyon olarak yeniden hazırlanır.
               </span>
-              <span className="mt-2 block space-y-2">
+              <span className="mt-2 block stack-y-2">
                 {plan.input_questions.map((question) => (
                   <Field key={question} label={question}>
                     <Input

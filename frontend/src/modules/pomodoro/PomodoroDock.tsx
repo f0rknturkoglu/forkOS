@@ -129,7 +129,7 @@ export function QuickActionDock() {
           </header>
 
           {active ? (
-            <div className="space-y-4 p-4">
+            <div className="stack-y-4 p-4">
               <div className="flex items-end justify-between gap-3">
                 <div className={cx("numeral text-display tabular-nums", paused ? "text-muted" : "text-primary")}>
                   {clock(left)}
@@ -200,7 +200,7 @@ export function QuickActionDock() {
               </button>
             </div>
           ) : (
-            <div className="space-y-4 p-4">
+            <div className="stack-y-4 p-4">
               <div>
                 <p className="mb-2 text-meta text-secondary">Süre</p>
                 <div className="flex flex-wrap gap-2">

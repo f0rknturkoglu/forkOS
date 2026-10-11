@@ -73,7 +73,7 @@ export function DailyRhythmWidget() {
 
   return (
     <Section title="Gün özeti" hint={phaseLabel}>
-      <div className="space-y-3">
+      <div className="stack-y-3">
         <p className="flex items-center gap-1.5 text-meta text-muted">
           <PhaseIcon size={13} className="shrink-0 text-icon" />
           {phase === "morning" && (

@@ -114,7 +114,7 @@ export function DeckList({ onOpen, showDecks = true }: { onOpen: (deckId: string
   };
 
   return (
-    <div className="space-y-5">
+    <div className="stack-y-5">
       {showDecks ? (
         <Section title="Destekler" hint={decks.length ? `${decks.length} destek` : undefined}>
           {isLoading ? (

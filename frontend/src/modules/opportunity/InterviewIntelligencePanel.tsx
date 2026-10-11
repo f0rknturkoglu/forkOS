@@ -50,7 +50,7 @@ export function InterviewIntelligencePanel({ interviewId }: { interviewId: strin
   const prep = query.data?.prep;
   const latest = query.data?.practice?.at(-1);
   return (
-    <div className="mt-3 space-y-3 border-t border-subtle pt-3">
+    <div className="mt-3 stack-y-3 border-t border-subtle pt-3">
       <Tabs
         value={tab}
         onChange={setTab}
@@ -73,7 +73,7 @@ export function InterviewIntelligencePanel({ interviewId }: { interviewId: strin
             Yerel kurallar; geçerli ilan, gerçek CV ve güncel değerlendirme gerekir.
           </p>
           {prep && (
-            <div className="space-y-2">
+            <div className="stack-y-2">
               <Chip tone={prep.is_stale ? "warn" : "ok"}>
                 {prep.is_stale ? "Kanıt değişti; yeniden hazırla" : "Güncel hazırlık"}
               </Chip>

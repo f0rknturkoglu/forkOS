@@ -103,7 +103,7 @@ export function AnnouncementDetail({ item }: { item: Opportunity }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="space-y-3">
+      <div className="stack-y-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <Chip>{kindLabel(item.kind)}</Chip>
           <Chip tone="accent">{announcementCategoryLabel(item.category)}</Chip>
@@ -181,7 +181,7 @@ export function AnnouncementDetail({ item }: { item: Opportunity }) {
       <Tabs<AnnouncementTab> ariaLabel="Duyuru sekmeleri" value={tab} onChange={setTab} items={[...TAB_ITEMS]} />
       <div role="tabpanel" aria-label={TAB_LABELS[tab]} id={`announcement-tabpanel-${tab}`}>
         {tab === "ozet" && (
-          <div className="space-y-4">
+          <div className="stack-y-4">
             <Section title="Duyuru künyesi">
               <dl className="grid grid-cols-[10rem_1fr] gap-x-4 gap-y-2 text-meta">
                 <Row label="Kurum" value={item.organization || "—"} />
@@ -222,7 +222,7 @@ export function AnnouncementDetail({ item }: { item: Opportunity }) {
             </Section>
 
             <Section title="Hızlı aksiyonlar" hint="tümü yerelde">
-              <div className="space-y-3">
+              <div className="stack-y-3">
                 <form
                   className="flex gap-2"
                   onSubmit={(event) => {
@@ -269,9 +269,9 @@ export function AnnouncementDetail({ item }: { item: Opportunity }) {
         )}
 
         {tab === "tarihler" && (
-          <div className="space-y-4">
+          <div className="stack-y-4">
             <Section title="Tarihler" hint="bilinmeyen tarihler —">
-              <ol className="space-y-3">
+              <ol className="stack-y-3">
                 <DateRow icon={<CalendarClock size={13} />} label="Yayın" value={item.published_at} />
                 <DateRow
                   icon={<CalendarClock size={13} />}
@@ -293,7 +293,7 @@ export function AnnouncementDetail({ item }: { item: Opportunity }) {
         )}
 
         {tab === "kontenjan" && (
-          <div className="space-y-4">
+          <div className="stack-y-4">
             <Section title="Kontenjan">
               {item.quota_total == null ? (
                 <Empty>Kontenjan bilgisi bu duyuruda yer almıyor.</Empty>
@@ -326,7 +326,7 @@ export function AnnouncementDetail({ item }: { item: Opportunity }) {
         {tab === "belgeler" && <AnnouncementDocuments item={item} online={online} />}
 
         {tab === "notlar" && (
-          <div className="space-y-4">
+          <div className="stack-y-4">
             <OpportunityKnowledgeSection
               id={item.id}
               online={online}
@@ -362,7 +362,7 @@ function AnnouncementDocuments({ item, online }: { item: Opportunity; online: bo
   });
 
   return (
-    <div className="space-y-4">
+    <div className="stack-y-4">
       <Section title="Resmî belgeler">
         <div className="flex flex-wrap gap-2">
           {item.guide_url ? (

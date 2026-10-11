@@ -173,7 +173,7 @@ function renderBlock(block: Block, props: MarkdownProps, key: string): ReactNode
       return (
         <Tag
           key={key}
-          className={cx("ml-5 space-y-1 text-body text-primary", block.ordered ? "list-decimal" : "list-disc")}
+          className={cx("ml-5 stack-y-1 text-body text-primary", block.ordered ? "list-decimal" : "list-disc")}
         >
           {block.items.map((item, index) => (
             <li key={index}>{renderInline(item, props, `${key}-${index}`)}</li>
@@ -183,7 +183,7 @@ function renderBlock(block: Block, props: MarkdownProps, key: string): ReactNode
     }
     case "tasks":
       return (
-        <ul key={key} className="space-y-1 text-body text-primary">
+        <ul key={key} className="stack-y-1 text-body text-primary">
           {block.items.map((item, index) => (
             <li key={index} className="flex items-start gap-2">
               {props.onTaskToggle ? (
@@ -235,7 +235,7 @@ function renderBlock(block: Block, props: MarkdownProps, key: string): ReactNode
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-subtle">
+            <tbody className="stack-divide-y divide-subtle">
               {block.rows.map((row, rowIndex) => (
                 <tr key={rowIndex} className="transition hover:bg-surface-hover">
                   {row.map((cell, index) => (
@@ -276,7 +276,7 @@ export function Markdown(props: MarkdownProps) {
     return <p className="text-meta text-muted">Boş not.</p>;
   }
   return (
-    <div className={cx("space-y-2.5", props.className)}>
+    <div className={cx("stack-y-2.5", props.className)}>
       {blocks.map((block, index) => renderBlock(block, props, `b${index}`))}
     </div>
   );

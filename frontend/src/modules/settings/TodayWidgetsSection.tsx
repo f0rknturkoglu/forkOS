@@ -120,7 +120,7 @@ export function TodayWidgetsSection({
         ))}
       </div>
 
-      <ul className="divide-y divide-subtle rounded-card border border-subtle">
+      <ul className="stack-divide-y divide-subtle rounded-card border border-subtle">
         {coreViews.map((view) => (
           <li key={view.id} className="flex items-center gap-2 px-3 py-2">
             <div className="min-w-0 flex-1">
@@ -134,7 +134,7 @@ export function TodayWidgetsSection({
       </ul>
 
       <p className="mb-2 mt-4 text-meta text-muted">İsteğe bağlı yüzeyler</p>
-      <ul className="divide-y divide-subtle rounded-card border border-subtle">
+      <ul className="stack-divide-y divide-subtle rounded-card border border-subtle">
         {optionalViews.map((view) => {
           const isHidden = hidden.has(view.id);
           const group = zoneOrder(view.id);

@@ -176,7 +176,7 @@ export function DeckDetail({ deckId, onBack }: { deckId: string; onBack: () => v
   };
 
   return (
-    <div className="space-y-5">
+    <div className="stack-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <IconButton title="Desteklere dön" onClick={onBack}>

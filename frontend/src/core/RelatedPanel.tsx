@@ -107,7 +107,7 @@ export function RelatedPanel({
       }
     >
       {picking && (
-        <div className="mb-3 space-y-2">
+        <div className="mb-3 stack-y-2">
           <div className="flex items-center gap-2">
             <Input value={query} onChange={setQuery} placeholder="Kayıt ara…" className="min-w-0 flex-1" />
             <IconButton
@@ -148,7 +148,7 @@ export function RelatedPanel({
         Object.entries(grouped).map(([label, items]) => (
           <div key={label} className="mb-2 last:mb-0">
             <p className="label-caps mb-1 text-muted">{label}</p>
-            <div className="divide-y divide-subtle rounded-card border border-subtle">
+            <div className="stack-divide-y divide-subtle rounded-card border border-subtle">
               {items.map((row) => (
                 <div key={row.entity.id + row.relation} className="group flex items-center gap-2 px-3 py-2">
                   <a

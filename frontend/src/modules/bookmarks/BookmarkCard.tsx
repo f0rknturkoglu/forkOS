@@ -92,8 +92,8 @@ export function BookmarkCard({ bookmark, selected, onToggleSelect, onOpenReader 
       </div>
 
       {/* Kart Govdesi */}
-      <div className="flex flex-1 flex-col justify-between p-3.5 space-y-3">
-        <div className="space-y-1.5">
+      <div className="flex flex-1 flex-col justify-between p-3.5 stack-y-3">
+        <div className="stack-y-1.5">
           {/* Alan Adi ve Tarih */}
           <div className="flex items-center gap-1.5 text-micro text-muted font-mono truncate">
             <span className="truncate">{host}</span>
@@ -133,7 +133,7 @@ export function BookmarkCard({ bookmark, selected, onToggleSelect, onOpenReader 
         </div>
 
         {/* Alt Bilgiler ve Hizli Aksiyonlar */}
-        <div className="space-y-2 border-t border-subtle pt-2 text-meta">
+        <div className="stack-y-2 border-t border-subtle pt-2 text-meta">
           <div className="flex flex-wrap items-center gap-1.5">
             <Chip>{COLLECTION_LABELS[bookmark.collection] || bookmark.collection}</Chip>
             {isRead && <Chip tone="ok">Okundu</Chip>}

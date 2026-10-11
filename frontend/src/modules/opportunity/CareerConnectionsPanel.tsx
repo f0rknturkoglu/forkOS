@@ -138,7 +138,7 @@ export function CareerConnectionsPanel({ focusId }: { focusId?: string | null })
       {isLoading ? (
         <div className="h-24 animate-pulse rounded-card bg-surface-sunken" />
       ) : connectionsFailed ? (
-        <div role="alert" className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3">
+        <div role="alert" className="stack-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3">
           <p className="text-meta text-danger">
             Bağlantılar yüklenemedi: {connectionsError instanceof Error ? connectionsError.message : "bilinmeyen hata"}
           </p>
@@ -248,7 +248,7 @@ export function CareerConnectionsPanel({ focusId }: { focusId?: string | null })
         }
       >
         {pending && (
-          <div className="space-y-3">
+          <div className="stack-y-3">
             <div className="flex flex-wrap gap-2">
               <Chip tone="accent">{pending.preview.total} satır</Chip>
               <Chip tone={pending.preview.duplicates > 0 ? "warn" : "ok"}>{pending.preview.duplicates} tekrar</Chip>
@@ -262,7 +262,7 @@ export function CareerConnectionsPanel({ focusId }: { focusId?: string | null })
               <ShieldCheck size={14} className="text-ok" /> Bu CSV yalnızca bu cihazdaki yerel PostgreSQL'e yazılır;
               makineden dışarı çıkmaz.
             </p>
-            <div className="max-h-56 space-y-1 overflow-y-auto">
+            <div className="max-h-56 stack-y-1 overflow-y-auto">
               {pending.preview.rows.slice(0, 50).map((row, index) => (
                 <div
                   key={`${row.identity}-${index}`}

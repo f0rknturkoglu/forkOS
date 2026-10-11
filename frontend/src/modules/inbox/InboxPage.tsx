@@ -171,7 +171,7 @@ function InboxCard({
       {editing && (
         <form
           onKeyDown={swallow}
-          className="mt-3 space-y-2 border-t border-subtle pt-3"
+          className="mt-3 stack-y-2 border-t border-subtle pt-3"
           onSubmit={(e) => {
             e.preventDefault();
             if (titleDraft.trim() && titleDraft !== bookmark.title) {
@@ -418,7 +418,7 @@ export function InboxPage() {
       <Workspace
         inspector={
           <WorkspaceInspectorContent title="Taşı" hint={selectedId ? "1 kart seçili" : "önce kart seç"}>
-            <div className="space-y-2">
+            <div className="stack-y-2">
               {TARGETS.map((collection, index) => (
                 <DropTarget
                   key={collection}
@@ -430,7 +430,7 @@ export function InboxPage() {
                 />
               ))}
             </div>
-            <dl className="mt-4 space-y-1.5 border-t border-subtle pt-3 text-meta text-muted">
+            <dl className="mt-4 stack-y-1.5 border-t border-subtle pt-3 text-meta text-muted">
               {[
                 ["↑ ↓", "kartlar arasında gez"],
                 [`1–${TARGETS.length}`, "seçili kartı taşı"],

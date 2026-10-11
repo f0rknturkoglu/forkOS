@@ -213,7 +213,7 @@ function QuickManual({ onDone }: { onDone: () => void }) {
 
   return (
     <form
-      className="mb-3 space-y-2 border-b border-subtle pb-3"
+      className="mb-3 stack-y-2 border-b border-subtle pb-3"
       onSubmit={(event) => {
         event.preventDefault();
         add.mutate();

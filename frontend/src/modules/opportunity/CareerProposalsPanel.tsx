@@ -53,7 +53,7 @@ export function CareerProposalsPanel() {
   const decided = query.data?.filter((item) => item.status !== "proposed") ?? [];
 
   return (
-    <div className="space-y-3 border-t border-subtle pt-4">
+    <div className="stack-y-3 border-t border-subtle pt-4">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="min-w-0 flex-1 text-body font-semibold text-primary">Karar bekleyen öneriler</h3>
         <Button size="sm" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
@@ -70,7 +70,7 @@ export function CareerProposalsPanel() {
       )}
       {!pending.length && <Empty title="Karar bekleyen öneri yok">Güncel kanıtlardan öneri hazırlayabilirsin.</Empty>}
       {pending.map((item) => (
-        <div key={item.id} className="space-y-2 rounded-card border border-subtle bg-surface p-3">
+        <div key={item.id} className="stack-y-2 rounded-card border border-subtle bg-surface p-3">
           <div className="flex flex-wrap items-center gap-2">
             <p className="min-w-0 flex-1 text-body font-semibold text-primary">{item.title}</p>
             <Chip tone="neutral">{destination[item.type]}</Chip>

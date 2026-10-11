@@ -93,7 +93,7 @@ export function BackupMergeControl({ className }: { className?: string }) {
           <p className="flex items-center gap-1.5 text-secondary">
             <ShieldAlert size={13} className="shrink-0 text-icon" /> Dosya incelendi
           </p>
-          <ul className="mt-1 space-y-0.5 text-muted">
+          <ul className="mt-1 stack-y-0.5 text-muted">
             <li>
               Format v{inspection.version}
               {inspection.app ? ` (${inspection.app})` : ""} · {inspection.table_counts.entities} entity ·{" "}

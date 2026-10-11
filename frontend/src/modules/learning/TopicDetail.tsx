@@ -286,7 +286,7 @@ export function TopicDetail({
 
   if (isLoading) {
     return (
-      <div className="space-y-4" aria-busy>
+      <div className="stack-y-4" aria-busy>
         <Skeleton className="h-6 w-2/3" />
         <Skeleton className="h-24 w-full" />
         <SkeletonRows rows={4} />
@@ -344,8 +344,8 @@ export function TopicDetail({
   };
 
   return (
-    <div className="space-y-5">
-      <header className="space-y-2">
+    <div className="stack-y-5">
+      <header className="stack-y-2">
         <nav aria-label="Konu yolu" className="flex flex-wrap items-center gap-1 text-meta text-muted">
           {(detail.ancestors ?? []).map((ancestor) => (
             <span key={ancestor.id} className="flex items-center gap-1">
@@ -478,8 +478,8 @@ export function TopicDetail({
 
       <div role="tabpanel" aria-label={TOPIC_TABS.find((item) => item.id === tab)?.label ?? "Genel"}>
         {tab === "genel" && (
-          <div className="space-y-5">
-            <section className="space-y-3">
+          <div className="stack-y-5">
+            <section className="stack-y-3">
               <SectionHeader label="Durum" />
               <div className="flex flex-wrap items-center gap-3">
                 <StatusSegment value={topic.status} onChange={applyStatus} disabled={!online || patch.isPending} />
@@ -513,7 +513,7 @@ export function TopicDetail({
               )}
             </section>
 
-            <section className="space-y-3">
+            <section className="stack-y-3">
               <SectionHeader label="Değerlendirme" />
               <div className="flex flex-wrap items-center gap-3">
                 <ConfidenceSegment
@@ -543,7 +543,7 @@ export function TopicDetail({
               </div>
             </section>
 
-            <section className="space-y-3">
+            <section className="stack-y-3">
               <SectionHeader label="Özet" />
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-body sm:grid-cols-4">
                 <div>
@@ -570,7 +570,7 @@ export function TopicDetail({
             </section>
 
             {detail.open_todo && (
-              <section className="space-y-2">
+              <section className="stack-y-2">
                 <SectionHeader label="Açık görev" />
                 <div className="flex flex-wrap items-center gap-2 rounded-card border border-subtle bg-surface p-3">
                   <span className="min-w-0 flex-1 truncate text-body text-primary">{detail.open_todo.title}</span>
@@ -596,7 +596,7 @@ export function TopicDetail({
         {tab === "notlar" && <TopicKnowledgeNote topicId={topicId} topicTitle={topic.title} />}
 
         {tab === "baglantilar" && (
-          <div className="space-y-5">
+          <div className="stack-y-5">
             <RelatedPanel entityId={topicId} title="Bağlı kayıtlar" exclude={["learns_from", "notes_about"]} />
             <BacklinksPanel entityId={topicId} />
           </div>

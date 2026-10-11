@@ -80,7 +80,7 @@ export function RssHealthWidget() {
           </Button>
         </div>
       }
-      bodyClassName="space-y-4"
+      bodyClassName="stack-y-4"
     >
       {stats ? (
         <div className="grid grid-cols-4 gap-3">
@@ -110,7 +110,7 @@ export function RssHealthWidget() {
                 {healthSummaryLabel({ total: feeds.length, healthy, attention })}
               </p>
             )}
-            <ul className="space-y-1.5">
+            <ul className="stack-y-1.5">
               {listed.slice(0, 10).map(({ feed, view }) => (
                 <li
                   key={feed.id}

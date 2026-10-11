@@ -51,7 +51,7 @@ function projectEventLabel(verb: string): string {
 
 function EventRows({ events }: { events: ProjectEvent[] }) {
   return (
-    <ul className="divide-y divide-subtle">
+    <ul className="stack-divide-y divide-subtle">
       {events.map((event) => {
         const text = eventText(event);
         return (
@@ -87,7 +87,7 @@ export function ProjectActivityTimeline({ projectId }: { projectId: string }) {
   }, [projectId, today]);
 
   return (
-    <Section title="Proje hareketleri" hint="güne göre proje olayları" bodyClassName="space-y-4">
+    <Section title="Proje hareketleri" hint="güne göre proje olayları" bodyClassName="stack-y-4">
       <article
         data-testid="project-journal-active-day"
         className="overflow-hidden rounded-control border border-accent bg-accent-surface"
@@ -131,7 +131,7 @@ export function ProjectActivityTimeline({ projectId }: { projectId: string }) {
       ) : historyGroups.length > 0 ? (
         <div>
           <SectionHeader label="Geçmiş günler" hint={`${historyGroups.length}`} />
-          <div className="space-y-3">
+          <div className="stack-y-3">
             {historyGroups.map((group) => {
               const events = visibleProjectEvents(group.events);
               return (

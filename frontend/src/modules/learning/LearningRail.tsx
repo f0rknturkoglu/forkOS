@@ -163,8 +163,8 @@ export function LearningRail(props: LearningRailProps) {
     : areas.filter((area) => area.id === areaId).concat(listed);
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
+    <div className="stack-y-4">
+      <div className="stack-y-2">
         <Input
           value={areaQuery}
           onChange={onAreaQuery}
@@ -177,7 +177,7 @@ export function LearningRail(props: LearningRailProps) {
         ) : areasState === "error" ? (
           <div
             role="alert"
-            className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-2"
+            className="stack-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-2"
           >
             <p className="text-meta text-danger">Alanlar yüklenemedi.</p>
             <Button size="sm" onClick={onRetryAreas}>
@@ -223,7 +223,7 @@ export function LearningRail(props: LearningRailProps) {
         )}
       </div>
 
-      <div className="space-y-2 border-t border-subtle pt-3">
+      <div className="stack-y-2 border-t border-subtle pt-3">
         <Input
           value={topicQuery}
           onChange={onTopicQuery}
@@ -260,7 +260,7 @@ export function LearningRail(props: LearningRailProps) {
         ) : treeState === "error" ? (
           <div
             role="alert"
-            className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-2"
+            className="stack-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-2"
           >
             <p className="text-meta text-danger">Konu ağacı yüklenemedi.</p>
             <Button size="sm" onClick={onRetryTree}>
@@ -287,7 +287,7 @@ export function LearningRail(props: LearningRailProps) {
       </div>
 
       <form
-        className="space-y-2 border-t border-subtle pt-3"
+        className="stack-y-2 border-t border-subtle pt-3"
         onSubmit={(event) => {
           event.preventDefault();
           if (newTopicTitle.trim() && areaId) onAddTopic();
@@ -364,7 +364,7 @@ function AreaManager({
       ariaLabel="Alan yönetimi"
       className="sm:max-w-2xl"
     >
-      <div className="space-y-2">
+      <div className="stack-y-2">
         {areas.length === 0 && <Empty>Henüz alan yok. Aşağıdan ilk alanı ekle.</Empty>}
         {areas.map((area) => (
           <AreaRow

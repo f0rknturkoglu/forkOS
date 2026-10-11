@@ -96,7 +96,7 @@ export function OpportunityFilterBar({
   ] as const;
 
   return (
-    <div className="space-y-2">
+    <div className="stack-y-2">
       <div role="toolbar" aria-label="Fırsat filtreleri" className="flex flex-wrap items-center gap-2">
         {leading}
         <div className="relative min-w-0 flex-[2_1_16rem]">
@@ -248,7 +248,7 @@ function FilterPanelModal({
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="stack-y-4">
         {jobs && (
           <Section title="Profil / beceri uyumu">
             <div className="flex flex-wrap gap-1.5">
@@ -319,7 +319,7 @@ function FilterPanelModal({
         )}
 
         <Section title="Konum & çalışma biçimi">
-          <div className="space-y-2">
+          <div className="stack-y-2">
             <div className="flex flex-wrap gap-1.5">
               {facetChips(
                 facets,

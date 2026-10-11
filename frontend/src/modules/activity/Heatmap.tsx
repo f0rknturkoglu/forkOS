@@ -84,7 +84,7 @@ export function Heatmap({ days = 365, compact = false }: { days?: number; compac
       title="Emek haritası"
       hint={`son ${Math.round(days / 30)} ay`}
       action={data.streak > 0 ? <span className="text-meta text-accent">{data.streak} gün üst üste</span> : undefined}
-      bodyClassName="space-y-3 px-3.5 py-3"
+      bodyClassName="stack-y-3 px-3.5 py-3"
     >
       {/* Gun etiketleri kaydirma ALANININ DISINDA: harita saga kayinca
           onlarla birlikte kaymasin, hangi satirin hangi gun oldugu kalsin. */}

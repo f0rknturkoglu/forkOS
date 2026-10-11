@@ -176,16 +176,16 @@ export function InboxFocusTriageModal({ open, onClose }: InboxFocusTriageModalPr
       {isLoading ? (
         <div className="py-12 text-center text-meta text-muted">Kayitlar yukleniyor...</div>
       ) : items.length === 0 ? (
-        <div className="py-8 text-center space-y-3">
+        <div className="py-8 text-center stack-y-3">
           <Empty title="Gelen kutusu temiz">Tebrikler, bekleyen tum kayitlar ayiklandi. Gelen kutusu sifirlandi.</Empty>
           <Button variant="primary" onClick={onClose}>
             Bugun Paneline Don
           </Button>
         </div>
       ) : currentItem ? (
-        <div className="space-y-4">
+        <div className="stack-y-4">
           {/* Kart govdesi */}
-          <div className="rounded-card border border-strong bg-surface p-4 shadow-sm space-y-3">
+          <div className="rounded-card border border-strong bg-surface p-4 shadow-sm stack-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 {editingTitle ? (

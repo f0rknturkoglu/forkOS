@@ -166,7 +166,7 @@ export function ReviewPanel({
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="stack-y-5">
       <SectionHeader label="Tekrar" hint={<span className={tone}>{status.text}</span>} />
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-body sm:grid-cols-3">
@@ -259,7 +259,7 @@ export function ReviewPanel({
         ) : decks.length === 0 ? (
           <Empty>Bu konuya bağlı deste yok. "Yeni deste" ile oluşturup konuya bağlayabilirsin.</Empty>
         ) : (
-          <ul className="divide-y divide-subtle">
+          <ul className="stack-divide-y divide-subtle">
             {decks.map((deck) => (
               <li key={deck.id} className="flex items-center gap-2 py-2">
                 <span className="min-w-0 flex-1 truncate text-body text-primary">{deck.title}</span>
@@ -317,7 +317,7 @@ export function ReviewPanel({
           </div>
         }
       >
-        <div className="space-y-3">
+        <div className="stack-y-3">
           <Field label="Ön yüz">
             <Textarea value={cardFront} onChange={setCardFront} rows={2} className="w-full" />
           </Field>

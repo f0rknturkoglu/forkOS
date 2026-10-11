@@ -172,7 +172,7 @@ export function CalendarPage() {
 
         <WorkspaceScrollArea className="overflow-x-auto p-3">
           {taskDay && (
-            <section className="mb-3 space-y-2" aria-label="Takvimden görev ekle">
+            <section className="mb-3 stack-y-2" aria-label="Takvimden görev ekle">
               <div className="flex items-center justify-between gap-2 text-meta">
                 <span>
                   {formatTrDate(keyToUtc(taskDay), { day: "numeric", month: "long", timeZone: "UTC" })} için görev
@@ -243,7 +243,7 @@ export function CalendarPage() {
                       )}
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="stack-y-1">
                       {rows.slice(0, view === "week" ? 8 : 3).map((event) => (
                         <article
                           key={`${event.source}-${event.id}`}

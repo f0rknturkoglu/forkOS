@@ -158,7 +158,7 @@ function CollapsedAreaFlyout({
       <div className="mb-1 border-b border-subtle px-2 py-1">
         <p className="text-micro font-medium uppercase tracking-[0.16em] text-muted">{area.label}</p>
       </div>
-      <div className="space-y-0.5">
+      <div className="stack-y-0.5">
         {rows.map((row, index) => {
           const rowActive = rowIsActive(row, path, params);
           const RowIcon = row.icon ?? LayoutGrid;
@@ -379,7 +379,7 @@ export function AppSidebar({
   function renderRows(area: ProductArea, open: boolean) {
     const rows = areaRows(area, modules);
     return (
-      <div id={`sidebar-area-${area.id}`} className={cx("space-y-0.5", !open && "hidden")}>
+      <div id={`sidebar-area-${area.id}`} className={cx("stack-y-0.5", !open && "hidden")}>
         {rows
           // Alanın hedefi zaten başlık satırıdır; alt listede TEKRAR etmez.
           .filter((row) => row.path !== area.landing)
@@ -424,7 +424,7 @@ export function AppSidebar({
         id="app-sidebar"
         aria-label="Ana navigasyon"
         className={cx(
-          "fixed inset-y-0 left-0 z-drawer flex w-sidebar -translate-x-full flex-col border-r border-subtle bg-sidebar transition-[width,transform] duration-150 ease-out motion-reduce:transition-none md:sticky md:top-0 md:h-dvh md:transform-none",
+          "fixed inset-y-0 left-0 z-drawer flex w-sidebar -translate-x-full flex-col border-r border-subtle bg-sidebar transition-[width,translate,transform] duration-150 ease-out motion-reduce:transition-none md:sticky md:top-0 md:h-dvh md:translate-x-0 md:transform-none",
           mobileOpen && "translate-x-0",
           collapsed ? "md:w-rail" : "md:w-sidebar",
         )}
@@ -490,7 +490,7 @@ export function AppSidebar({
         <nav
           className={cx("min-h-0 flex-1 py-3", collapsed ? "md:overflow-visible md:px-2" : "overflow-y-auto px-2.5")}
         >
-          <div className="space-y-1">
+          <div className="stack-y-1">
             {primary.map((area) => {
               const shape = areaShape(area, modules);
               if (shape === "link") {
@@ -579,7 +579,7 @@ export function AppSidebar({
               >
                 Sabitlenenler
               </p>
-              <div className="space-y-1">
+              <div className="stack-y-1">
                 {pinnedViews.map((view) => {
                   const target = moduleLanding(modules, view.module);
                   if (!target) {
@@ -616,7 +616,7 @@ export function AppSidebar({
         </nav>
 
         <div className={cx("shrink-0 border-t border-subtle py-2", collapsed ? "md:px-2" : "px-2.5")}>
-          <div className="space-y-1">
+          <div className="stack-y-1">
             {system.map((area) =>
               areaRows(area, modules).map((row) => (
                 <SidebarLink

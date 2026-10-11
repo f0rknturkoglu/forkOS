@@ -72,7 +72,7 @@ export function BookmarkImportModal({ open, onClose }: BookmarkImportModalProps)
         </div>
       }
     >
-      <div className="space-y-4 font-sans">
+      <div className="stack-y-4 font-sans">
         <Field label="Dosya Sec (.html veya .json)">
           <div className="flex flex-col gap-2">
             <FileInput ref={fileInputRef} accept=".html,.htm,.json" onChange={handleFileChange} />

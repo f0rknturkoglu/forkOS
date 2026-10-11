@@ -88,7 +88,7 @@ export function StatsView({ onOpenTopic }: { onOpenTopic: (topicId: string) => v
 
   if (stats.isLoading) {
     return (
-      <div className="space-y-3">
+      <div className="stack-y-3">
         <p role="status" className="text-meta text-muted">
           İstatistikler yükleniyor…
         </p>
@@ -136,7 +136,7 @@ export function StatsView({ onOpenTopic }: { onOpenTopic: (topicId: string) => v
     byTopic.length === 0;
 
   return (
-    <div className="space-y-5">
+    <div className="stack-y-5">
       <SectionHeader label="İstatistikler" hint={RANGE_LABEL[range]} />
       {chips}
 

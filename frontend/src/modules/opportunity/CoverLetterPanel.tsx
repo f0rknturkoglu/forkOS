@@ -53,11 +53,11 @@ export function CoverLetterPanel() {
       title="Ön yazı denetimi"
       hint={lettersFailed ? "kayıtlı ön yazılar okunamadı" : "Değerlendirme tamamen yerel çalışır"}
     >
-      <div className="space-y-3">
+      <div className="stack-y-3">
         {lettersFailed && (
           <div
             role="alert"
-            className="space-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
+            className="stack-y-2 rounded-control border border-danger-border bg-danger-surface px-3 py-3"
           >
             <p className="text-meta text-danger">
               Kayıtlı ön yazılar yüklenemedi: {lettersError instanceof Error ? lettersError.message : "bilinmeyen hata"}
@@ -124,7 +124,7 @@ export function CoverLetterPanel() {
         </div>
 
         {review && (
-          <div className="space-y-3 rounded-card border border-subtle bg-surface-sunken p-4">
+          <div className="stack-y-3 rounded-card border border-subtle bg-surface-sunken p-4">
             <MetricStrip>
               <Metric label="Puan" value={`${review.score} / 100`} />
               <Metric label="Kalıp ifade" value={review.generic_phrases.length} />
@@ -175,7 +175,7 @@ export function CoverLetterPanel() {
             {review.flags.length > 0 && (
               <div>
                 <span className="text-meta font-medium text-secondary">Bulgular</span>
-                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-meta text-secondary">
+                <ul className="mt-1 list-disc stack-y-0.5 pl-4 text-meta text-secondary">
                   {review.flags.map((flag) => (
                     <li key={flag}>{flag}</li>
                   ))}
@@ -186,7 +186,7 @@ export function CoverLetterPanel() {
             {review.suggestions.length > 0 && (
               <div>
                 <span className="text-meta font-medium text-secondary">Somut düzeltmeler</span>
-                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-meta text-secondary">
+                <ul className="mt-1 list-disc stack-y-0.5 pl-4 text-meta text-secondary">
                   {review.suggestions.map((suggestion) => (
                     <li key={suggestion}>{suggestion}</li>
                   ))}

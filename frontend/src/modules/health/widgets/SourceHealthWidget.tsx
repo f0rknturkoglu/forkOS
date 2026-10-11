@@ -85,7 +85,7 @@ export function SourceHealthWidget() {
           </a>
         </div>
       }
-      bodyClassName="space-y-4"
+      bodyClassName="stack-y-4"
     >
       {state === "ready" ? (
         <>
@@ -104,7 +104,7 @@ export function SourceHealthWidget() {
               <p className="mb-2 text-meta text-secondary">
                 <strong className="font-medium text-warn">{attention.length}</strong> kaynak ilgi istiyor:
               </p>
-              <ul className="space-y-2">
+              <ul className="stack-y-2">
                 {attention.slice(0, 8).map((run) => {
                   const view = runStateView(run.status);
                   return (

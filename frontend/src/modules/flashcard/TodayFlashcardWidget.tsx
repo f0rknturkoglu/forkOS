@@ -43,7 +43,7 @@ export function TodayFlashcardWidget() {
       {due.length === 0 ? (
         <Empty>Bugün için bekleyen kart yok. Yeni kart ekleyerek desteleri büyütebilirsin.</Empty>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="stack-y-1.5">
           {due.slice(0, 4).map((deck) => (
             <li key={deck.id}>
               <button
