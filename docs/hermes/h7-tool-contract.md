@@ -372,3 +372,7 @@ mükerrer/eşzamanlı yürütme, mutabakat) ile doğrulanır.
 - [H7 Karar ve Onay Politikası](h7-approval-policy.md) — beş ayrım, dört karar
   türü, değişmez tablosu.
 - [H1 Araç Sözleşmesi](h1-tool-contract.md) — adımların gerçek H1 karşılıkları.
+
+## Contextual planning freshness (plan-v3)
+
+Yeni hazırlanan `todo_plan` adımları `expected_plan_fingerprint` taşır. Sunucu bu değeri mevcut gelecek PlanSlot kayıtlarının kimliği, günü, başlangıcı ve süresinden üretir; model değeri belirleyemez. Onayda ve adım öncesinde yeniden doğrulanır. Eski plan-v1/v2 kayıtları kendi saklanmış revizyonlarıyla okunabilir; yeniden hesaplanmaz. Yeni içerik plan-v3 ile onaylanır. Canonical Todo/Entity yazma kapsamı genişlemez.

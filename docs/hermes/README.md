@@ -285,3 +285,7 @@ okunur. [Sözleşme ve hesaplama](../goals-strategy.md).
 ## Hermes Goal Studio ve Capture V1
 
 Goals içinde konuşma, tipli taslak, revizyon incelemesi ve açık kullanıcı onayı desteklenir. Hermes ayrı araçsız yerel profil gerektirir; manuel Goals bağımsızdır. Capture 0.2.0 her hedefte kalıcı UUID, doğru teslim durumu ve kariyer/akademi ayrımı kullanır. Kurulum, ağ sınırı, migration ve doğrulama için [güncel sözleşme](../architecture/hermes-goal-studio-extension-v1.md).
+
+## Bağlam içinden yardım
+
+Review, Project, Goal, Learning ve Career içindeki isteğe bağlı yerel özetler mevcut domain/H5 servislerini kullanır. Görüşme aynı Goal Studio'nun doğrulanmış araçsız yerel profiline bağlıdır; cloud fallback yoktur. Görev planlaması mevcut H7 exact-revision onay/yürütmesi, hafıza mevcut A4 inspect/confirm/promote akışıdır. Reader konu bağlantısı ve kart retry'ları kanonik servisleri kullanır. Gerçek tarayıcı/fixture ayrımı, güvenlik sınırları ve kalan blokajlar: [Workflow Cohesion raporu](../architecture/invisible-intelligence-workflow-cohesion.md).
