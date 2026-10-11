@@ -263,7 +263,6 @@ export type TodayAgenda = Omit<ApiSchemas["TodayAgendaOut"], "timed" | "checklis
   suggestions: {
     todos: AgendaRow[];
     rss: AgendaRow[];
-    media: AgendaRow[];
     flashcards: AgendaRow[];
     study: AgendaRow[];
     /** Kariyer aksiyonları: gönderilecek başvuru, kısa liste, kritik duyuru. */
@@ -525,28 +524,14 @@ export interface ProjectJournalDay {
   events: ProjectEvent[];
 }
 
-export interface RecurringPayment {
-  id: string;
-  title: string;
-  amount: string | number;
-  currency: string;
-  category: string;
-  billing_day: number | null;
-  frequency: string;
-  next_due_at: string | null;
-  active: boolean;
-  note: string | null;
-  sub: string | null;
-}
-
 export type AppSettings = Record<string, unknown> & {
   "modules.disabled": string[];
   "today.widget_order": string[];
-  "media.links": { name: string; url: string; icon?: string }[];
   theme: string;
 };
 
 export interface PomodoroSession {
+  source?: "timer" | "manual";
   id: string;
   started_at: string;
   ended_at: string | null;
@@ -612,15 +597,12 @@ export type SourceHealth = ApiSchemas["SourceRunOut"] & {
 };
 
 export interface BackupStatus {
-  drive_folder_id: string | null;
   last_backup: {
     file: string;
     size: number;
     at: string;
     counts: { entities: number; events: number; modules: Record<string, number> };
   } | null;
-  last_drive_upload: { file: string; at: string } | null;
-  last_drive_error: { message: string; at: string } | null;
   next_backup_scheduled: string;
   /* Anlamli veri degismediyse zamanlanmis yedek atlanir; arayuz bunu aciklar. */
   changes_since_backup: boolean;
@@ -813,7 +795,7 @@ interface OpportunityRiskSignal {
   severity: "neutral" | "warn" | "danger";
 }
 
-export interface ListingHealth {
+interface ListingHealth {
   health_score: number;
   jd_completeness: "complete" | "concise" | "stub";
   salary_transparency: "transparent" | "unclear" | "missing";
@@ -1078,14 +1060,6 @@ export interface Followup {
   follow_up_at: string;
   note: string | null;
 }
-
-export type MediaItem = ApiSchemas["MediaItemOut"];
-export type MediaPage = ApiSchemas["MediaPageOut"];
-export type MediaDetail = ApiSchemas["MediaDetailOut"];
-export type MediaStats = ApiSchemas["MediaStats"];
-export type MetadataResult = ApiSchemas["MetadataResult"];
-export type GlobalMetadataSearch = ApiSchemas["GlobalMetadataSearchOut"];
-export type MediaProviderStatus = ApiSchemas["MediaProviderStatusOut"];
 
 export interface Deadline {
   entity_id: string;

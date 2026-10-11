@@ -5,7 +5,6 @@ import { TodayAgendaWidget } from "./TodayAgendaWidget";
 import { DailyRhythmWidget } from "./DailyRhythmWidget";
 import { FeedStreamWidget } from "./widgets/FeedStreamWidget";
 import { PendingDecisions } from "./PendingDecisions";
-import { QuickLinksWidget } from "./widgets/QuickLinksWidget";
 import { NowNextWidget } from "./NowNextWidget";
 import { DeadlinesWidget } from "./DeadlinesWidget";
 import { CareerWidget } from "./CareerWidget";
@@ -85,13 +84,6 @@ registerModule({
       title: "Gün özeti",
       component: DailyRhythmWidget,
       order: 90,
-      defaultVisible: false,
-    },
-    {
-      id: "today.quick-links",
-      title: "Hızlı bağlantılar",
-      component: QuickLinksWidget,
-      order: 95,
       defaultVisible: false,
     },
   ],

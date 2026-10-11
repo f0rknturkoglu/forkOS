@@ -13,8 +13,6 @@ from app.integrations.models import OAuthToken
 
 SCOPES = " ".join(
     [
-        "https://www.googleapis.com/auth/drive.readonly",
-        "https://www.googleapis.com/auth/drive.file",
         "https://www.googleapis.com/auth/calendar.events",
     ]
 )
@@ -23,8 +21,7 @@ SCOPES = " ".join(
 #: Google'a gidip donene kadar yasar. Bu yuzden DB tablosu acmak yerine
 #: process-local bellek kullanilir: tek kullanicili local kurulumda API tek
 #: surecte kosar (compose'da worker sayisi verilmez) ve kayit saniyeler icinde
-#: tuketilir; kalici tablo olsaydi yetim satirlar birikirdi (ayni desen:
-#: modules/media/search.py kisa omurlu onbellegi). Coklu worker'a cikilirsa
+#: tuketilir; kalici tablo olsaydi yetim satirlar birikirdi. Coklu worker'a cikilirsa
 #: state paylasilmaz ve baglanma yeniden denenmelidir.
 STATE_TTL_SECONDS = 600.0
 MAX_PENDING_STATES = 8
@@ -69,7 +66,7 @@ def authorization_url() -> str:
         "scope": SCOPES,
         "access_type": "offline",
         "prompt": "consent",
-        "include_granted_scopes": "true",
+        "include_granted_scopes": "false",
         # `state` burada uretilir ve dogrulama icin sunucuda saklanir; callback
         # gelen degeri tuketmeden token yazmaz (CSRF).
         "state": issue_state(),

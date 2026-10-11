@@ -347,7 +347,7 @@ async def source_coverage(session: AsyncSession = Depends(get_session)):
 @router.get("/sources/sync", response_model=SourceSyncStatusOut)
 async def sync_status(
     background: BackgroundTasks,
-    scope: Literal["opportunity", "media"] = "opportunity",
+    scope: Literal["opportunity"] = "opportunity",
     session: AsyncSession = Depends(get_session),
 ):
     """Aktif manuel batch ve kaynak bazli kesin ilerleme.
@@ -379,7 +379,7 @@ async def sync_status(
 async def sync_history(
     background: BackgroundTasks,
     limit: int = 10,
-    scope: Literal["opportunity", "media"] = "opportunity",
+    scope: Literal["opportunity"] = "opportunity",
     session: AsyncSession = Depends(get_session),
 ):
     from app.worker.jobs import (

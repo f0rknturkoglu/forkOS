@@ -8,7 +8,6 @@ import { invalidateAfter } from "@/core/invalidation";
 import type { PomodoroSession, PomodoroStats } from "@/core/types";
 import { Button, Field, IconButton, Input, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
-import { MediaSessionTransfer } from "@/modules/media/MediaSessionTransfer";
 import { ContextChip, ContextPicker } from "./ContextPicker";
 import { FocusMode } from "./FocusMode";
 import { POMODORO_OPEN_EVENT, type PomodoroOpenRequest } from "./dock";
@@ -29,7 +28,6 @@ export function QuickActionDock() {
   const [minutes, setMinutes] = useState(preferences.focusMinutes);
   const [topic, setTopic] = useState("");
   const [context, setContext] = useState("");
-  const [finished, setFinished] = useState<PomodoroSession | null>(null);
   const online = useOnline();
   const toast = useToast();
 
@@ -78,11 +76,9 @@ export function QuickActionDock() {
   });
   const stop = useMutation({
     mutationFn: (interrupted: boolean) => api.post(`/pomodoro/${active?.id}/stop`, { interrupted }),
-    onSuccess: (_data, interrupted) => {
-      const ended = active;
+    onSuccess: () => {
       refresh();
       setOpen(false);
-      if (!interrupted && ended?.context_type === "media_item" && ended.context_entity_id) setFinished(ended);
     },
   });
   const togglePause = useMutation({
@@ -278,7 +274,6 @@ export function QuickActionDock() {
       </button>
 
       {focusMode && active && <FocusMode onClose={() => setFocusMode(false)} />}
-      <MediaSessionTransfer session={finished} onClose={() => setFinished(null)} />
     </>
   );
 }

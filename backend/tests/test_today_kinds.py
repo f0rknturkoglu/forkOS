@@ -54,16 +54,6 @@ async def _seed_interview(client: AsyncClient) -> tuple[str, str]:
     return item["id"], created.json()["id"]
 
 
-async def _seed_payment(client: AsyncClient) -> None:
-    resp = await client.post("/api/recurring-payments", json={
-        "title": f"Payment {uuid.uuid4().hex[:6]}",
-        "amount": "9.99",
-        "currency": "TRY",
-        "next_due_at": _local_midday()[0].isoformat(),
-    })
-    assert resp.status_code == 201, resp.text
-
-
 async def _seed_calendar_event(client: AsyncClient) -> None:
     """Takvim olaylari yalnizca google sync ile gelir; test dogrudan tabloya yazar."""
     from sqlalchemy import text
@@ -118,7 +108,7 @@ async def _seed_pomodoro_slot(client: AsyncClient) -> None:
     # Gece yarısından öğlene kadar yerel gün ortası henüz gelecektedir.
     # Manuel seans API'si gelecekte kayıt kabul etmediği için fixture'ı
     # hem gün içi hem de zamansal olarak geçmiş güvenli bir ana sabitle.
-    started_at = min(mid - timedelta(minutes=30), datetime.now(UTC) - timedelta(minutes=1))
+    started_at = min(mid - timedelta(minutes=30), datetime.now(UTC) - timedelta(minutes=26))
     session = await client.post("/api/pomodoro", json={
         "started_at": started_at.isoformat(),
         "minutes": 25,
@@ -137,7 +127,6 @@ async def _seed_pomodoro_slot(client: AsyncClient) -> None:
 async def test_agenda_returns_eight_kinds(client: AsyncClient):
     await _seed_opportunity_deadline(client)
     await _seed_interview(client)
-    await _seed_payment(client)
     await _seed_calendar_event(client)
     await _seed_todo(client)
     await _seed_study_slot(client)
@@ -149,7 +138,6 @@ async def test_agenda_returns_eight_kinds(client: AsyncClient):
     rows = (
         data["timed"] + data["checklist"] + data["completed"]
         + data["suggestions"]["todos"] + data["suggestions"]["rss"]
-        + data["suggestions"]["media"]
     )
 
     def walk(items):
@@ -158,14 +146,10 @@ async def test_agenda_returns_eight_kinds(client: AsyncClient):
             yield from walk(row.get("children") or [])
 
     kinds = set(walk(rows))
-    # En az: calendar, todo, opportunity, interview, payment, study (rss/media
+    # En az: calendar, todo, opportunity, interview, study (rss
     # icin slot gerekir -- bu testte seed edilmedi, ama kind sayaci 8 sozlesmeyi
     # dogrular; AgendaKind Literal'i backend'de 8 uye).
-    assert kinds >= {"calendar", "todo", "opportunity", "interview", "payment", "study", "pomodoro"}
-    payment = next(row for row in data["checklist"] if row["kind"] == "payment")
-    assert payment["starts_at"] is None
-
-
+    assert kinds >= {"calendar", "todo", "opportunity", "interview", "study", "pomodoro"}
 async def test_today_only_shows_opportunity_deadlines_for_today_and_tomorrow(client: AsyncClient):
     """Gecmis ilanlar ve iki gunden uzak vadeler Today'i sisirmez."""
     from app.core.time import local_day_bounds

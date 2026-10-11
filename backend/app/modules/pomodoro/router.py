@@ -97,12 +97,26 @@ async def add_manual(body: PomodoroManual, session: AsyncSession = Depends(get_s
 
 @router.delete("/pomodoro/{pomo_id}", status_code=204)
 async def delete(pomo_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    if not await service.delete(session, pomo_id):
-        raise HTTPException(404, "pomodoro bulunamadi")
+    try:
+        if not await service.delete(session, pomo_id):
+            raise HTTPException(404, "pomodoro bulunamadi")
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @router.get("/pomodoro/sessions", response_model=list[PomodoroOut])
 async def sessions(
-    limit: int = Query(20, ge=1, le=200), session: AsyncSession = Depends(get_session)
+    limit: int = Query(20, ge=1, le=200), offset: int = Query(0, ge=0), session: AsyncSession = Depends(get_session)
 ):
-    return await service.recent(session, limit=limit)
+    return await service.recent(session, limit=limit, offset=offset)
+
+
+@router.put("/pomodoro/{pomo_id}", response_model=PomodoroOut)
+async def update(pomo_id: uuid.UUID, body: PomodoroManual, session: AsyncSession = Depends(get_session)):
+    try:
+        result = await service.update(session, pomo_id, body)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if result is None:
+        raise HTTPException(404, "pomodoro bulunamadi")
+    return result

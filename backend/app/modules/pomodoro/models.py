@@ -25,6 +25,7 @@ class PomodoroSession(EntityBacked, Base):
     context_entity_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("entity.id", ondelete="SET NULL"))
     topic: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="timer", server_default="timer")
     interrupted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     #: Duraklatildiysa duraklama ani; devam edilince tekrar NULL olur.
     paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -11,9 +11,7 @@ from sqlalchemy.orm import aliased
 from app.core.models import Entity, Link
 from app.core.time import local_zone
 from app.modules.calendar.models import ExternalEvent
-from app.modules.finance.models import RecurringPayment
 from app.modules.flashcard.models import FlashcardCard, FlashcardDeck
-from app.modules.media.models import MediaItem
 from app.modules.opportunity import lifecycle as opportunity_lifecycle
 from app.modules.opportunity.models import Application, Interview, Opportunity
 from app.modules.project.models import Project
@@ -155,65 +153,6 @@ def _display_number(value) -> str:
     decimal_value = value if isinstance(value, Decimal) else Decimal(str(value))
     rendered = format(decimal_value, "f")
     return rendered.rstrip("0").rstrip(".") if "." in rendered else rendered
-
-
-def _media_progress_label(item: MediaItem) -> str:
-    measure = _MEASURE_LABELS.get(item.progress_measure or "", item.progress_measure or "")
-    progress = _display_number(item.progress) if item.progress is not None else None
-    total = _display_number(item.total) if item.total is not None else None
-    if progress is not None and total is not None:
-        detail = f"{progress} / {total}"
-    elif progress is not None:
-        detail = progress
-    elif total is not None:
-        detail = f"0 / {total}"
-    else:
-        detail = ""
-    if detail and measure:
-        detail = f"{detail} {measure}"
-    if item.status == "completed":
-        return f"Tamamlandı · {detail}" if detail else "Tamamlandı"
-    return detail or "Henüz başlanmadı"
-
-
-def _media_cover(item: MediaItem) -> str | None:
-    if not item.cover_path:
-        return item.cover_url
-    if item.cover_path.startswith("/api/media/assets/"):
-        return item.cover_path
-    return f"/api/media/assets/{item.cover_path.rsplit('/', 1)[-1]}"
-
-
-def _media_row(
-    item: MediaItem,
-    title: str,
-    slot: PlanSlot | None = None,
-    *,
-    source: str = "suggestion",
-) -> AgendaRow:
-    completed = item.status == "completed"
-    interactive = item.status in {"planned", "in_progress", "paused"}
-    return AgendaRow(
-        kind="media",
-        source=source,
-        id=item.id,
-        entity_type="media_item",
-        slot_id=slot.id if slot else None,
-        title=title,
-        completed=completed,
-        action="log_media" if interactive else None,
-        read_only=not interactive,
-        starts_at=(
-            _planned_start(slot.day, slot.start_min)
-            if slot is not None and slot.start_min is not None
-            else None
-        ),
-        duration_min=slot.duration_min if slot else None,
-        media_kind=item.kind,
-        media_status=item.status,
-        progress_label=_media_progress_label(item),
-        cover_url=_media_cover(item),
-    )
 
 
 async def _career_suggestions(session: AsyncSession) -> list[AgendaRow]:
@@ -427,37 +366,14 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
         else:
             checklist.append(row)
 
-    media_slot_ids = [
-        slot.entity_id for slot in slots if slot.entity_id not in handled_ids
-    ]
-    media_rows = []
-    if media_slot_ids:
-        media_rows = (await session.execute(
-            select(MediaItem, Entity.title)
-            .join(Entity, Entity.id == MediaItem.id)
-            .where(MediaItem.id.in_(media_slot_ids), Entity.archived_at.is_(None))
-        )).all()
-    media_by_id = {item.id: (item, title) for item, title in media_rows}
-    for media_id in media_slot_ids:
-        if media_id not in media_by_id:
-            continue
-        item, title = media_by_id[media_id]
-        handled_ids.add(item.id)
-        row = _media_row(item, title, slot_by_entity[item.id], source="planned")
-        if row.completed:
-            completed.append(row)
-        elif row.starts_at is not None:
-            timed.append(row)
-        else:
-            checklist.append(row)
-
     generic_ids = [slot.entity_id for slot in slots if slot.entity_id not in handled_ids]
     if generic_ids:
         generic_titles = {
             eid: (title, etype)
             for eid, title, etype in (await session.execute(
                 select(Entity.id, Entity.title, Entity.type).where(
-                    Entity.id.in_(generic_ids), Entity.archived_at.is_(None)
+                    Entity.id.in_(generic_ids), Entity.archived_at.is_(None),
+                    Entity.type.notin_(["media_item", "media_collection", "expense", "income", "recurring_payment", "document", "note", "note_folder"])
                 )
             )).all()
         }
@@ -547,33 +463,6 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
             duration_min=interview.duration_min,
         ))
 
-    # Bugun vadesi gelen tekrarlayan odemeler. next_due_at date alanidir;
-    # timezone-aware datetime ile karsilastirmak yerine dogrudan gun eslesir.
-    payments = (await session.execute(
-        select(RecurringPayment, Entity.title)
-        .join(Entity, Entity.id == RecurringPayment.id)
-        .where(
-            Entity.archived_at.is_(None),
-            RecurringPayment.active.is_(True),
-            RecurringPayment.next_due_at.is_not(None),
-            RecurringPayment.next_due_at == day,
-        )
-        .order_by(RecurringPayment.next_due_at)
-    )).all()
-    for payment, title in payments:
-        checklist.append(AgendaRow(
-            kind="payment",
-            source="due",
-            id=payment.id,
-            entity_type="recurring_payment",
-            title=title,
-            read_only=True,
-            # Date-only odeme icin sahte bir saat gostermeyiz.
-            starts_at=None,
-            progress_label="Bugün vadesi geliyor",
-            url=None,
-        ))
-
     auto_setting = await session.get(Setting, "today.auto_suggestions")
     auto_suggestions = True if auto_setting is None else bool(auto_setting.value)
     todo_suggestions: list[AgendaRow] = []
@@ -581,18 +470,6 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
     flashcard_suggestions: list[AgendaRow] = []
     study_suggestions: list[AgendaRow] = []
     career_suggestions: list[AgendaRow] = []
-    # Bu liste bir tavsiye degil, devam eden mevcut medya durumudur. Additive
-    # sozlesme icin suggestions altinda kalir ama otomatik tavsiye ayarindan etkilenmez.
-    continue_media = (await session.execute(
-        select(MediaItem, Entity.title)
-        .join(Entity, Entity.id == MediaItem.id)
-        .where(MediaItem.status == "in_progress", Entity.archived_at.is_(None))
-        .order_by(Entity.updated_at.desc(), MediaItem.id.desc())
-        .limit(4)
-    )).all()
-    media_suggestions = [
-        _media_row(item, title) for item, title in continue_media
-    ]
     if auto_suggestions:
         # Yalniz cocugu bugune dusen ust gorev de akista context basligi olarak
         # bulunur; ayni ust gorevi onerilerde ikinci kez gostermeyelim.
@@ -707,7 +584,6 @@ async def agenda(session: AsyncSession, day: date) -> TodayAgendaOut:
         suggestions={
             "todos": todo_suggestions,
             "rss": rss_suggestions,
-            "media": media_suggestions,
             "flashcards": flashcard_suggestions,
             "study": study_suggestions,
             "career": career_suggestions,

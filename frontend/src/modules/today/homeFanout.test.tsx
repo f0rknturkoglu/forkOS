@@ -58,17 +58,14 @@ const AGENDA = {
       feed_title: null,
       url: null,
       recur: null,
-      media_kind: null,
-      media_status: null,
       progress_label: null,
-      cover_url: null,
       children: [],
     },
   ],
   checklist: [],
   completed: [],
   auto_suggestions: true,
-  suggestions: { todos: [], rss: [], media: [], flashcards: [], study: [], career: [] },
+  suggestions: { todos: [], rss: [], flashcards: [], study: [], career: [] },
 };
 
 /** Uç bazlı asgari gövde: şekil bilinmiyorsa boş liste Home için güvenlidir. */

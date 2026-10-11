@@ -203,34 +203,3 @@ async def test_markdown_export_includes_notes_todos_and_learning() -> None:
         assert "## Learning" in md
         assert "Python İleri" in md
         assert "Coursera" in md
-
-
-async def test_backup_drive_failure_creates_notification(monkeypatch, tmp_path) -> None:
-    from app.modules.system import backup as backup_svc
-
-    monkeypatch.setattr(backup_svc, "BACKUP_DIR", tmp_path / "backups")
-
-    async def mock_fail(*args, **kwargs):
-        return "Simulated 403 Google Token Expired"
-
-    monkeypatch.setattr(backup_svc, "upload_drive", mock_fail)
-
-    async with SessionLocal() as session:
-        await session.execute(
-            text("insert into setting (key, value) values ('backup.drive_folder_id', '\"test_folder\"') "
-                 "on conflict (key) do update set value='\"test_folder\"'")
-        )
-        await session.commit()
-
-        await backup_svc.create_backup(session)
-
-        # Notification tablosunda backup_drive_failed olmalı
-        notif = (
-            await session.execute(
-                text("select title, body from notification where kind='backup_drive_failed'")
-            )
-        ).mappings().first()
-        assert notif is not None
-        assert notif["title"] == "Google Drive yedeği yüklenemedi"
-        assert "Simulated 403" in notif["body"]
-

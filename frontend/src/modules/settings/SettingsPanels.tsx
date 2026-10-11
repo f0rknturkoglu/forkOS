@@ -156,7 +156,7 @@ function formatMaintenancePruned(results?: Record<string, Record<string, number>
 const FILE_LABELS: Record<string, string> = {
   documents: "Yerel belgeler",
   attachments: "Not ekleri",
-  media_artwork: "Medya görsel önbelleği",
+  media_artwork: "Emekli medya dosyaları",
   scraper_cache: "Scraper önbelleği",
   backups: "Yedekler",
 };

@@ -30,13 +30,6 @@ DEFAULTS: dict[str, Any] = {
     #: Feed cekim araligi (dakika). 0 = yalniz manuel (arka planda cekilmez).
     #: Varsayilan ortam degiskeninden gelir ki .env ile de ayarlanabilsin.
     "rss.interval_minutes": settings.rss_default_interval_minutes,
-    "media.links": [],
-    "media.sync_interval_hours": 24,
-    "media.upcoming_days": 30,
-    "media.tmdb_key": "",
-    "media.google_books_key": "",
-    "media.igdb_client_id": "",
-    "media.igdb_client_secret": "",
     "opportunity.career_profile": {
         "current_location": "Ankara, Türkiye",
         "authorized_countries": ["Türkiye"],
@@ -49,7 +42,6 @@ DEFAULTS: dict[str, Any] = {
     automation.PROFILE_KEY: automation.DEFAULT_PROFILE,
     #: Para birimi -> aylik harcama tavani ({"TRY": 30000}). Bos ise butce yok:
     #: arayuz toplam geliri hedef kabul eder.
-    "finance.monthly_budget": {},
     "theme": "dark",
 }
 
@@ -82,25 +74,6 @@ def _is_career_profile(value: Any) -> bool:
     return isinstance(value.get("willing_to_relocate", False), bool)
 
 
-def _is_budget(value: Any) -> bool:
-    """{"TRY": 30000, "USD": 500} -- pozitif sayilar, 3 harfli kur kodu."""
-    if not isinstance(value, dict):
-        return False
-    for currency, amount in value.items():
-        if not isinstance(currency, str) or len(currency) != 3:
-            return False
-        if isinstance(amount, bool) or not isinstance(amount, (int, float)) or amount < 0:
-            return False
-    return True
-
-
-def _is_media_links(value: Any) -> bool:
-    return isinstance(value, list) and all(
-        isinstance(item, dict) and isinstance(item.get("name"), str) and isinstance(item.get("url"), str)
-        for item in value
-    )
-
-
 #: anahtar -> (hata mesaji, dogrulayici). Mesaj kullaniciya arayuzde gorunur.
 SETTING_VALIDATORS: dict[str, tuple[str, Callable[[Any], bool]]] = {
     "rss.retention_days": ("1 ile 3650 arasında tam sayı olmalı", lambda v: _is_int(v) and 1 <= v <= 3650),
@@ -114,12 +87,7 @@ SETTING_VALIDATORS: dict[str, tuple[str, Callable[[Any], bool]]] = {
     "today.widget_order": ("widget kimliklerinden oluşan liste olmalı", _is_str_list),
     "today.widget_hidden": ("widget kimliklerinden oluşan liste olmalı", _is_str_list),
     "news.subreddits": ("subreddit adlarından oluşan liste olmalı", _is_str_list),
-    "media.links": ("{name, url} listesi olmalı", _is_media_links),
-    "media.upcoming_days": ("0 ile 365 arasında tam sayı olmalı", lambda v: _is_int(v) and 0 <= v <= 365),
-    "media.sync_interval_hours": ("1 ile 720 arasında tam sayı olmalı", lambda v: _is_int(v) and 1 <= v <= 720),
     "opportunity.career_profile": ("konum, ülke listesi ve relokasyon alanları eksik", _is_career_profile),
-    "finance.monthly_budget": ("para birimi -> pozitif tutar eşlemesi olmalı", _is_budget),
-    "backup.drive_folder_id": ("klasör kimliği metin olmalı", lambda v: isinstance(v, str)),
     "automation.profile": (
         "geçerli bir profil seçin (manual/balanced/active)",
         lambda v: v in automation.PROFILES,
@@ -145,6 +113,8 @@ SETTING_VALIDATORS: dict[str, tuple[str, Callable[[Any], bool]]] = {
 
 def validate_setting(key: str, value: Any) -> str | None:
     """Gecerliyse None, degilse Turkce hata mesaji."""
+    if key.startswith(("media.", "finance.", "automation.media.")) or key == "backup.drive_folder_id":
+        return "Bu özellik V1 kapsamından kaldırıldı"
     rule = SETTING_VALIDATORS.get(key)
     if rule is None:
         return None

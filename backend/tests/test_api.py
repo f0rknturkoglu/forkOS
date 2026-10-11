@@ -947,7 +947,7 @@ async def test_phase4_learning_flow(client: AsyncClient):
         )
 
 
-async def test_phase5_projects_finance_settings_and_exports(client: AsyncClient):
+async def test_phase5_projects_settings_and_archive_exports(client: AsyncClient):
     suffix = uuid.uuid4().hex[:8]
     created_ids: list[str] = []
     project = (
@@ -968,22 +968,6 @@ async def test_phase5_projects_finance_settings_and_exports(client: AsyncClient)
     updated = await client.patch(f"/api/projects/{project['id']}", json={"status": "maintenance"})
     assert updated.json()["status"] == "maintenance"
 
-    recurring = (
-        await client.post(
-            "/api/recurring-payments",
-            json={
-                "title": f"Service {suffix}",
-                "amount": "149.90",
-                "next_due_at": local_today().isoformat(),
-            },
-        )
-    ).json()
-    created_ids.append(recurring["id"])
-    paid = (await client.post(f"/api/recurring-payments/{recurring['id']}/pay")).json()
-    created_ids.append(paid["expense"]["id"])
-    assert paid["expense"]["amount"] == 149.9
-    assert paid["next_due_at"] != local_today().isoformat()
-
     key = f"test.{suffix}"
     response = await client.put(f"/api/settings/{key}", json={"value": {"ok": True}})
     assert response.status_code == 200
@@ -1002,32 +986,6 @@ async def test_phase5_projects_finance_settings_and_exports(client: AsyncClient)
         )
 
 
-async def test_media_roundtrip_preserves_meta_and_cover(client: AsyncClient):
-    """Afiş ve metadata arama-ekle akışında kaybolmamali (meta uçtan uca yasamali)."""
-    suffix = uuid.uuid4().hex[:8]
-    created = (
-        await client.post(
-            "/api/media",
-            json={
-                "title": f"Kapak {suffix}",
-                "kind": "movie",
-                "status": "planned",
-                "meta": {
-                    "source": "tmdb",
-                    "tmdb_id": 157336,
-                    "tmdb_type": "movie",
-                    "original_title": "Interstellar",
-                    "cover_url": "https://image.tmdb.org/t/p/w200/xbiycuc84TrieEWwkkuH2hoEa9S.jpg",
-                },
-            },
-        )
-    ).json()
-    detail = (await client.get(f"/api/media/{created['id']}")).json()
-    found = detail["item"]
-    assert found["meta"]["source"] == "tmdb"
-    assert found["meta"]["cover_url"].endswith("w200/xbiycuc84TrieEWwkkuH2hoEa9S.jpg")
-    assert found["meta"]["original_title"] == "Interstellar"
-    await client.delete(f"/api/media/{created['id']}")
 
 
 async def test_activity_filter_splits_domains(client: AsyncClient):

@@ -19,7 +19,7 @@ import { AppSidebar, WorkspaceHeader } from "@/core/shell";
 import type { AppSettings, SourceHealth } from "@/core/types";
 import type { ModuleSpec } from "@/core/types";
 import { useOnline } from "@/lib/hooks";
-import { findRouteMatch, useHashRoute } from "./router";
+import { findRouteMatch, navigate, useHashRoute } from "./router";
 
 export function routeForPath(routes: ModuleSpec["routes"], path: string) {
   return findRouteMatch(routes, path);
@@ -151,6 +151,20 @@ export default function App() {
       return next;
     });
   }
+
+  useEffect(() => {
+    const root = path.split("/")[1];
+    if (["media", "finance", "documents", "notes", "knowledge"].includes(root)) {
+      navigate(
+        root === "documents"
+          ? "/opportunities?tab=applications"
+          : root === "notes" || root === "knowledge"
+            ? "/settings?tab=brain"
+            : "/",
+        { replace: true },
+      );
+    }
+  }, [path]);
 
   const routes = allRoutes();
   const globalSurfaces = allGlobalSurfaces();

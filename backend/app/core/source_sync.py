@@ -97,7 +97,7 @@ async def claim_pending_batch(session: AsyncSession) -> SourceSyncBatch | None:
     batch = (
         await session.execute(
             select(SourceSyncBatch)
-            .where(SourceSyncBatch.status.in_(ACTIVE_STATUSES))
+            .where(SourceSyncBatch.status.in_(ACTIVE_STATUSES), SourceSyncBatch.scope == "opportunity")
             .order_by(SourceSyncBatch.created_at)
             .limit(1)
             .with_for_update(skip_locked=True)
@@ -125,7 +125,7 @@ async def claim_pending_sources(
     batch = (
         await session.execute(
             select(SourceSyncBatch)
-            .where(SourceSyncBatch.status.in_(ACTIVE_STATUSES))
+            .where(SourceSyncBatch.status.in_(ACTIVE_STATUSES), SourceSyncBatch.scope == "opportunity")
             .order_by(SourceSyncBatch.created_at)
             .limit(1)
             .with_for_update()

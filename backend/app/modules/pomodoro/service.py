@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.entity import create_entity
+from app.core.entity import create_entity, delete_entity, touch_entity
 from app.core.events import log_event
 from app.core.models import Entity
 from app.core.time import local_day_bounds, local_today
@@ -39,6 +39,7 @@ async def _out(session: AsyncSession, pomo: PomodoroSession) -> PomodoroOut:
         context_type=context.type if context else None,
         topic=pomo.topic,
         interrupted=pomo.interrupted,
+        source=pomo.source,
         paused_at=pomo.paused_at,
         paused_s=pomo.paused_s,
     )
@@ -323,8 +324,8 @@ async def add_manual(session: AsyncSession, data: PomodoroManual) -> PomodoroOut
     started = data.started_at
     if started.tzinfo is None:
         started = started.replace(tzinfo=UTC)
-    if started > datetime.now(UTC):
-        raise ValueError("gelecege seans islenemez")
+    if started + timedelta(minutes=data.minutes) > datetime.now(UTC):
+        raise ValueError("Tamamlanan seansın bitişi gelecekte olamaz")
 
     label = data.topic or (context.title if context else None) or data.kind.replace("_", " ")
     entity = await create_entity(
@@ -332,6 +333,7 @@ async def add_manual(session: AsyncSession, data: PomodoroManual) -> PomodoroOut
     )
     pomo = PomodoroSession(
         id=entity.id,
+        source="manual",
         started_at=started,
         ended_at=started + timedelta(minutes=data.minutes),
         planned_min=data.minutes,
@@ -359,30 +361,58 @@ async def add_manual(session: AsyncSession, data: PomodoroManual) -> PomodoroOut
     return await _out(session, pomo)
 
 
+async def update(session: AsyncSession, pomo_id: uuid.UUID, data: PomodoroManual) -> PomodoroOut | None:
+    """Edit completed timer/manual sessions in their existing source of truth."""
+    pomo = await session.get(PomodoroSession, pomo_id)
+    if pomo is None:
+        return None
+    if pomo.ended_at is None:
+        raise ValueError("Aktif seans geçmişten düzenlenemez")
+    ended = data.started_at + timedelta(minutes=data.minutes, seconds=pomo.paused_s)
+    if ended > datetime.now(UTC):
+        raise ValueError("Tamamlanan seansın bitişi gelecekte olamaz")
+    context = await session.get(Entity, data.context_entity_id) if data.context_entity_id else None
+    if data.context_entity_id and context is None:
+        raise ValueError("Bağlam kaydı bulunamadı")
+    pomo.started_at = data.started_at
+    pomo.ended_at = ended
+    pomo.actual_min = data.minutes
+    if pomo.source == "manual":
+        pomo.planned_min = data.minutes
+    pomo.kind = data.kind
+    pomo.topic = data.topic
+    pomo.context_entity_id = data.context_entity_id
+    label = data.topic or (context.title if context else None) or data.kind.replace("_", " ")
+    await touch_entity(session, pomo.id, title=f"Pomodoro: {label}", search_text=label)
+    await log_event(session, verb="pomodoro.updated", entity_id=pomo.id,
+                    entity_type=PomodoroSession.ENTITY_TYPE,
+                    payload={"minutes": data.minutes, "source": pomo.source})
+    await session.commit()
+    return await _out(session, pomo)
+
+
 async def delete(session: AsyncSession, pomo_id: uuid.UUID) -> bool:
-    """Seansi siler. `event` kayitlari kalir -- append-only (kural 3)."""
-    entity = await session.get(Entity, pomo_id)
-    if entity is None:
+    pomo = await session.get(PomodoroSession, pomo_id)
+    if pomo is None:
         return False
-    await session.delete(entity)  # pomodoro_session PK'si entity'ye FK: cascade
-    await log_event(
-        session,
-        verb="pomodoro.deleted",
-        entity_type=PomodoroSession.ENTITY_TYPE,
-        payload={"title": entity.title},
-    )
+    if pomo.ended_at is None:
+        raise ValueError("Aktif seansı önce durdurun")
+    await log_event(session, verb="pomodoro.deleted", entity_type=PomodoroSession.ENTITY_TYPE,
+                    payload={"session_id": str(pomo.id), "minutes": pomo.actual_min})
+    await delete_entity(session, pomo.id)
     await session.commit()
     return True
 
 
-async def recent(session: AsyncSession, *, limit: int = 20) -> list[PomodoroOut]:
+async def recent(session: AsyncSession, *, limit: int = 20, offset: int = 0) -> list[PomodoroOut]:
     """Son seanslar -- silme ve gozden gecirme icin."""
     rows = (
         (
             await session.execute(
                 select(PomodoroSession)
                 .where(PomodoroSession.ended_at.is_not(None))
-                .order_by(PomodoroSession.started_at.desc())
+                .order_by(PomodoroSession.started_at.desc(), PomodoroSession.id.desc())
+                .offset(offset)
                 .limit(limit)
             )
         )
@@ -399,7 +429,7 @@ async def recent(session: AsyncSession, *, limit: int = 20) -> list[PomodoroOut]
 #: hazirlanan gorev zaten listede (todo -> prepares_for).
 #: Medya (media_item) VAR: "Su kitabi 50 dakika oku" gercek bir odak seansidir
 #: ve seans suresi medya tuketimine aktarilabilir.
-FOCUS_CONTEXT_TYPES = ["todo", "study_topic", "learning_resource", "project", "media_item"]
+FOCUS_CONTEXT_TYPES = ["todo", "study_topic", "learning_resource", "project"]
 
 
 async def contexts(session: AsyncSession, query: str | None = None, limit: int = 40) -> list[dict]:
@@ -411,7 +441,6 @@ async def contexts(session: AsyncSession, query: str | None = None, limit: int =
     from sqlalchemy import func, or_
 
     from app.core.search import match_clause, rank_expr
-    from app.modules.media.models import MediaItem
     from app.modules.todo.models import Todo
 
     stmt = (
@@ -419,12 +448,8 @@ async def contexts(session: AsyncSession, query: str | None = None, limit: int =
             Entity.id,
             Entity.type,
             Entity.title,
-            MediaItem.kind,
-            MediaItem.cover_path,
-            MediaItem.cover_url,
         )
         .outerjoin(Todo, Todo.id == Entity.id)
-        .outerjoin(MediaItem, MediaItem.id == Entity.id)
         .where(Entity.type.in_(FOCUS_CONTEXT_TYPES), Entity.archived_at.is_(None))
         .where(or_(Entity.type != "todo", Todo.status.in_(["open", "doing"])))
     )
@@ -446,10 +471,7 @@ async def contexts(session: AsyncSession, query: str | None = None, limit: int =
             "id": id_,
             "type": type_,
             "title": title,
-            "kind": kind,
-            # Yerel onbellek varsa onu, yoksa uzak kapak adresini ver; arayuz
-            # ayni kurallari (mediaCoverUrl) uygular.
-            "cover_url": cover_path or cover_url,
+
         }
-        for id_, type_, title, kind, cover_path, cover_url in rows
+        for id_, type_, title in rows
     ]

@@ -80,6 +80,7 @@ export const VERB_LABELS: Record<string, string> = {
   // Odak
   "pomodoro.completed": "Odak tamamlandı",
   "pomodoro.interrupted": "Odak yarıda kesildi",
+  "pomodoro.updated": "Odak seansı güncellendi",
   "pomodoro.deleted": "Odak seansı silindi",
   // Değerlendirme
   "review.completed": "Değerlendirme tamamlandı",

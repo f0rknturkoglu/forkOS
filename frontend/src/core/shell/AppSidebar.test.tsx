@@ -77,7 +77,6 @@ describe("AppSidebar — ürün navigasyonu", () => {
       ["Home", "#/"],
       ["Projeler", "#/projects"],
       ["Kariyer", "#/opportunities"],
-      ["Abonelikler", "#/finance"],
       ["Etkinlik", "#/activity"],
       ["Değerlendirme", "#/review/weekly"],
     ] as const) {
@@ -90,7 +89,7 @@ describe("AppSidebar — ürün navigasyonu", () => {
 
     expect(screen.queryByText("Daha fazla")).toBeNull();
     expect(screen.queryByRole("button", { name: "Daha fazla" })).toBeNull();
-    expect(screen.getByRole("link", { name: "Abonelikler" }).getAttribute("href")).toBe("#/finance");
+    expect(screen.queryByRole("link", { name: "Abonelikler" })).toBeNull();
     expect(screen.getByRole("link", { name: "Etkinlik" }).getAttribute("href")).toBe("#/activity");
     expect(screen.getByRole("link", { name: "Değerlendirme" }).getAttribute("href")).toBe("#/review/weekly");
   });
@@ -112,7 +111,7 @@ describe("AppSidebar — ürün navigasyonu", () => {
     // Modül kapatmak değil: rotalar registry'de durur.
     expect(allRoutes().some((route) => route.path === "/health")).toBe(true);
     expect(allRoutes().some((route) => route.path === "/sources")).toBe(true);
-    expect(allRoutes().some((route) => route.path === "/documents")).toBe(true);
+    expect(allRoutes().some((route) => route.path === "/documents")).toBe(false);
   });
 
   it("aktif satır mavi nokta ile değil arka plan ve ağırlıkla işaretlenir", () => {
@@ -130,7 +129,7 @@ describe("AppSidebar — ürün navigasyonu", () => {
     renderSidebar("/");
 
     // Kök alanlar her zaman görünür (bağlantı ya da katlanır başlık).
-    for (const label of ["Home", "Projeler", "Kariyer", "Abonelikler", "Etkinlik", "Değerlendirme"]) {
+    for (const label of ["Home", "Projeler", "Kariyer", "Etkinlik", "Değerlendirme"]) {
       expect(screen.getByRole("link", { name: label })).toBeTruthy();
     }
     for (const label of ["Plan", "Öğrenme", "Kütüphane"]) {
@@ -211,17 +210,17 @@ describe("AppSidebar — ürün navigasyonu", () => {
   });
 
   it("kütüphane altında Medya ve Bilgi var; Okuma Akışı ayrı satır değil", async () => {
-    renderSidebar("/media");
-    expect(await screen.findByRole("link", { name: "Medya" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Bilgi" }).getAttribute("href")).toBe("#/notes");
+    renderSidebar("/feed");
+    expect(await screen.findByRole("link", { name: "RSS & Akış" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Bilgi" })).toBeNull();
     expect(screen.getByRole("link", { name: "RSS & Akış" })).toBeTruthy();
     expect(allRoutes().some((route) => route.path === "/feed")).toBe(true);
   });
 
   it("alt satırlar kök satırdan hafif küçük ve girintili", async () => {
-    renderSidebar("/media");
+    renderSidebar("/feed");
     const root = screen.getByRole("button", { name: /^Kütüphane alt menüsünü/ });
-    const child = await screen.findByRole("link", { name: "Medya" });
+    const child = await screen.findByRole("link", { name: "RSS & Akış" });
 
     // Kök: h-9 + 16px ikon; alt satır: h-8 + girinti + 14px ikon.
     expect(root.closest(".h-9")).toBeTruthy();
@@ -252,8 +251,8 @@ describe("AppSidebar — ürün navigasyonu", () => {
   });
 
   it("tek hedefli alan aktifken de bağlantı olarak işaretlenir", () => {
-    renderSidebar("/finance");
-    expect(screen.getByRole("link", { name: "Abonelikler" }).getAttribute("aria-current")).toBe("page");
+    renderSidebar("/projects");
+    expect(screen.getByRole("link", { name: "Projeler" }).getAttribute("aria-current")).toBe("page");
   });
 
   it("aç/kapa tercihini saklar (temiz kurulumda kapalı)", () => {

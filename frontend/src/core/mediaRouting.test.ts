@@ -37,7 +37,7 @@ describe("media integration routing", () => {
         type: "media_item",
         label: "Medya",
         label_plural: "Medyalar",
-        route: "/media/{id}",
+        route: "/activity",
         icon: "Film",
         searchable: true,
         linkable: true,
@@ -46,7 +46,7 @@ describe("media integration routing", () => {
         type: "media_unit",
         label: "Bölüm",
         label_plural: "Bölümler",
-        route: "/media",
+        route: "/activity",
         icon: "FileVideo",
         searchable: true,
         linkable: true,
@@ -64,8 +64,8 @@ describe("media integration routing", () => {
   });
 
   it("routes searchable media entities from the entity-type registry", () => {
-    expect(entityRoute(entity("media_item"))).toBe("#/media/media-1");
-    expect(entityRoute(entity("media_unit", "unit-1"))).toBe("#/media");
+    expect(entityRoute(entity("media_item"))).toBe("#/activity");
+    expect(entityRoute(entity("media_unit", "unit-1"))).toBe("#/activity");
   });
 
   it("routes media notifications by entity or kind", () => {
@@ -76,7 +76,7 @@ describe("media integration routing", () => {
           entity_id: "media-1",
         }),
       ),
-    ).toBe("/media/media-1");
+    ).toBe("/activity");
     expect(
       notificationRoute(
         notification({
@@ -84,17 +84,14 @@ describe("media integration routing", () => {
           entity_id: "unit-1",
         }),
       ),
-    ).toBe("/media");
-    expect(notificationRoute(notification({ kind: "media_release" }))).toBe("/media");
-    expect(notificationRoute(notification({ kind: "media_sync" }))).toBe("/media");
+    ).toBe("/activity");
+    expect(notificationRoute(notification({ kind: "media_release" }))).toBe("/activity");
+    expect(notificationRoute(notification({ kind: "media_sync" }))).toBe("/activity");
   });
 
   it("keeps opportunity sync defaults while addressing media scope explicitly", () => {
     expect(sourceSyncApiPath("opportunity")).toBe("/sources/sync");
     expect(sourceSyncRoute("opportunity")).toBe("/sources");
-    expect(sourceSyncApiPath("media")).toBe("/sources/sync?scope=media");
-    expect(sourceSyncRoute("media")).toBe("/sources?scope=media");
     expect(sourceSyncQueryKey("opportunity")).toEqual(["source-sync"]);
-    expect(sourceSyncQueryKey("media")).toEqual(["source-sync", "media"]);
   });
 });

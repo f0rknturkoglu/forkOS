@@ -40,12 +40,12 @@ MODULE = ModuleSpec(
     router=router,
     entity_types=[
         EntityTypeSpec(
-            "note", "Not", "Notlar", "/notes?focus={id}", "StickyNote",
+            "note", "Not", "Notlar", "/activity", "StickyNote",
             searchable=False, linkable=False,
         ),
         EntityTypeSpec(
             "note_folder", "Not klasörü", "Not klasörleri",
-            "/notes", "Folder", searchable=False, linkable=False,
+            "/activity", "Folder", searchable=False, linkable=False,
         ),
     ],
     event_verbs=[

@@ -1,7 +1,7 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw, X } from "lucide-react";
 import { api } from "@/core/api";
 import { entityRoute } from "@/core/entityRegistry";
 import type { CalendarEvent } from "@/core/types";
@@ -16,6 +16,7 @@ import {
   keyToUtc,
   localDateKey,
 } from "@/lib/date";
+import { TodoComposer } from "@/modules/todo/TodoComposer";
 import { useOnline } from "@/lib/hooks";
 
 type View = "week" | "month";
@@ -82,6 +83,7 @@ export function CalendarPage() {
   const [view, setView] = useState<View>("month");
   const [anchor, setAnchor] = useState(() => appDayUtc(new Date()));
   const online = useOnline();
+  const [taskDay, setTaskDay] = useState<string | null>(null);
 
   const days = rangeDays(anchor, view);
   const start = useMemo(() => rangeStart(anchor, view), [anchor, view]);
@@ -169,6 +171,19 @@ export function CalendarPage() {
         </WorkspacePaneHeader>
 
         <WorkspaceScrollArea className="overflow-x-auto p-3">
+          {taskDay && (
+            <section className="mb-3 space-y-2" aria-label="Takvimden görev ekle">
+              <div className="flex items-center justify-between gap-2 text-meta">
+                <span>
+                  {formatTrDate(keyToUtc(taskDay), { day: "numeric", month: "long", timeZone: "UTC" })} için görev
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => setTaskDay(null)} ariaLabel="Görev formunu kapat">
+                  <X size={14} />
+                </Button>
+              </div>
+              <TodoComposer key={taskDay} defaultPlanDay={taskDay} onCreated={() => setTaskDay(null)} />
+            </section>
+          )}
           {/* Ay izgarasi dar hucrelerle sigar; hafta gorunumu etkinlik detayi
               tasidigi icin daha genis olmali. */}
           <div
@@ -210,6 +225,16 @@ export function CalendarPage() {
                       >
                         {day.getUTCDate()}
                       </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="ml-auto h-6 px-1"
+                        disabled={!online}
+                        ariaLabel={`${localDateKey(day)} gününe görev ekle`}
+                        onClick={() => setTaskDay(localDateKey(day))}
+                      >
+                        <Plus size={12} />
+                      </Button>
                       {/* Ayin ilk gunu: izgarada ay degisimini gorunur kilar. */}
                       {day.getUTCDate() === 1 && (
                         <span className="text-micro uppercase tracking-[0.08em] text-muted">

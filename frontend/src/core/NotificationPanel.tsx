@@ -25,9 +25,9 @@ import { entityRoute } from "./entityRegistry";
 const ROUTE_FOR_KIND: [prefix: string, route: string][] = [
   ["opportunity", "/opportunities"],
   ["deadline", "/opportunities"],
+  ["media", "/activity"],
   ["source", "/sources"],
   ["rss", "/rss"],
-  ["media", "/media"],
 ];
 
 export function notificationRoute(item: Notification): string {

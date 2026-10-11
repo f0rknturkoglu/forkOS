@@ -7,11 +7,11 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 AgendaKind = Literal[
-    "calendar", "todo", "rss", "media", "opportunity", "interview", "payment", "study",
+    "calendar", "todo", "rss", "opportunity", "interview", "study",
     "flashcard", "pomodoro",
 ]
 AgendaSource = Literal["calendar", "planned", "due", "routine", "suggestion"]
-AgendaAction = Literal["complete_todo", "mark_rss_read", "log_media"]
+AgendaAction = Literal["complete_todo", "mark_rss_read"]
 
 
 class AgendaRow(BaseModel):
@@ -36,10 +36,7 @@ class AgendaRow(BaseModel):
     project_title: str | None = None
     feed_title: str | None = None
     url: str | None = None
-    media_kind: str | None = None
-    media_status: str | None = None
     progress_label: str | None = None
-    cover_url: str | None = None
     #: Tekrar kuyrugundan gelen ogrenme satirlari icin sonraki tekrar zamani.
     next_review_at: datetime | None = None
     recur: Literal["daily", "weekdays", "weekly", "monthly"] | None = None
@@ -49,7 +46,6 @@ class AgendaRow(BaseModel):
 class AgendaSuggestions(BaseModel):
     todos: list[AgendaRow] = Field(default_factory=list)
     rss: list[AgendaRow] = Field(default_factory=list)
-    media: list[AgendaRow] = Field(default_factory=list)
     #: Vadesi gelmis desteler: "bugun su desteyi tekrar et" tavsiyesi.
     flashcards: list[AgendaRow] = Field(default_factory=list)
     #: Tekrar zamani gelen konular: "bugun su konuyu tazele" tavsiyesi.

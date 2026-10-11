@@ -1,7 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { RecurringWidget } from "@/modules/finance/RecurringWidget";
 import { RssPage } from "@/modules/rss/RssPage";
 import { TodayAgendaWidget } from "./TodayAgendaWidget";
 
@@ -57,12 +56,10 @@ describe("cross-page query integration", () => {
 
   it("registers Today widget queries under their detail-page prefixes", () => {
     renderToStaticMarkup(createElement(TodayAgendaWidget));
-    renderToStaticMarkup(createElement(RecurringWidget));
 
     expect(harness.queries.map((query) => query.queryKey)).toContainEqual(["today-agenda", expect.any(String)]);
     // Detail sayfasiyla AYNI anahtar: ayni ucu iki anahtarla sormak ucu iki
     // kez cekerdi (bkz. finance/queries.ts).
-    expect(harness.queries.map((query) => query.queryKey)).toContainEqual(["recurring"]);
   });
 
   it("runs the RSS save success callback with every linked refresh prefix", () => {

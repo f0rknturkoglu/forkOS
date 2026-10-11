@@ -14,7 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.modules.document import service as document_service
-from app.modules.media import artwork
+from app.modules.media import archive as artwork
 from app.sources import forkjob_port
 
 #: GERCEK (uretim) sabitleri modul import'unda yakalanir: conftest'in autouse

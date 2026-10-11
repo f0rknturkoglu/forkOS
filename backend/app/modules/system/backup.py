@@ -5,18 +5,13 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import events as event_svc
-from app.core import runs as run_svc
 from app.core.events import log_event
-from app.core.notifications import notify
 from app.core.time import local_today
-from app.integrations.google_auth import access_token
 from app.modules.system import dirty
 from app.modules.system.export import backup_table_names, full_json
-from app.modules.system.models import Setting
 
 
 def _backup_dir() -> Path:
@@ -36,10 +31,6 @@ RETENTION_DAYS = 14
 SCHEDULED_AT = "03:00"
 
 VERB_CREATED = "backup.created"
-VERB_DRIVE_OK = "backup.drive_uploaded"
-VERB_DRIVE_FAIL = "backup.drive_upload_failed"
-
-FOLDER_SETTING = "backup.drive_folder_id"
 
 def _counts(payload: dict) -> dict:
     modules = payload.get("modules", {})
@@ -79,27 +70,6 @@ async def create_backup(session: AsyncSession) -> Path:
         "counts": _counts(payload),
     })
 
-    folder = await session.get(Setting, FOLDER_SETTING)
-    if folder and folder.value:
-        error = await upload_drive(session, target, str(folder.value))
-        if error:
-            #: Yukleme hatasi URL/token tasiyabilir ve bu metin hem Aktivite'ye
-            #: hem bildirime duser -- kullanici ikisini de kopyalayabilir.
-            detail = run_svc.sanitize_error(error)
-            await log_event(session, verb=VERB_DRIVE_FAIL,
-                            payload={"file": target.name, "error": detail})
-            await notify(
-                session,
-                kind="backup_drive_failed",
-                title="Google Drive yedeği yüklenemedi",
-                body=f"{target.name}: {detail[:150]}",
-                dedup_key=f"backup_drive_failed:{target.name}",
-                importance=2,
-            )
-        else:
-            await log_event(session, verb=VERB_DRIVE_OK,
-                            payload={"file": target.name, "folder_id": str(folder.value)})
-
     # "Anlamli veri" imleci yedekle birlikte ilerler; zamanlanmis yedek bir
     # sonraki turda buna bakip ATLAYABILIR (bkz. backup_if_stale).
     await dirty.record_revision(session, revision)
@@ -107,62 +77,25 @@ async def create_backup(session: AsyncSession) -> Path:
     return target
 
 
-async def upload_drive(session: AsyncSession, path: Path, folder_id: str) -> str | None:
-    """Drive'a gzip yedegi yukler. Doner: None basariliysa, yoksa hata metni.
-
-    Yerel yedek birincildir -- yukleme hatasi yedegin alinmasini engellemez,
-    sadece durum sayfasinda gorunur.
-    """
-    try:
-        token = await access_token(session)
-        metadata = {"name": path.name, "parents": [folder_id]}
-        files = {
-            "metadata": (None, json.dumps(metadata), "application/json"),
-            "file": (path.name, path.read_bytes(), "application/gzip"),
-        }
-        async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.post(
-                "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-                headers={"Authorization": f"Bearer {token}"},
-                files=files,
-            )
-            response.raise_for_status()
-        return None
-    except Exception as exc:
-        return f"{type(exc).__name__}: {str(exc)[:300]}"
-
-
 async def backup_status(session: AsyncSession) -> dict:
-    """Durum sayfasi/widjet icin tek kaynak -- son yedek, Drive yukleme gecmisi.
+    """Durum sayfasi icin tek kaynak -- yerel yedek durumu.
 
     `changes_since_backup` arayuze NEDEN yeni yedek gorunmedigini anlatir:
     zamanlanmis yedek, anlamli degisiklik yoksa bilincli olarak atlanir.
     """
-    verbs = [VERB_CREATED, VERB_DRIVE_OK, VERB_DRIVE_FAIL]
+    verbs = [VERB_CREATED]
     events = await event_svc.recent_events(session, limit=12, verbs=verbs)
     last_created = next((e for e in events if e.verb == VERB_CREATED), None)
-    last_ok = next((e for e in events if e.verb == VERB_DRIVE_OK), None)
-    last_fail = next((e for e in events if e.verb == VERB_DRIVE_FAIL), None)
-    folder = await session.get(Setting, FOLDER_SETTING)
     stored = await dirty.stored_revision(session)
     changes = True if stored is None else await dirty.has_changes_since_last_backup(session)
 
     return {
-        "drive_folder_id": folder.value if folder and folder.value else None,
         "last_backup": {
             "file": last_created.payload.get("file"),
             "size": last_created.payload.get("size"),
             "at": last_created.occurred_at,
             "counts": last_created.payload.get("counts"),
         } if last_created else None,
-        "last_drive_upload": {
-            "file": last_ok.payload.get("file"),
-            "at": last_ok.occurred_at,
-        } if last_ok else None,
-        "last_drive_error": {
-            "message": last_fail.payload.get("error"),
-            "at": last_fail.occurred_at,
-        } if last_fail else None,
         "next_backup_scheduled": SCHEDULED_AT,
         "changes_since_backup": changes,
         "retention_days": RETENTION_DAYS,

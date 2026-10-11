@@ -4,7 +4,13 @@ Kişisel verilerini kendi bilgisayarında tutan, tek kullanıcılı ve **local-o
 
 forkOS; yakalama, planlama, odaklanma, öğrenme, medya takibi, iş fırsatları ve operasyonel takibi birbirine bağlı tek bir çalışma alanında toplar. Hosted backend, kullanıcı hesabı veya telemetri yoktur; uygulama varsayılan olarak yalnızca `127.0.0.1` üzerinde çalışır.
 
-**İki sahipli çalışma modeli.** forkOS **yürütmenin** sahibidir: görevler, plan, takvim, Pomodoro, öğrenme ilerlemesi/SRS, fırsatlar, RSS, medya ve olay geçmişi. Bilgi ise ayrı ve private `f0rknbrain` Obsidian Vault'unda yaşar: notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notları, kaynak notları. Aynalı Not sistemi yoktur. Ayrıntı: [PHASE 3 — bilgi sahipliği devri](docs/obsidian-hybrid/phase3-cutover.md).
+**İki sahipli çalışma modeli.** forkOS **yürütmenin** sahibidir: görevler, plan, takvim, Pomodoro, öğrenme ilerlemesi/SRS, fırsatlar, RSS ve olay geçmişi. Bilgi ise ayrı ve private `f0rknbrain` Obsidian Vault'unda yaşar: notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notları, kaynak notları. Aynalı Not sistemi yoktur. Ayrıntı: [PHASE 3 — bilgi sahipliği devri](docs/obsidian-hybrid/phase3-cutover.md).
+
+## V1 ürün kapsamı
+
+Akademik ve kariyer gelişimi; günlük yürütme, hedefler/strateji, projeler, öğrenme ve kartlar, Takvim, Pomodoro, RSS/Feed, Yer İmleri ve tanılama korunur. Medya, Finans, bağımsız Belgeler/Bilgi arayüzleri ve Google Drive emekli edilmiştir. Yerel CV/dosya işleme ve Obsidian altyapısı devam eder; geçmiş veriler silinmez. [Mimari ve doğrulama](docs/architecture/v1-scope-consolidation.md).
+
+Pomodoro geçmişinde tamamlanan seanslar elle eklenebilir, düzenlenebilir ve onayla silinebilir. Sayaç ve elle kayıt aynı kalıcı modeli kullanır.
 
 ## Neler sunuyor?
 
@@ -58,7 +64,7 @@ flowchart LR
 
 Notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notları ile kaynak notları Vault'ta Markdown olarak yaşar; forkOS bunları yalnızca köprü uçlarıyla (`/api/obsidian/capture`, `/ensure`, `/items/{id}`, `uri/search`, `/index/refresh`, proje günlüğü ve kaynak notu köprüleri) açar ve yazar.
 
-- Navigasyondaki **Bilgi** sayfası (`/notes`) hafif bir köprü yüzeyidir: kasa adı, `Obsidian'ı Aç` / `Inbox` / `Bugünün Notu` / `Vault'ta Ara` ve `İndeksi yenile`. Not listesi, editör, klasör, ek, tuval ve bilgi grafı yoktur.
+- Bağımsız Bilgi sayfası kaldırıldı. Vault ve ajan bağlantısı **Ayarlar → Agent & Bilgi** altında yönetilir.
 - `/notes?focus=<uuid>` eski Aktivite/yer imi bağlantıları için çalışmaya devam eder; not Vault'ta çözülür, legacy DB'ye düşen bir okuma yoktur.
 - `/api/notes*`, `/api/note-folders*` ve `/api/graph` rota kaydı **yoktur**; legacy Notlar tabloları, ek deposu ve `note.*` olayları dondurulmuş arşiv olarak yerinde kalır (hiçbir migration tablo DROP etmez).
 - Vault erişilemezse uygulama normal çalışır, yalnızca bilgi işlemleri açık hata verir (`503`/`403`); legacy Notlar'a düşen bir yedek yazma yolu yoktur.
@@ -244,7 +250,7 @@ servisine bağlanır; bağlanmasalardı container yeniden oluşturulunca kaybolu
 | --- | --- |
 | `backend/data/documents/` | yerel belge dosyaları |
 | `backend/data/attachments/` | legacy not ekleri (binary, sha256 adıyla; dondurulmuş arşiv) |
-| `backend/data/media/` | medya görsel önbelleği (yeniden üretilebilir) |
+| `backend/data/media/` | emekli medya dosyaları (korunan arşiv) |
 | `backend/data/cache/` | scraper önbelleği (yeniden üretilebilir) |
 | `backend/data/config.yaml` | Forkjob Core uyum profili |
 | `backend/backups/` | JSON yedekleri ve felaket kurtarma dump'ları |
@@ -262,7 +268,7 @@ Home bileşenleri ve komutlar gizlenir; verisi silinmez. Arka planda dış
 kaynağa çıkıp çıkmamak **ayrı** bir karardır ve Ayarlar → Modüller ekranındaki
 "Arka plan güncellemesi" bölümünden yönetilir.
 
-- `automation.opportunity.enabled`, `automation.media.enabled`,
+- `automation.opportunity.enabled`,
   `automation.calendar.enabled`, `automation.github.enabled` — kapatıldığında
   worker o kaynağa **hiç çıkmaz**.
 - RSS'in arka plan anahtarı kendi aralığıdır (`rss.interval_minutes = 0` →
@@ -289,7 +295,6 @@ başına ağ patlaması yaratmaz**: açılış görevleri tazelik kapılıdır.
 
 - RSS: yalnız süresi geçmiş feed'ler (aralık ayarına göre) çekilir.
 - Takvim / GitHub: son tur yeterince yeniyse atlanır.
-- Medya: kendi 24 saatlik aralığına uyar.
 - Kritik kaynaklar: son 2 saat içinde koşmuşsa kuyruğa tekrar alınmaz.
 - Yedek: taze ya da değişiklik yoksa atlanır.
 
@@ -323,7 +328,7 @@ GOOGLE_REDIRECT_URI=http://127.0.0.1:8787/api/auth/google/callback
 EXTENSION_ID=
 ```
 
-- Google OAuth: Drive belge metadatası ve Calendar aynası
+- Google OAuth: yalnız Calendar aynası; Drive emekli
 - GitHub: proje commit/contribution bilgileri
 - TMDB, AniList, OpenLibrary, MusicBrainz ve benzeri sağlayıcılar: medya kataloğu
 - Kaynak adaptörleri: iş ilanları, YLSY, ÖSYM ve kamu duyuruları
@@ -482,7 +487,7 @@ liste yanıt sözleşmesi üzerinden kurulur (`frontend/vite.config.ts`):
 | Cache adı / girdi | `lifeos-api-v2`, en fazla 120 girdi, 7 gün |
 
 Binary ve büyük yanıtlar cache dışıdır: `/api/export/*`, `/api/backup/*`,
-`/api/documents/*/file`, `/api/media/assets/*`
+`/api/documents/*/file`
 ve JSON olmayan her yanıt. Boyut ölçümü **gövdeden** yapılır: `Content-Length`
 gzip'li yanıtlarda hiç gelmez ve "yok"u sıfır saymak tavanı işlevsiz bırakır.
 

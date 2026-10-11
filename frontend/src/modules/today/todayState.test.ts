@@ -32,7 +32,7 @@ describe("deriveTodayState", () => {
         ],
         checklist: [],
         completed: [],
-        suggestions: { todos: [], rss: [], media: [], flashcards: [], study: [], career: [] },
+        suggestions: { todos: [], rss: [], flashcards: [], study: [], career: [] },
       },
       reviewEvents: [],
       weeklyReviews: [],

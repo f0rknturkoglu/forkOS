@@ -96,13 +96,6 @@ async def _prune_rss(session: AsyncSession, moment: datetime) -> dict[str, int]:
     return {"feed_item": await rss.prune_items(session)}
 
 
-async def _prune_artwork(session: AsyncSession, moment: datetime) -> dict[str, int]:
-    from app.modules.media.artwork import prune_artwork
-
-    result = await prune_artwork(session)
-    return {"files": result.removed, "freed_bytes": result.freed_bytes}
-
-
 #: Adım adı -> calistirici. Once DB satirlari, sonra dosya sistemi.
 #: Her adim ayni imzayi tasir: (session, moment) -> {etiket: sayi}.
 #:
@@ -115,7 +108,6 @@ async def _prune_artwork(session: AsyncSession, moment: datetime) -> dict[str, i
 STEPS: tuple[tuple[str, Callable[[AsyncSession, datetime], Awaitable[dict[str, int]]]], ...] = (
     ("retention", _prune_retention),
     ("rss", _prune_rss),
-    ("artwork", _prune_artwork),
 )
 
 

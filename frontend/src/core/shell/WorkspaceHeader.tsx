@@ -29,7 +29,7 @@ import { useOnline } from "@/lib/hooks";
 /** Yenileme kapsamlari. Etiketler kullanici dilinde; degerler API sozlesmesi. */
 const REFRESH_SCOPES = [
   { id: "critical", label: "Kritik kaynaklar", hint: "YLSY, ÖSYM, YÖK ve hızlı panolar" },
-  { id: "standard", label: "Standart yenileme", hint: "Opt-in kaynaklar hariç tümü + medya" },
+  { id: "standard", label: "Standart yenileme", hint: "Opt-in kaynaklar hariç tüm kaynaklar" },
   { id: "full", label: "Tam yenileme", hint: "Katalogun tamamı; yavaş kaynaklar dahil" },
 ] as const;
 

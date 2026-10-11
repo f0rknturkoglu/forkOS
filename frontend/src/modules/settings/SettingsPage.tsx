@@ -1,6 +1,6 @@
 import { invalidateAfter } from "@/core/invalidation";
 import { useBackupStatus } from "@/core/runtimeQueries";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   BellRing,
@@ -44,7 +44,6 @@ import { useOnline } from "@/lib/hooks";
 import {
   BackupSection,
   IntegrationsSection,
-  MediaProvidersSection,
   ModulesSection,
   ThemePicker,
   WeatherSection,
@@ -53,8 +52,7 @@ import {
 
 /**
  * Sekmeler URL'de yasar (`#/settings?tab=modules`): yenileyince kaybolmaz,
- * baglanti paylasilabilir. Eski `?section=media-links` derin baglantisi da
- * karsilanir -- Entegrasyonlar sekmesini acip medya panelini odaklar.
+ * baglanti paylasilabilir.
  */
 type SettingsGroup = "preferences" | "system";
 
@@ -116,26 +114,13 @@ export function SettingsPage() {
   const route = useHashRoute();
   const toast = useToast();
   const online = useOnline();
-  const mediaLinksRef = useRef<HTMLDivElement>(null);
-  const requestedSection = route.params.get("section");
   const requestedTab = route.params.get("tab");
-  const tab =
-    requestedTab && TAB_IDS.has(requestedTab)
-      ? requestedTab
-      : requestedSection === "media-links"
-        ? "integrations"
-        : "general";
+  const tab = requestedTab && TAB_IDS.has(requestedTab) ? requestedTab : "general";
 
   const [weatherLoc, setWeatherLoc] = useState<string | null>(null);
   const [retentionDays, setRetentionDays] = useState<number | null>(null);
-  const [upcomingDays, setUpcomingDays] = useState<number | null>(null);
-  const [syncIntervalHours, setSyncIntervalHours] = useState<number | null>(null);
-  const [driveFolder, setDriveFolder] = useState<string | null>(null);
-  const [keyDrafts, setKeyDrafts] = useState<Record<string, string>>({});
   const [githubLogin, setGithubLogin] = useState("");
   const [githubToken, setGithubToken] = useState("");
-  const [mediaName, setMediaName] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
 
   const settingsQuery = useQuery({
     queryKey: ["settings"],
@@ -159,19 +144,6 @@ export function SettingsPage() {
     queryFn: () => api.get<IntegrationStatus>("/auth/github/status"),
   });
   const { data: backupStatus } = useBackupStatus();
-
-  /* Derin baglanti: medya paneli odaklanir ve orta hizaya kaydirilir. */
-  const [focusedSection, setFocusedSection] = useState<string | null>(null);
-  useEffect(() => {
-    if (requestedSection !== "media-links") {
-      setFocusedSection(null);
-      return;
-    }
-    if (tab !== "integrations" || !settings || focusedSection === requestedSection) return;
-    mediaLinksRef.current?.scrollIntoView({ block: "center" });
-    mediaLinksRef.current?.focus();
-    setFocusedSection(requestedSection);
-  }, [tab, requestedSection, settings, focusedSection]);
 
   // Otomasyon durumu/profili: hook'lar ERKEN RETURN'DEN ONCE kurulur, aksi
   // halde ilk render'da sayilari tutmaz ("more hooks than previous render").
@@ -228,7 +200,7 @@ export function SettingsPage() {
     const label = provider === "github" ? "GitHub" : "Google";
     const ok = await confirmDialog({
       title: `${label} bağlantısı kesilsin mi?`,
-      body: `Kayıtlı ${label} erişimi silinir. Bağlı özellikler (Drive/GitHub) durur; yeniden bağlanman gerekir.`,
+      body: `Kayıtlı ${label} erişimi silinir. Bağlı özellikler (Takvim/GitHub) durur; yeniden bağlanman gerekir.`,
       confirmLabel: "Bağlantıyı kes",
     });
     if (!ok) return;
@@ -243,12 +215,8 @@ export function SettingsPage() {
     mutationFn: () => api.post<{ removed: number }>("/settings/reset"),
     onSuccess: (result) => {
       invalidateAfter("settings.write");
-      setKeyDrafts({});
       setWeatherLoc(null);
       setRetentionDays(null);
-      setUpcomingDays(null);
-      setSyncIntervalHours(null);
-      setDriveFolder(null);
       toast.push(`Ayarlar sıfırlandı (${result.removed} kayıt silindi).`, { tone: "ok" });
     },
     onError: (error) => toast.push(`Sıfırlanamadı: ${error.message}`, { tone: "danger" }),
@@ -337,7 +305,6 @@ export function SettingsPage() {
   }
 
   const disabled = settings["modules.disabled"] ?? [];
-  const media = settings["media.links"] ?? [];
   const subreddits = Array.isArray(settings["news.subreddits"]) ? (settings["news.subreddits"] as string[]) : [];
   const career = (settings["opportunity.career_profile"] ?? {
     current_location: "",
@@ -347,16 +314,8 @@ export function SettingsPage() {
   const write = (key: string, value: unknown) => save.mutate({ key, value });
   const toggleModule = (id: string) =>
     write("modules.disabled", disabled.includes(id) ? disabled.filter((x) => x !== id) : [...disabled, id]);
-  const addLink = () => {
-    if (!mediaName || !mediaUrl) return;
-    write("media.links", [...media, { name: mediaName, url: mediaUrl }]);
-    setMediaName("");
-    setMediaUrl("");
-  };
   const retention = retentionDays ?? Number(settings["rss.retention_days"] ?? 90);
   const intervalMinutes = Number(settings["rss.interval_minutes"] ?? 30);
-  const upcoming = upcomingDays ?? Number(settings["media.upcoming_days"] ?? 30);
-  const syncInterval = syncIntervalHours ?? Number(settings["media.sync_interval_hours"] ?? 24);
 
   return shell(
     <>
@@ -448,49 +407,6 @@ export function SettingsPage() {
               void refetchGithub();
             }}
           />
-          <MediaProvidersSection
-            online={online}
-            keys={{
-              "media.tmdb_key": String(settings["media.tmdb_key"] ?? ""),
-              "media.igdb_client_id": String(settings["media.igdb_client_id"] ?? ""),
-              "media.igdb_client_secret": String(settings["media.igdb_client_secret"] ?? ""),
-              "media.google_books_key": String(settings["media.google_books_key"] ?? ""),
-              ...keyDrafts,
-            }}
-            onKey={(key, value) => setKeyDrafts((current) => ({ ...current, [key]: value }))}
-            onSave={(key, value) => {
-              setKeyDrafts((current) => {
-                const next = { ...current };
-                delete next[key];
-                return next;
-              });
-              write(key, value);
-            }}
-            media={media}
-            onRemoveLink={(index) =>
-              write(
-                "media.links",
-                media.filter((_, i) => i !== index),
-              )
-            }
-            mediaName={mediaName}
-            onMediaName={setMediaName}
-            mediaUrl={mediaUrl}
-            onMediaUrl={setMediaUrl}
-            onAddLink={addLink}
-            upcomingDays={upcoming}
-            onUpcomingDays={setUpcomingDays}
-            onSaveUpcomingDays={() => {
-              if (upcoming !== Number(settings["media.upcoming_days"] ?? 30)) write("media.upcoming_days", upcoming);
-            }}
-            syncIntervalHours={syncInterval}
-            onSyncIntervalHours={setSyncIntervalHours}
-            onSaveSyncIntervalHours={() => {
-              if (syncInterval !== Number(settings["media.sync_interval_hours"] ?? 24))
-                write("media.sync_interval_hours", syncInterval);
-            }}
-            innerRef={mediaLinksRef}
-          />
         </Pane>
       )}
 
@@ -504,9 +420,6 @@ export function SettingsPage() {
             onBackup={() => backup.mutate()}
             backupData={backup.data}
             backupStatus={backupStatus}
-            driveFolder={driveFolder ?? backupStatus?.drive_folder_id ?? ""}
-            onDriveFolder={setDriveFolder}
-            onSaveDriveFolder={(value) => write("backup.drive_folder_id", value)}
           />
           <Section title="RSS otomasyonu">
             <div className="flex items-center justify-between gap-3 text-meta text-secondary">

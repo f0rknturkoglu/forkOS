@@ -48,9 +48,7 @@ const EXTERNAL_WRITE_PATHS: readonly RegExp[] = [
   /^\/rss\/refresh-all$/, // tüm beslemeleri çek
   /^\/rss\/feeds\/[^/]+\/refresh$/, // tek beslemeyi çek
   /^\/weather\/geocode$/, // konum adı çözümü (yalnız GET olsa da burada durur)
-  /^\/media\/sync$/, // sağlayıcı üst verisi (TMDB vb.)
   /^\/calendar\/sync$/, // Google Takvim çekimi
-  /^\/documents\/sync$/, // Drive klasörü
   /^\/projects\/[^/]+\/github\/issues$/, // GitHub'da issue açar
   /^\/plan\/[^/]+\/push$/, // planı Google Takvim'e iter
 ];
@@ -58,7 +56,7 @@ const EXTERNAL_WRITE_PATHS: readonly RegExp[] = [
 /** Yerel yazmalar çevrimdışıyken de geçer; yalnız dış uçlar reddedilir. */
 function assertOnlineWrite(path: string): void {
   if (isOnline()) return;
-  // Sorgu dizesi kararı değiştirmez: `/media/sync?item_id=...` de dış uçtur.
+  // Sorgu dizesi kararı değiştirmez: `/system/refresh?mode=full` de dış uçtur.
   const endpoint = path.split("?")[0];
   if (EXTERNAL_WRITE_PATHS.some((pattern) => pattern.test(endpoint))) throw new OfflineWriteError();
 }

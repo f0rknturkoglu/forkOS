@@ -33,34 +33,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.system.models import Setting
 
 #: Arka plan isi yapan domain'ler. RSS burada DEGIL (bkz. modul docstring).
-DOMAINS: tuple[str, ...] = ("opportunity", "media", "calendar", "github")
+DOMAINS: tuple[str, ...] = ("opportunity", "calendar", "github")
 
 #: Domain -> "arka planda guncelle" anahtari.
 ENABLED_KEYS: dict[str, str] = {domain: f"automation.{domain}.enabled" for domain in DOMAINS}
 
-#: Domain -> tur araligi ayari. Media KENDI mevcut ayarini kullanir
-#: (`media.sync_interval_hours`); ikinci bir anahtar acmak ayni davranisi iki
-#: yere baglar ve hangisinin kazandigini belirsizlestirirdi.
+#: Domain -> tur araligi ayari.
 INTERVAL_KEYS: dict[str, str] = {
     "opportunity": "automation.opportunity.interval_minutes",
-    "media": "media.sync_interval_hours",
     "calendar": "automation.calendar.interval_minutes",
     "github": "automation.github.interval_hours",
 }
 
 #: Araligi SAAT cinsinden saklayan domain'ler (okurken dakikaya cevrilir).
-HOUR_DOMAINS: frozenset[str] = frozenset({"media", "github"})
+HOUR_DOMAINS: frozenset[str] = frozenset({"github"})
 
 #: Domain -> arka plan tur araligi varsayilani (mevcut worker davranisiyla ayni;
 #: github SAAT cinsinden tutulur).
-DEFAULT_INTERVALS: dict[str, int] = {"opportunity": 30, "media": 24, "calendar": 60, "github": 3}
+DEFAULT_INTERVALS: dict[str, int] = {"opportunity": 30, "calendar": 60, "github": 3}
 
-#: Ayar anahtari -> varsayilan deger. `media` HARIC: kendi anahtari zaten
-#: DEFAULTS'te tasiniyor, iki kaynak ayni seyi soylemesin.
+#: Ayar anahtari -> varsayilan deger.
 INTERVAL_DEFAULTS: dict[str, int] = {
     INTERVAL_KEYS[domain]: value
     for domain, value in DEFAULT_INTERVALS.items()
-    if domain != "media"
 }
 
 #: Hazir profiller: kullaniciya teknik scheduler degerleri yerine bunlar sunulur.

@@ -14,7 +14,7 @@ describe("SyncProgress", () => {
 
   beforeEach(() => {
     responses = [
-      json({ detail: "medya eşitlemesi kapalı" }, 500),
+      json({ detail: "kaynak eşitlemesi kapalı" }, 500),
       json({ active: null, last_completed: null, running: [], sources: [] }),
     ];
     vi.stubGlobal(
@@ -32,11 +32,11 @@ describe("SyncProgress", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { container } = render(
       <QueryClientProvider client={client}>
-        <SyncProgress scope="media" compact />
+        <SyncProgress scope="opportunity" compact />
       </QueryClientProvider>,
     );
 
-    expect((await screen.findByRole("alert")).textContent).toContain("medya eşitlemesi kapalı");
+    expect((await screen.findByRole("alert")).textContent).toContain("kaynak eşitlemesi kapalı");
     fireEvent.click(screen.getByRole("button", { name: "Yeniden dene" }));
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     expect(container.textContent).toBe("");

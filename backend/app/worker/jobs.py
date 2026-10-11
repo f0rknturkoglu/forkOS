@@ -21,7 +21,6 @@ from app.core.heartbeat import WORKER_HEARTBEAT_KEY
 from app.core.models import Event, SourceRun
 from app.db import SessionLocal
 from app.modules.calendar.service import sync_google
-from app.modules.media.sync import poll_media_source, poll_media_sources
 from app.modules.opportunity.worker import (
     poll_named_source,
 )
@@ -331,8 +330,6 @@ async def _consume_source_sync_batch(*, limit: int = CONCURRENCY) -> tuple[int, 
 
     async def one(source_id: str) -> int:
         async with semaphore:
-            if batch.scope == "media":
-                return await poll_media_source(source_id, batch_id=batch.id)
             return await poll_named_source(source_id, batch_id=batch.id)
 
     total = sum(await asyncio.gather(*(one(source_id) for source_id in pending)))
@@ -369,22 +366,6 @@ async def drain_source_sync_batches(*, limit: int = CONCURRENCY) -> int:
                 await touch_drain_heartbeat(session)
                 await session.commit()
             return total
-
-
-async def poll_media(*, ignore_interval: bool = False) -> int:
-    """Medya senkronu; otomasyon kapaliysa hic cikmaz."""
-    async with SessionLocal() as session:
-        if not ignore_interval and not await automation.is_enabled(session, "media"):
-            log.info("poll_media: otomasyon kapali -- atlandi")
-            return 0
-    total = await poll_media_sources(ignore_interval=ignore_interval)
-    log.info("poll_media: %d değişiklik", total)
-    return total
-
-
-async def catch_up_media() -> int:
-    """Acilis telafisi de otomasyon ayarina uyar."""
-    return await poll_media(ignore_interval=False)
 
 
 async def sync_calendar(*, ignore_interval: bool = False) -> int:

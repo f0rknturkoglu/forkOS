@@ -19,9 +19,9 @@ from app.integrations import google_auth
 from app.integrations.models import OAuthToken
 from app.main import app
 
-# `app.modules.document.router` paket niteligi APIRouter nesnesidir; modulu
+# `app.integrations.google_router` paket niteligi APIRouter nesnesidir; modulu
 # hedeflemek icin importlib sart (exchange'i orada monkeypatch'liyoruz).
-document_router = importlib.import_module("app.modules.document.router")
+document_router = importlib.import_module("app.integrations.google_router")
 
 CALLBACK = "/api/auth/google/callback"
 RETURN_URL = "http://127.0.0.1:5173/#/settings?tab=integrations"

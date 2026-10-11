@@ -1,11 +1,4 @@
-/**
- * Toplu çekim partileri (`/sources/sync/history`) — medya kapsamının gördüğü
- * tek geçmiş görünümü.
- *
- * Kariyer/sistem yüzeyleri kaynak BAŞINA son koşuları (`/sources/runs`) ve
- * kapsam matrisini gösterir; medya kapsamı ise yalnız çekim ilerlemesini ve
- * parti geçmişini gösterir (iş sınıfı/kapsam oraya ait değildir).
- */
+/** Manuel kaynak çekimlerinin kalıcı parti geçmişi. */
 import { dataState, SectionFallback } from "@/core/DataState";
 import { Chip, RowList, Section, relativeTime } from "@/core/ui";
 import type { SourceSyncScope } from "@/core/SyncProgress";

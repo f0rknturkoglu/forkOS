@@ -47,7 +47,7 @@ def _filesystem_buckets() -> dict[str, int]:
     yapilmaz. Bir dizin yoksa 0.
     """
     from app.modules.document.service import DOCUMENTS_DIR
-    from app.modules.media.artwork import default_asset_dir
+    from app.modules.media.archive import default_asset_dir
     from app.modules.note import storage as attachment_storage
     from app.modules.system.backup import BACKUP_DIR
     from app.sources.forkjob_core.scrapers.base import ScraperConfig

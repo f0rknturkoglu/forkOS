@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field
 
 
 class PomodoroStart(BaseModel):
@@ -12,7 +12,7 @@ class PomodoroStart(BaseModel):
     planned_min: int = Field(default=50, ge=1, le=240)
     context_entity_id: uuid.UUID | None = None
     topic: str | None = None
-    kind: str = "focus"
+    kind: Literal["focus", "short_break", "long_break"] = "focus"
 
 
 class PomodoroStop(BaseModel):
@@ -22,9 +22,9 @@ class PomodoroStop(BaseModel):
 class PomodoroManual(BaseModel):
     """Gecmise elle islenen seans -- sayac calistirilmadan yapilan is."""
 
-    started_at: datetime
+    started_at: AwareDatetime
     minutes: int = Field(ge=1, le=600)
-    kind: str = "focus"
+    kind: Literal["focus", "short_break", "long_break"] = "focus"
     topic: str | None = None
     context_entity_id: uuid.UUID | None = None
 
@@ -42,6 +42,7 @@ class PomodoroOut(BaseModel):
     context_type: str | None = None
     topic: str | None
     interrupted: bool
+    source: Literal["timer", "manual"] = "timer"
     #: Dolu ise seans duraklatilmis; kalan sure bu ana gore donuyor.
     paused_at: datetime | None = None
     #: Duraklamada gecen toplam saniye.

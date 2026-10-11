@@ -8,8 +8,8 @@
  *   inbox     triyaj akışıdır; girişi Home'daki gelen kutusu yüzeyidir
  *   health    sağlık ve kaynak operasyonları Ayarlar'ın altındadır
  *   sources   aynı sahiplik: rota durur, satır tutmaz
- *   documents Drive belgeleri kariyer bağlamında yaşar, ürün yüzeyi değildir
- *   media     Kütüphane altında bir satırdır, kendi başına birincil hedef değil
+ *   document  yerel kariyer dosyaları ortak altyapıdır
+ *   rss       Kütüphane altında bir satırdır, kendi başına birincil hedef değil
  *
  * Kural: rota → ürün alanı eşleşmesi BAŞKA HİÇBİR YERDE yazılmaz. Başlık ve
  * ikon için modül aramaya devam eden `moduleForPath` bundan ayrıdır; ikisi
@@ -31,7 +31,6 @@ import {
   Layers,
   Library,
   SlidersHorizontal,
-  Wallet,
   Target,
 } from "lucide-react";
 import type { ModuleSpec } from "./types";
@@ -40,17 +39,7 @@ import type { ModuleSpec } from "./types";
 type NavigationPlacement = "primary" | "system";
 
 export type ProductAreaId =
-  | "home"
-  | "goals"
-  | "plan"
-  | "projects"
-  | "career"
-  | "learning"
-  | "library"
-  | "finance"
-  | "activity"
-  | "review"
-  | "system";
+  "home" | "goals" | "plan" | "projects" | "career" | "learning" | "library" | "activity" | "review" | "system";
 
 /** Bir alanın altındaki tek satır: mevcut bir rota ya da alan-içi derin görünüm. */
 export interface NavigationRow {
@@ -149,20 +138,9 @@ const PRODUCT_AREAS: readonly ProductArea[] = [
     label: "Kütüphane",
     icon: Library,
     placement: "primary",
-    // Bilgi (Vault köprüsü) da kütüphanenin parçasıdır: kaydettiğin, okuduğun
-    // ve bilgiye dönüştürdüğün içerik aynı zihinsel rafta durur. Belgeler
-    // BURADA DEĞİL: Drive belgeleri kariyer/başvuru bağlamında yaşar, kendi
-    // başına bir ürün yüzeyi değildir (rota compat için durur).
-    moduleIds: ["bookmarks", "rss", "media", "knowledge"],
+    // RSS ve Yer İmleri aynı bilgi tüketimi alanında; Vault ortak altyapıdır.
+    moduleIds: ["bookmarks", "rss"],
     landing: "/bookmarks",
-  },
-  {
-    id: "finance",
-    label: "Abonelikler",
-    icon: Wallet,
-    placement: "primary",
-    moduleIds: ["finance"],
-    landing: "/finance",
   },
   {
     id: "activity",
@@ -253,7 +231,7 @@ export function areaRows(area: ProductArea, modules: readonly ModuleSpec[]): Nav
 
 /**
  * Alanın sahip olduğu TÜM rotalar (aktiflik için). Gizli ve dinamik rotalar da
- * dahildir: `/statistics`, `/study`, `/media/stats` gibi yollar doğru alanı
+ * dahildir: `/statistics`, `/study`, `/rss` gibi yollar doğru alanı
  * işaretlemelidir.
  */
 function areaRoutes(area: ProductArea, modules: readonly ModuleSpec[]): string[] {

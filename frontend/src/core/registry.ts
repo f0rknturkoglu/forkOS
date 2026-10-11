@@ -12,7 +12,6 @@ import { findRouteMatch } from "@/app/router";
 import { readStored, removeStored, writeStored } from "./storage";
 
 const registry = new Map<string, ModuleSpec>();
-let externalCommands: Command[] = [];
 
 export function registerModule(spec: ModuleSpec): void {
   if (registry.has(spec.id)) {
@@ -67,18 +66,8 @@ export function hydrateSettings(settings: Record<string, unknown>): void {
     writeStored("weather.lat", JSON.stringify(lat));
     writeStored("weather.lon", JSON.stringify(lon));
   }
-  const links = Array.isArray(settings["media.links"])
-    ? (settings["media.links"] as { name: string; url: string }[])
-    : [];
-  externalCommands = links.map((link) => ({
-    id: `media.${link.name}`,
-    label: `Open ${link.name}`,
-    run: () => {
-      window.open(link.url, "_blank", "noopener");
-    },
-  }));
 }
-export const allCommands = () => [...enabledModules().flatMap((m) => m.commands ?? []), ...externalCommands];
+export const allCommands = () => enabledModules().flatMap((m) => m.commands ?? []);
 /** Ayarlardaki siraya gore modulleri dizer. */
 function orderedModules(): ModuleSpec[] {
   const order: string[] = JSON.parse(readStored("widgetOrder") ?? "[]");

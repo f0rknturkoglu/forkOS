@@ -34,12 +34,6 @@ async def test_collects_todo_and_media_rows_together(client):
         json={"title": "Deadline regresyonu", "due_at": due.isoformat()},
     )
     assert todo.status_code == 201, todo.text
-    media = await client.post(
-        "/api/media",
-        json={"title": "Deadline Filmi", "kind": "movie", "status": "planned", "release_date": "2026-10-01"},
-    )
-    assert media.status_code == 201, media.text
-
     async with SessionLocal() as session:
         rows = await collect_deadlines(session)
 
@@ -47,9 +41,9 @@ async def test_collects_todo_and_media_rows_together(client):
     titles = {row["title"] for row in rows}
     # Ikisi de gorunmeli: ScalarResult erken tuketilirse todo satiri kaybolurdu.
     assert "todo" in modules
-    assert "media" in modules
+    assert "media" not in modules
     assert "Deadline regresyonu" in titles
-    assert "Deadline Filmi" in titles
+    assert "Deadline Filmi" not in titles
 
     # Siralama date/datetime karisiminda da calisir ve medya satiri tz-aware
     # datetime tasir (ciplak date ICS export'unu de patlatirdi).
@@ -60,44 +54,6 @@ async def test_collects_todo_and_media_rows_together(client):
     assert ordered == sorted(ordered)
 
 
-async def test_media_item_row_drops_when_unit_release_exists(client):
-    media = await client.post(
-        "/api/media",
-        json={
-            "title": "Sezonluk Dizi",
-            "kind": "show",
-            "status": "planned",
-            "release_date": "2026-10-01",
-        },
-    )
-    assert media.status_code == 201, media.text
-    item_id = media.json()["id"]
-
-    # Unit yayini item yayinindan once: ayni medya icin iki deadline uretilmemeli.
-    from app.modules.media.progress import upsert_unit_in_transaction
-    from app.modules.media.schemas import MediaUnitUpsert
-
-    async with SessionLocal() as session:
-        await upsert_unit_in_transaction(
-            session,
-            uuid.UUID(item_id),
-            MediaUnitUpsert(
-                unit_type="episode",
-                number=1,
-                title="Pilot",
-                provider="test",
-                provider_id="pilot-1",
-                release_at=datetime.now(UTC) + timedelta(days=2),
-            ),
-        )
-        await session.commit()
-
-    async with SessionLocal() as session:
-        rows = await collect_deadlines(session)
-
-    media_rows = [row for row in rows if row["module"] == "media"]
-    assert media_rows, "unit yayini deadline olarak gorunmeli"
-    assert all(row["type"] == "media_unit" for row in media_rows)
 
 
 # ---------------------------------------------------------------------------

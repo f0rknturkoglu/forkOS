@@ -99,7 +99,9 @@ async def manual_refresh(
 async def settings(session: AsyncSession = Depends(get_session)):
     result = dict(DEFAULTS)
     rows = list((await session.execute(select(Setting))).scalars())
-    result.update({item.key: item.value for item in rows})
+    result.update({item.key: item.value for item in rows
+                   if not item.key.startswith(("media.", "finance.", "automation.media."))
+                   and item.key != "backup.drive_folder_id"})
     return result
 
 

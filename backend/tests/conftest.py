@@ -1,6 +1,6 @@
 import json
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import pytest
 from sqlalchemy import text
@@ -63,7 +63,7 @@ def isolated_data_dirs(tmp_path_factory, monkeypatch: pytest.MonkeyPatch):
     ezebilir (o zaman kendi izolasyonundan sorumludur).
     """
     from app.modules.document import service as document_service
-    from app.modules.media import artwork
+    from app.modules.media import archive as artwork
     from app.modules.note import storage as attachment_storage
     from app.modules.system import backup
     from app.sources import forkjob_port

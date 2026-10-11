@@ -41,9 +41,6 @@ const PRODUCT_ROUTES = [
   "/learning",
   "/bookmarks",
   "/feed",
-  "/media",
-  "/notes",
-  "/finance",
   "/activity",
   "/review/daily",
   "/settings",
@@ -51,7 +48,7 @@ const PRODUCT_ROUTES = [
 ];
 
 /** Gizli uyumluluk: eski kayıtlar ve derin bağlantılar kırılmasın diye durur. */
-const COMPAT_ROUTES = ["/health", "/sources", "/documents", "/rss", "/activity/heatmap", "/statistics", "/day"];
+const COMPAT_ROUTES = ["/health", "/sources", "/rss", "/activity/heatmap", "/statistics", "/day"];
 
 const ALL = [...PRODUCT_ROUTES, ...COMPAT_ROUTES];
 
@@ -62,7 +59,7 @@ describe("rota matrisi", () => {
   });
 
   it("emekli ürün yüzeyleri gizli uyumluluk olarak kalır (rota açık, navigasyonda satır yok)", () => {
-    for (const path of ["/documents", "/activity/heatmap"]) {
+    for (const path of ["/activity/heatmap"]) {
       expect(findRouteMatch(allRoutes(), path)?.navigation).toBe("hidden");
     }
   });

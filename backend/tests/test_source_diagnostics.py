@@ -17,18 +17,14 @@ from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select, text
+from sqlalchemy import text
 
 from app.core import runs as run_svc
-from app.core.models import SourceRun
 from app.core.source_sync import create_or_extend_batch
 from app.db import SessionLocal, engine
 from app.main import app
-from app.modules.media import sync as media_sync
 from app.modules.rss import service as rss_service
 from app.modules.rss.schemas import FeedIn
-from app.modules.system import backup
-from app.modules.system.models import Setting
 from app.sources.rss_source import EMPTY, ERROR, FetchResult
 
 #: Katalogda GERCEK bir kaynak: coverage/catalog satirlari katalogdan uretilir,
@@ -72,21 +68,6 @@ async def _insert_run(
         )
 
 
-async def _create_media_item(client: AsyncClient, *, provider_id: str) -> dict:
-    """Takip edilen (monitored) bir medya kaydi: senkron uclari bunu bekler."""
-    response = await client.post(
-        "/api/media",
-        json={
-            "source": "provider",
-            "title": f"Teshis {provider_id}",
-            "kind": "movie",
-            "provider": "tmdb",
-            "provider_id": provider_id,
-            "monitored": True,
-        },
-    )
-    assert response.status_code in (200, 201), response.text
-    return response.json()
 
 
 def _assert_masked(message: str | None) -> None:
@@ -228,59 +209,10 @@ async def test_sources_sync_masks_error_written_to_the_column(client: AsyncClien
     _assert_masked(row["error"])
 
 
-async def test_media_provider_status_masks_error_written_to_the_column(client: AsyncClient):
-    """`/media/providers` saglayici `last_error` alani temizlenmis olmali."""
-    await _insert_run(
-        source="media:tmdb:teshis-probe",
-        status="error",
-        error=LEAKY,
-        finished_at=datetime.now(UTC),
-    )
-
-    providers = await _rows(client, "/api/media/providers")
-    tmdb = next(row for row in providers if row["id"] == "tmdb")
-
-    assert tmdb["last_status"] == "error"
-    _assert_masked(tmdb["last_error"])
 
 
-async def test_media_item_sync_masks_error_written_to_the_column(client: AsyncClient):
-    """`/media/{id}` detayindaki `sync.last_error` de temizlenmis olmali."""
-    item = await _create_media_item(client, provider_id="teshis-item")
-    item_id = item["id"]
-    await _insert_run(
-        source=f"media:tmdb:{item_id}",
-        status="error",
-        error=LEAKY,
-        finished_at=datetime.now(UTC),
-    )
-
-    detail = (await client.get(f"/api/media/{item_id}")).json()
-
-    assert detail["sync"] is not None
-    _assert_masked(detail["sync"]["last_error"])
 
 
-async def test_media_sync_writer_masks_the_exception_text_it_stores(
-    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
-):
-    """Media senkronu kolona YAZARKEN temizler: ham istisna metni DB'ye girmez."""
-    item = await _create_media_item(client, provider_id="teshis-writer")
-    source = f"media:tmdb:{item['id']}"
-
-    async def boom(_session):
-        raise RuntimeError(LEAKY)
-
-    monkeypatch.setattr(media_sync, "provider_registry", boom)
-    await media_sync.poll_media_source(source)
-
-    async with SessionLocal() as session:
-        row = (
-            await session.execute(select(SourceRun).where(SourceRun.source == source))
-        ).scalars().first()
-
-    assert row is not None and row.status == "error"
-    _assert_masked(row.error)
 
 
 async def test_catalog_carries_no_error_text(client: AsyncClient):
@@ -347,28 +279,6 @@ async def test_rss_stalled_notification_masks_the_feed_url(
     assert "access_token=***" in stalled["title"]
 
 
-async def test_backup_drive_failure_masks_error_in_event_and_notification(
-    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
-):
-    """Drive yukleme hatasi hem Aktivitiy'e hem bildirime duser; ikisi de temiz."""
-    async with SessionLocal() as session:
-        session.add(Setting(key=backup.FOLDER_SETTING, value="teshis-folder"))
-        await session.commit()
-
-    async def failing_upload(_session, _target, _folder):
-        return LEAKY
-
-    monkeypatch.setattr(backup, "upload_drive", failing_upload)
-    async with SessionLocal() as session:
-        await backup.create_backup(session)
-
-    events = await _rows(client, "/api/activity", params={"limit": 200})
-    failed = next(e for e in events if e["verb"] == backup.VERB_DRIVE_FAIL)
-    _assert_masked(failed["payload"]["error"])
-
-    notifications = await _rows(client, "/api/notifications")
-    notification = next(n for n in notifications if n["kind"] == "backup_drive_failed")
-    _assert_masked(notification["body"])
 
 
 @pytest.mark.no_database

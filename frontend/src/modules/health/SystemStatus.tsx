@@ -236,7 +236,6 @@ function attentionItems(input: {
   failingFeeds: number | null;
   rssStatsState: DataState;
   feedsState: DataState;
-  driveError: { message: string } | null;
   backupState: DataState;
   statsState: DataState;
   runsState: DataState;
@@ -305,13 +304,6 @@ function attentionItems(input: {
     });
   }
 
-  if (input.driveError) {
-    items.push({
-      key: "drive-error",
-      text: `Drive yüklemesi başarısız oldu: ${errorPreview(input.driveError.message) ?? "bilinmeyen hata"}`,
-      tone: "danger",
-    });
-  }
   if (input.backupState === "error") {
     items.push({ key: "backup-unknown", text: "Yedek durumu alınamadı — durum bilinmiyor.", tone: "neutral" });
   }
@@ -432,7 +424,6 @@ export function useHealthSummary(): HealthSummary {
   const h4Row = agent.data?.local_cognition;
   const h4View = h4Row ? localModelSummary(h4Row) : null;
   const plans = summarizeExecutionPlans(executions.data ?? []);
-  const driveError = backup.data?.last_drive_error ?? null;
   const worker = workerStatusView(stats.data?.worker.status);
 
   /* Bilinemeyenler: istek düşen her bölüm buraya yazılır — sessizce atlanmaz. */
@@ -461,7 +452,6 @@ export function useHealthSummary(): HealthSummary {
   const attention =
     sourceProblems.length > 0 ||
     feedAttention.length > 0 ||
-    Boolean(driveError) ||
     vaultDegraded ||
     h4Degraded ||
     decisionsPending ||
@@ -504,7 +494,6 @@ export function useHealthSummary(): HealthSummary {
       failingFeeds,
       rssStatsState: dataState(rssStats),
       feedsState: dataState(feeds),
-      driveError,
       backupState: dataState(backup),
       statsState: dataState(stats),
       runsState: dataState(runs),
@@ -636,8 +625,6 @@ function buildDiagnosticsBundle(parts: DiagnosticsParts): string {
             last_backup_at: backup.last_backup?.at ?? null,
             last_backup_size: backup.last_backup ? formatBytes(backup.last_backup.size) : null,
             pending_changes: backup.changes_since_backup ? 1 : 0,
-            drive_configured: Boolean(backup.drive_folder_id),
-            last_drive_error: backup.last_drive_error?.message ?? null,
           },
     brain: brainAvailable
       ? {

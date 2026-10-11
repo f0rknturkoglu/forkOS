@@ -11,7 +11,6 @@ import {
   ChevronDown,
   ChevronRight,
   Circle,
-  CreditCard,
   ExternalLink,
   Moon,
   Plus,
@@ -85,10 +84,7 @@ function pickerRow(item: Todo, kind: "todo"): AgendaRow {
     project_title: item.project_title ?? null,
     feed_title: null,
     url: null,
-    media_kind: null,
-    media_status: null,
     progress_label: null,
-    cover_url: null,
     recur: (item.recur as AgendaRow["recur"]) ?? null,
     children: [],
   };
@@ -164,7 +160,7 @@ export function TodayAgendaWidget() {
   });
   const weeklyReviews = weeklyReviewsQuery.data ?? [];
 
-  const refreshed = () => invalidateAfter("todo.write", "plan.write", "rss.write", "media.write", "calendar.write");
+  const refreshed = () => invalidateAfter("todo.write", "plan.write", "rss.write", "calendar.write");
   const failed = () => toast.push("İşlem tamamlanamadı. Satır korunuyor; tekrar deneyebilirsin.", { tone: "danger" });
 
   const createTodo = useMutation({
@@ -485,19 +481,8 @@ function AgendaLine({
           <ChevronRight size={15} className="mt-0.5 shrink-0 text-muted" />
         ) : row.completed ? (
           <Check size={15} className="mt-0.5 shrink-0 text-ok" />
-        ) : row.action === "log_media" ? (
-          <a
-            href={`#/media?focus=${row.id}`}
-            title="İlerleme kaydet"
-            aria-label={`${row.title} ilerleme kaydet`}
-            className="mt-0.5 shrink-0 text-muted transition hover:text-accent"
-          >
-            <Circle size={15} />
-          </a>
         ) : row.kind === "opportunity" ? (
           <Target size={15} className="mt-0.5 shrink-0 text-muted" />
-        ) : row.kind === "payment" ? (
-          <CreditCard size={15} className="mt-0.5 shrink-0 text-muted" />
         ) : row.kind === "study" ? (
           <BookOpen size={15} className="mt-0.5 shrink-0 text-muted" />
         ) : (

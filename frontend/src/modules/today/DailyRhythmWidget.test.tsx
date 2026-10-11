@@ -83,7 +83,7 @@ vi.mock("@tanstack/react-query", () => ({
                     timed: [],
                     checklist: [],
                     completed: [],
-                    suggestions: { todos: [], rss: [], media: [] },
+                    suggestions: { todos: [], rss: [] },
                   })
                 : key === "reviews"
                   ? harness.weeklyReviews
@@ -161,7 +161,7 @@ describe("DailyRhythmWidget (Faz 25)", () => {
       ],
       checklist: [],
       completed: [],
-      suggestions: { todos: [], rss: [], media: [] },
+      suggestions: { todos: [], rss: [] },
     };
     const markup = renderToStaticMarkup(<DailyRhythmWidget />);
     expect(markup).toContain("1 takvim çakışması");

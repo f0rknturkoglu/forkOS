@@ -7,6 +7,7 @@ import {
   Leaf,
   Maximize2,
   MoonStar,
+  Pencil,
   Pause,
   Play,
   Plus,
@@ -16,6 +17,7 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import { confirmDialog } from "@/core/dialog";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import type { PomodoroAnalytics, PomodoroDailyPoint, PomodoroSession } from "@/core/types";
@@ -102,15 +104,17 @@ export function PomodoroPage() {
 
   const { data: active = null } = useActivePomodoro();
   const now = usePomodoroClock(active);
+  const [historyPage, setHistoryPage] = useState(0);
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ["pomodoro-analytics", range],
     queryFn: () => api.get<PomodoroAnalytics>(`/pomodoro/analytics?range=${range}`),
   });
-  const { data: sessions = [] } = useQuery({
-    queryKey: ["pomodoro-sessions"],
-    queryFn: () => api.get<PomodoroSession[]>("/pomodoro/sessions?limit=80"),
+  const historyQuery = useQuery({
+    queryKey: ["pomodoro-sessions", historyPage],
+    queryFn: () => api.get<PomodoroSession[]>(`/pomodoro/sessions?limit=80&offset=${historyPage * 80}`),
   });
 
+  const sessions = historyQuery.data ?? [];
   const refresh = () => invalidateAfter("pomodoro.write");
   const start = useMutation({
     mutationFn: (kind: "focus" | "short_break") =>
@@ -226,7 +230,16 @@ export function PomodoroPage() {
                     sessions={sessions.slice(0, 8)}
                     title="Son odak seansları"
                     onShowAll={() => setTab("stats")}
-                    onRemove={(id) => remove.mutate(id)}
+                    onRemove={async (id) => {
+                      if (
+                        await confirmDialog({
+                          title: "Seans silinsin mi?",
+                          body: "Bu geçmiş seansı ve süresi kaldırılır. Olay geçmişi korunur.",
+                          confirmLabel: "Seansı sil",
+                        })
+                      )
+                        remove.mutate(id);
+                    }}
                     removePending={remove.isPending}
                   />
                 </div>
@@ -269,7 +282,21 @@ export function PomodoroPage() {
                   <SessionList
                     sessions={sessions}
                     title="Etkinlik geçmişi"
-                    onRemove={(id) => remove.mutate(id)}
+                    error={historyQuery.isError ? "Seans geçmişi yüklenemedi" : undefined}
+                    loading={historyQuery.isLoading}
+                    onRetry={() => void historyQuery.refetch()}
+                    historyPage={historyPage}
+                    onPage={setHistoryPage}
+                    onRemove={async (id) => {
+                      if (
+                        await confirmDialog({
+                          title: "Seans silinsin mi?",
+                          body: "Bu geçmiş seansı ve süresi kaldırılır. Olay geçmişi korunur.",
+                          confirmLabel: "Seansı sil",
+                        })
+                      )
+                        remove.mutate(id);
+                    }}
                     removePending={remove.isPending}
                     allowManual
                     onManualDone={refresh}
@@ -543,6 +570,11 @@ function ContextBreakdown({ analytics }: { analytics: PomodoroAnalytics | undefi
 
 function SessionList({
   sessions,
+  loading,
+  error,
+  onRetry,
+  historyPage,
+  onPage,
   title,
   onShowAll,
   onRemove,
@@ -551,6 +583,11 @@ function SessionList({
   onManualDone,
 }: {
   sessions: PomodoroSession[];
+  loading?: boolean;
+  error?: string;
+  onRetry?: () => void;
+  historyPage?: number;
+  onPage?: (page: number) => void;
   title: string;
   onShowAll?: () => void;
   onRemove: (id: string) => void;
@@ -559,15 +596,34 @@ function SessionList({
   onManualDone?: () => void;
 }) {
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<PomodoroSession | null>(null);
+  const online = useOnline();
   return (
     <Section
       title={title}
       action={
         <div className="flex items-center gap-2">
+          {onPage && (
+            <>
+              <Button size="sm" disabled={!historyPage} onClick={() => onPage(Math.max(0, (historyPage ?? 0) - 1))}>
+                Daha yeni
+              </Button>
+              <Button size="sm" disabled={sessions.length < 80} onClick={() => onPage((historyPage ?? 0) + 1)}>
+                Daha eski
+              </Button>
+            </>
+          )}
           {allowManual && (
-            <Button size="sm" variant="ghost" onClick={() => setAdding((value) => !value)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setAdding(!(adding || editing));
+                setEditing(null);
+              }}
+            >
               <Plus size={13} />
-              {adding ? "vazgeç" : "elle ekle"}
+              {adding || editing ? "vazgeç" : "elle ekle"}
             </Button>
           )}
           {onShowAll && (
@@ -579,17 +635,29 @@ function SessionList({
       }
       bodyClassName="p-0"
     >
-      {adding && (
+      {(adding || editing) && (
         <div className="border-b border-subtle p-3">
           <ManualForm
+            key={editing?.id ?? "new"}
+            session={editing ?? undefined}
             onDone={() => {
               setAdding(false);
+              setEditing(null);
+              invalidateAfter("pomodoro.write");
               onManualDone?.();
             }}
           />
         </div>
       )}
-      {sessions.length === 0 ? (
+      {error ? (
+        <div role="alert" className="p-3 text-body text-danger">
+          {error} <Button onClick={onRetry}>Yeniden dene</Button>
+        </div>
+      ) : loading ? (
+        <p role="status" className="p-3 text-body text-muted">
+          Geçmiş yükleniyor…
+        </p>
+      ) : sessions.length === 0 ? (
         <div className="m-3">
           <Empty>Henüz kayıtlı seans yok.</Empty>
         </div>
@@ -616,6 +684,7 @@ function SessionList({
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
+                  {session.source === "manual" ? " · Elle eklendi" : " · Sayaç"}
                   {session.interrupted ? " · yarıda kesildi" : ""}
                 </span>
               </span>
@@ -623,9 +692,19 @@ function SessionList({
                 {durationLabel(session.actual_min ?? 0)}
               </span>
               <IconButton
+                title="Seansı düzenle"
+                disabled={!online || removePending}
+                onClick={() => {
+                  setAdding(false);
+                  setEditing(session);
+                }}
+              >
+                <Pencil size={14} />
+              </IconButton>
+              <IconButton
                 title="Seansı sil"
                 tone="danger"
-                disabled={removePending}
+                disabled={!online || removePending}
                 onClick={() => onRemove(session.id)}
               >
                 <Trash2 size={14} />
@@ -702,30 +781,34 @@ function FocusSettings({
   );
 }
 
-function ManualForm({ onDone }: { onDone: () => void }) {
+function ManualForm({ onDone, session }: { onDone: () => void; session?: PomodoroSession }) {
   const [when, setWhen] = useState(() => {
-    const date = new Date(Date.now() - FOCUS_MIN * 60_000);
+    const date = new Date(session?.started_at ?? Date.now() - FOCUS_MIN * 60_000);
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     return date.toISOString().slice(0, 16);
   });
-  const [minutes, setMinutes] = useState(FOCUS_MIN);
-  const [topic, setTopic] = useState("");
-  const [context, setContext] = useState("");
+  const [minutes, setMinutes] = useState(session?.actual_min ?? FOCUS_MIN);
+  const [topic, setTopic] = useState(session?.topic ?? "");
+  const [context, setContext] = useState(session?.context_entity_id ?? "");
   const online = useOnline();
   const toast = useToast();
   const add = useMutation({
-    mutationFn: () =>
-      api.post("/pomodoro", {
+    mutationFn: () => {
+      const body = {
         started_at: new Date(when).toISOString(),
         minutes,
         topic: topic.trim() || undefined,
-        context_entity_id: context || undefined,
-      }),
+        context_entity_id: context || null,
+        kind: session?.kind ?? "focus",
+      };
+      return session ? api.put(`/pomodoro/${session.id}`, body) : api.post("/pomodoro", body);
+    },
     onSuccess: () => {
-      toast.push("Seans işlendi", { tone: "ok" });
+      invalidateAfter("pomodoro.write");
+      toast.push(session ? "Seans güncellendi" : "Seans işlendi", { tone: "ok" });
       onDone();
     },
-    onError: () => toast.push("İşlenemedi — tarih gelecekte olabilir.", { tone: "danger" }),
+    onError: (error) => toast.push(`Kaydedilemedi: ${error.message}`, { tone: "danger" }),
   });
   return (
     <form
@@ -751,7 +834,7 @@ function ManualForm({ onDone }: { onDone: () => void }) {
       </Field>
       <ContextPicker value={context} onChange={setContext} />
       <Button type="submit" variant="primary" disabled={!online || add.isPending}>
-        Seansı işle
+        {session ? "Değişiklikleri kaydet" : "Seansı işle"}
       </Button>
     </form>
   );

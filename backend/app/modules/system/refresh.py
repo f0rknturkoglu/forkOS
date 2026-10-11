@@ -62,7 +62,6 @@ async def status(session: AsyncSession) -> dict[str, Any]:
 async def queue(
     session: AsyncSession, *, scope: str = DEFAULT_SCOPE
 ) -> tuple[dict[str, Any], bool]:
-    from app.modules.media import sync as media_sync
     from app.sources.base import (
         SourceClass,
         is_general_refresh_source,
@@ -100,9 +99,6 @@ async def queue(
         opportunity_ids,
         scope="opportunity",
     )
-    # Kritik kapsam yalnizca kaynak sagligini hedefler; medya kendi kapsamina ait.
-    if scope != "critical":
-        await media_sync.queue_sync(session)
     value = {
         "status": "running",
         "scope": scope,

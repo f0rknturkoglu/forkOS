@@ -99,35 +99,15 @@ async def test_disabled_domains_never_reach_the_network(
         await automation.set_profile(session, "manual")
         await session.commit()
 
-    monkeypatch.setattr(jobs, "poll_media_sources", _fail)
     monkeypatch.setattr(jobs, "_poll_opportunities", _fail)
     monkeypatch.setattr(jobs, "sync_google", _fail)
     monkeypatch.setattr(jobs, "sync_github_service", _fail)
 
-    assert await jobs.poll_media() == 0
-    assert await jobs.catch_up_media() == 0
     assert await jobs.poll_opportunities() == 0
     assert await jobs.sync_calendar() == 0
     assert await jobs.sync_github() == 0
 
 
-async def test_manual_actions_still_work_when_automation_is_off(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """`ignore_interval=True` elle tazelemedir; otomasyon ayarini bypass eder."""
-    async with SessionLocal() as session:
-        await automation.set_profile(session, "manual")
-        await session.commit()
-
-    called: list[str] = []
-
-    async def fake_media(*, ignore_interval: bool = False) -> int:
-        called.append("media")
-        return 0
-
-    monkeypatch.setattr(jobs, "poll_media_sources", fake_media)
-    assert await jobs.poll_media(ignore_interval=True) == 0
-    assert called == ["media"]
 
 
 async def test_fresh_calendar_and_github_are_not_synced_again(
@@ -245,7 +225,6 @@ async def test_fresh_db_defaults_to_truthful_balanced_profile(client: AsyncClien
         assert await automation.interval_minutes(session, "opportunity") == 30
         assert await automation.interval_minutes(session, "calendar") == 60
         assert await automation.interval_minutes(session, "github") == 180
-        assert await automation.interval_minutes(session, "media") == 1440
 
     settings_res = (await client.get("/api/settings")).json()
     assert settings_res["rss.interval_minutes"] == 60
@@ -264,22 +243,22 @@ async def test_fresh_db_defaults_to_truthful_balanced_profile(client: AsyncClien
 async def test_custom_disabled_domain_survives_profile_changes(client: AsyncClient) -> None:
     """1. custom disabled domain survives Balanced -> Active -> Balanced"""
     async with SessionLocal() as session:
-        session.add(Setting(key="automation.media.enabled", value=False))
+        session.add(Setting(key="automation.calendar.enabled", value=False))
         await session.commit()
 
     # Balanced -> Active
     await client.post("/api/system/automation/profile", json={"profile": "active"})
     async with SessionLocal() as session:
-        assert await automation.is_domain_enabled(session, "media") is False
-        assert await automation.is_enabled(session, "media") is False
-        assert await automation.is_enabled(session, "calendar") is True
+        assert await automation.is_domain_enabled(session, "calendar") is False
+        assert await automation.is_enabled(session, "calendar") is False
+        assert await automation.is_enabled(session, "github") is True
 
     # Active -> Balanced
     await client.post("/api/system/automation/profile", json={"profile": "balanced"})
     async with SessionLocal() as session:
-        assert await automation.is_domain_enabled(session, "media") is False
-        assert await automation.is_enabled(session, "media") is False
-        assert await automation.is_enabled(session, "calendar") is True
+        assert await automation.is_domain_enabled(session, "calendar") is False
+        assert await automation.is_enabled(session, "calendar") is False
+        assert await automation.is_enabled(session, "github") is True
 
 
 async def test_manual_profile_is_global_gate_without_deleting_preferences(
@@ -289,18 +268,18 @@ async def test_manual_profile_is_global_gate_without_deleting_preferences(
        3. Leaving Manual restores effective state from stored domain preference.
     """
     async with SessionLocal() as session:
-        session.add(Setting(key="automation.media.enabled", value=False))
-        session.add(Setting(key="automation.calendar.enabled", value=True))
+        session.add(Setting(key="automation.calendar.enabled", value=False))
+        session.add(Setting(key="automation.github.enabled", value=True))
         await session.commit()
 
     # Manual profile gecisi
     await client.post("/api/system/automation/profile", json={"profile": "manual"})
     async with SessionLocal() as session:
         # Stored preferences korunur
-        assert await automation.is_domain_enabled(session, "media") is False
-        assert await automation.is_domain_enabled(session, "calendar") is True
+        assert await automation.is_domain_enabled(session, "calendar") is False
+        assert await automation.is_domain_enabled(session, "github") is True
         # Efektif olarak hepsi False (global gate)
-        assert await automation.is_enabled(session, "media") is False
+        assert await automation.is_enabled(session, "calendar") is False
         assert await automation.is_enabled(session, "calendar") is False
         assert await automation.active_domains(session) == dict.fromkeys(automation.DOMAINS, False)
 
@@ -308,8 +287,8 @@ async def test_manual_profile_is_global_gate_without_deleting_preferences(
     await client.post("/api/system/automation/profile", json={"profile": "balanced"})
     async with SessionLocal() as session:
         # Eski tercihler efektif olarak geri gelir
-        assert await automation.is_enabled(session, "media") is False
-        assert await automation.is_enabled(session, "calendar") is True
+        assert await automation.is_enabled(session, "calendar") is False
+        assert await automation.is_enabled(session, "github") is True
 
 
 async def test_slow_optin_sources_unaffected_by_profile() -> None:

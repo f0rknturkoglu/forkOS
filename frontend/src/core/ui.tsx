@@ -984,10 +984,6 @@ const IDENTITY_STYLES: Record<string, string> = {
 };
 
 /** Kimlik rengi siniflari; Chip'in kendisi ve chip gorunumlu butonlar. */
-export function identityClasses(id: string): string {
-  return IDENTITY_STYLES[id] ?? "text-secondary border-subtle";
-}
-
 type ChipBase = {
   children?: ReactNode;
   variant?: ChipVariant;
@@ -1110,20 +1106,6 @@ export function Empty({
       {title && <p className="mb-1.5  text-title text-primary">{title}</p>}
       <p className="mx-auto max-w-md text-body text-secondary">{children}</p>
       {action && <div className="mt-4 flex justify-center">{action}</div>}
-    </div>
-  );
-}
-
-/**
- * Tek basina duran sayisal ozet kutucugu (Today stat'i gibi). Bir serit icinde
- * yan yana sayilar icin MetricStrip + Metric kullan -- Stat kendi cercevesini cizer.
- */
-export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
-  return (
-    <div className="rounded-card border border-subtle bg-surface px-4 py-3">
-      <div className="numeral text-numeral-xl leading-tight text-primary">{value}</div>
-      <div className="text-meta text-secondary">{label}</div>
-      {hint && <div className="mt-0.5 text-meta text-muted">{hint}</div>}
     </div>
   );
 }

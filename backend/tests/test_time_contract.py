@@ -31,7 +31,6 @@ BUSINESS_FILES = [
     "modules/calendar/service.py",
     "modules/review/service.py",
     "modules/pomodoro/service.py",
-    "modules/finance/service.py",
     "modules/bookmark/service.py",
     "modules/rss/service.py",
     "modules/proactivity/service.py",

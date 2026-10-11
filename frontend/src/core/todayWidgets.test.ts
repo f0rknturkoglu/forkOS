@@ -50,16 +50,13 @@ const CORE_HOME = [
 const OPTIONAL_HOME = [
   "today.now-next",
   "today.rhythm",
-  "today.quick-links",
   "activity.rhythm",
   "activity.widget",
   "inbox.widget",
   "flashcard.due",
   "bookmarks.queue",
   "calendar.events",
-  "finance.recurring",
   "health.sources",
-  "media.continue",
   "pomodoro.widget",
   "projects.widget",
   "review.widget",
@@ -198,7 +195,6 @@ describe("Home bileşen sözleşmesi", () => {
         "today.feed-stream",
         "today.now-next",
         "today.rhythm",
-        "today.quick-links",
       ]),
     );
     // Göç yalnız isteğe bağlı sırayı etkiler; iskelet sırası sabittir.

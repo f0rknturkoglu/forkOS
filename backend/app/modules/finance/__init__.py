@@ -1,6 +1,10 @@
+"""V1 retired product. Schema and historical event vocabulary only; no active jobs or API."""
+from fastapi import APIRouter
+
 from app.modules import EntityTypeSpec, ModuleSpec
-from app.modules.finance.router import router
-from app.modules.finance.service import deadline_provider as finance_deadlines
+from app.modules.finance import models as _models  # noqa: F401
+
+router = APIRouter()
 
 MODULE = ModuleSpec(
     id="finance",
@@ -8,14 +12,11 @@ MODULE = ModuleSpec(
     router=router,
     entity_types=[
         EntityTypeSpec(
-            'expense', 'Harcama', 'Harcamalar', '/finance', 'Wallet',
-        ),
+            'expense', 'Harcama', 'Harcamalar', '/activity', 'Wallet', searchable=False, linkable=False),
         EntityTypeSpec(
-            'income', 'Gelir', 'Gelirler', '/finance', 'TrendingUp',
-        ),
+            'income', 'Gelir', 'Gelirler', '/activity', 'TrendingUp', searchable=False, linkable=False),
         EntityTypeSpec(
-            'recurring_payment', 'Düzenli ödeme', 'Düzenli ödemeler', '/finance', 'Repeat',
-        ),
+            'recurring_payment', 'Düzenli ödeme', 'Düzenli ödemeler', '/activity', 'Repeat', searchable=False, linkable=False),
     ],
     event_verbs=[
         "expense.created",
@@ -26,5 +27,4 @@ MODULE = ModuleSpec(
         "recurring_payment.deleted",
         "recurring.paid",
     ],
-    deadline_provider=finance_deadlines,
 )

@@ -47,7 +47,7 @@ function serveTimed(rows: unknown[]) {
     timed: rows,
     checklist: [],
     completed: [],
-    suggestions: { todos: [], rss: [], media: [], flashcards: [], study: [], career: [] },
+    suggestions: { todos: [], rss: [], flashcards: [], study: [], career: [] },
   });
 }
 

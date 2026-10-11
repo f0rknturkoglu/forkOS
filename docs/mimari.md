@@ -171,7 +171,7 @@ POST   /api/bookmarks/{id}/source-note             # kaynak notu köprüsü
 POST   /api/opportunities/{id}/research-note       # araştırma notu köprüsü
 ```
 
-Kapalı yüzeyler: `/api/notes*`, `/api/note-folders*`, `/api/graph`. `/notes` rotası (navigasyon etiketi **Bilgi**) hafif bir köprü sayfasıdır: kasa adı, `Obsidian'ı Aç` / `Inbox` / `Bugünün Notu` / `Vault'ta Ara`, yönetilen dosya sayısı, çakışma–geçersiz metadata uyarısı ve `İndeksi yenile`. Not listesi, editör, klasör, ek, canvas, backlink ve yerel bilgi grafı **yoktur**; `forkos_id` kimliktir, dosya taşınsa bile not bulunur.
+Kapalı yüzeyler: `/api/notes*`, `/api/note-folders*`, `/api/graph` ve bağımsız `/notes` UI. Obsidian köprüsü ve ajan bağlamı Ayarlar → Agent & Bilgi ve retained modüllerde devam eder. [V1 kapsamı](architecture/v1-scope-consolidation.md).
 
 Legacy Notlar tabloları, blokları ve `note.*` olayları **dondurulmuş arşiv** olarak yerinde kalır (hiçbir migration tablo DROP etmez): hiçbir ürün akışı yazmaz, global aramada ve ilişki panellerinde görünmez, günlük bakımla budanmaz. Vault erişilemezse bilgi işlemleri **fail-closed**'dur (`503`/`403`) ve legacy Notlar'a düşen bir yedek yazma yolu yoktur. Domain grafiği (Entity/Link/Event, `RelatedPanel`, `BacklinksPanel`) yürütme omurgasıdır ve aynen korunur. Ayrıntı: `docs/obsidian-hybrid/phase3-cutover.md`.
 
@@ -337,7 +337,7 @@ Disk büyümesi belirli sınırlarla (bounded) tutulur:
 | **PostgreSQL** | `forkos_pgdata` | Operasyonel satırlar günlük hafif bakımla budanır |
 | **Not ekleri (legacy arşiv)** | `backend/data/attachments/` | İçerik adresli (sha256) binary; PHASE 3'ten sonra yeni ek yazılmaz, bakım dokunmaz (dondurulmuş kaynak parmak izi) |
 | **Belgeler** | `backend/data/documents/` | Kullanıcı tarafından yönetilen yerel belgeler |
-| **Medya görselleri** | `backend/data/media/` | Yeniden üretilebilir; 512 MB bütçe tavanı ile budanır |
+| **Medya görselleri** | `backend/data/media/` | Emekli arşiv; otomatik budanmaz |
 | **Scraper önbelleği** | `backend/data/cache/` | Yeniden üretilebilir; HTTP önbellek sınırları ile tutulur |
 | **Yedekler** | `backend/backups/` | Sıkıştırılmış JSON ve pg_dump; kullanıcı yönetir |
 

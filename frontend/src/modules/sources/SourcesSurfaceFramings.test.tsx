@@ -73,7 +73,12 @@ vi.mock("@/app/router", () => ({
 }));
 vi.mock("@/core/SaveToLibrary", () => ({ useSaveToLibrary: () => ({ save: vi.fn() }) }));
 vi.mock("@/lib/hooks", () => ({ useOnline: () => true, useInvalidate: () => vi.fn() }));
-vi.mock("@/core/SyncProgress", () => ({ SyncProgress: () => null }));
+vi.mock("@/core/SyncProgress", () => ({
+  SyncProgress: () => null,
+  useSourceSync: () => ({ data: { active: false } }),
+  sourceSyncHistoryQueryKey: () => ["source-sync-history"],
+  sourceSyncHistoryApiPath: () => "/sources/sync/history",
+}));
 vi.mock("@/modules/sources/SourcePicker", () => ({ SourcePicker: () => null }));
 vi.mock("@/modules/sources/SourcesWorkspace", () => ({ SourcesWorkspace: harness.surface }));
 vi.mock("@/modules/opportunity/OpportunityDetail", () => ({ OpportunityDetail: () => null }));

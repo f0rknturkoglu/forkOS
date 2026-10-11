@@ -19,7 +19,6 @@ from sqlalchemy import func, select, text
 from app.core.models import Event, SourceRun
 from app.db import SessionLocal
 from app.main import app
-from app.modules.media import artwork
 from app.modules.system import maintenance
 
 DAY_SECONDS = 24 * 60 * 60
@@ -30,13 +29,6 @@ def _age(path: Path, days: float) -> None:
     os.utime(path, (stamp, stamp))
 
 
-@pytest.fixture(autouse=True)
-def isolated_artwork_dir(tmp_path: Path, monkeypatch) -> Path:
-    """Bakim testleri KULLANICININ gercek gorsel onbellegine DOKUNMAMALI."""
-    target = tmp_path / "media"
-    target.mkdir()
-    monkeypatch.setattr(artwork, "default_asset_dir", lambda: target)
-    return target
 
 
 @pytest.fixture
@@ -179,56 +171,3 @@ async def test_maintenance_prunes_operational_rows_and_keeps_events() -> None:
     assert runs == 20
     assert kept == 1, "event kisisel aktivite hafizasi: bakim dokunmamali"
     assert audited == 1, "bakim kendi kosumunu event olarak kaydetmeli"
-
-
-async def test_artwork_maintenance_keeps_fresh_files(isolated_artwork_dir: Path) -> None:
-    """Yeni yazilmis gorsel, referanssiz olsa da silinmez.
-
-    Aksi halde bir sonraki senkron ayni kapagi yeniden indirirdi. 7 gunluk yas
-    politikasi bu churn'u onler; 512 MB butce tavani da korunur. Ikisi de
-    `ArtworkStore` sabitidir ve bakim bunlari degistirmez.
-    """
-    fresh = isolated_artwork_dir / "fresh.jpg"
-    fresh.write_bytes(b"fresh")
-    stale = isolated_artwork_dir / "stale.jpg"
-    stale.write_bytes(b"stale")
-    _age(stale, 10)
-
-    async with SessionLocal() as session:
-        summary = await maintenance.run_maintenance(session, force=True)
-
-    assert summary is not None
-    assert summary["results"]["artwork"] == {"files": 1, "freed_bytes": len(b"stale")}
-    assert fresh.exists(), "yeni indirilen gorsel yeniden indirilmemeli"
-    assert not stale.exists()
-
-
-async def test_maintenance_prunes_stale_artwork(
-    client: AsyncClient, isolated_artwork_dir: Path
-) -> None:
-    """Gorsel budama bakima bagli: referanssiz + eski dosya silinir."""
-    referenced = isolated_artwork_dir / "referenced.jpg"
-    referenced.write_bytes(b"referenced")
-    orphan = isolated_artwork_dir / "orphan.jpg"
-    orphan.write_bytes(b"orphan-bytes")
-    _age(referenced, 10)
-    _age(orphan, 10)
-
-    created = await client.post(
-        "/api/media",
-        json={
-            "source": "manual",
-            "title": "Kapaklı Kitap",
-            "kind": "book",
-            "cover_path": "/api/media/assets/referenced.jpg",
-        },
-    )
-    assert created.status_code == 201, created.text
-
-    async with SessionLocal() as session:
-        summary = await maintenance.run_maintenance(session, force=True)
-
-    assert summary is not None
-    assert summary["results"]["artwork"] == {"files": 1, "freed_bytes": len(b"orphan-bytes")}
-    assert referenced.exists(), "referansli gorsel silinmemeli"
-    assert not orphan.exists()

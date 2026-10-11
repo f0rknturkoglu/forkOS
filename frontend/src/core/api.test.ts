@@ -101,7 +101,7 @@ describe("api ağ hataları", () => {
     await expect(api.post("/rss/refresh-all")).rejects.toBeInstanceOf(OfflineWriteError);
     await expect(api.post("/rss/feeds/f1/refresh")).rejects.toBeInstanceOf(OfflineWriteError);
     // Sorgu dizesi dış kararını değiştirmez.
-    await expect(api.post("/media/sync?item_id=abc")).rejects.toBeInstanceOf(OfflineWriteError);
+    await expect(api.post("/system/refresh?item_id=abc")).rejects.toBeInstanceOf(OfflineWriteError);
     await expect(api.post("/projects/p1/github/issues", { number: 3 })).rejects.toBeInstanceOf(OfflineWriteError);
     await expect(api.post("/auth/github")).rejects.toBeInstanceOf(OfflineWriteError);
     expect(fetchMock).not.toHaveBeenCalled();

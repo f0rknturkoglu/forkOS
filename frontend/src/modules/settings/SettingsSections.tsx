@@ -22,7 +22,6 @@ import {
   useToast,
 } from "@/core/ui";
 import { BackupMergeControl } from "@/core/BackupMergeControl";
-import { EXPORT_MODULE } from "@/modules/finance";
 import type { Theme } from "@/core/ui";
 
 /** Ayar yazma sozlesmesi: `PUT /settings/{key}`. Sayfa tek noktadan baglar. */
@@ -166,7 +165,6 @@ export function ChipListEditor({
 /* Otomasyon etiketleri: kullaniciya scheduler jargonu degil, ne oldugu yazilir. */
 const AUTOMATION_LABELS: Record<string, string> = {
   opportunity: "İş fırsatları ve duyurular",
-  media: "Medya kataloğu",
   calendar: "Takvim",
   github: "GitHub etkinliği",
 };
@@ -371,9 +369,12 @@ export function IntegrationsSection({
     >
       <div className="flex items-center justify-between gap-3 border-b border-subtle pb-3">
         <div className="min-w-0">
-          <p className="text-body text-primary">Google Drive</p>
-          <p className="text-meta text-muted">Belge arama ve senkron için Drive erişimi.</p>
-          <CredentialLink href="https://console.cloud.google.com/apis/credentials" label="Drive API kimlik bilgileri" />
+          <p className="text-body text-primary">Google Calendar</p>
+          <p className="text-meta text-muted">Takvim etkinliklerini senkronlamak için erişim.</p>
+          <CredentialLink
+            href="https://console.cloud.google.com/apis/credentials"
+            label="Calendar API kimlik bilgileri"
+          />
         </div>
         {google?.connected ? (
           <div className="flex shrink-0 items-center gap-2">
@@ -432,251 +433,22 @@ export function IntegrationsSection({
   );
 }
 
-export function MediaProvidersSection({
-  online,
-  keys,
-  onKey,
-  onSave,
-  media,
-  onRemoveLink,
-  mediaName,
-  onMediaName,
-  mediaUrl,
-  onMediaUrl,
-  onAddLink,
-  upcomingDays,
-  onUpcomingDays,
-  onSaveUpcomingDays,
-  syncIntervalHours,
-  onSyncIntervalHours,
-  onSaveSyncIntervalHours,
-  innerRef,
-}: {
-  online: boolean;
-  keys: Record<string, string>;
-  onKey: (key: string, value: string) => void;
-  onSave: SaveFn;
-  media: MediaLink[];
-  onRemoveLink: (index: number) => void;
-  mediaName: string;
-  onMediaName: (value: string) => void;
-  mediaUrl: string;
-  onMediaUrl: (value: string) => void;
-  onAddLink: () => void;
-  upcomingDays: number;
-  onUpcomingDays: (value: number) => void;
-  onSaveUpcomingDays: () => void;
-  syncIntervalHours: number;
-  onSyncIntervalHours: (value: number) => void;
-  onSaveSyncIntervalHours: () => void;
-  innerRef: RefObject<HTMLDivElement>;
-}) {
-  return (
-    <div
-      id="media-links"
-      ref={innerRef}
-      tabIndex={-1}
-      className="space-y-4 rounded-card scroll-mt-4 outline-none focus:ring-2 focus:ring-accent"
-    >
-      <Section title="Medya sağlayıcı anahtarları">
-        <p className="mb-3 text-meta text-muted">
-          API anahtarları yedeklere ve dışa aktarıma girmez. Alanı boş bırakıp dışına çıkmak anahtarı siler.
-        </p>
-        <p className="mb-3 text-meta text-muted">
-          RAWG ve Kitsu desteği kaldırıldı; bu kaynaklardan gelen eski kayıtlar okunmaya devam eder.
-        </p>
-        <div className="space-y-2">
-          <SecretField
-            label="TMDB API anahtarı"
-            hint="media.tmdb_key"
-            placeholder="film ve dizi araması"
-            disabled={!online}
-            value={keys["media.tmdb_key"] ?? ""}
-            onChange={(value) => onKey("media.tmdb_key", value)}
-            onSave={(value) => onSave("media.tmdb_key", value)}
-          />
-          <SecretField
-            label="IGDB Client ID"
-            hint="media.igdb_client_id"
-            placeholder="Twitch/IGDB istemci kimliği — oyun araması"
-            disabled={!online}
-            value={keys["media.igdb_client_id"] ?? ""}
-            onChange={(value) => onKey("media.igdb_client_id", value)}
-            onSave={(value) => onSave("media.igdb_client_id", value)}
-          />
-          <SecretField
-            label="IGDB Client Secret"
-            hint="media.igdb_client_secret"
-            placeholder="Twitch/IGDB istemci sırrı — oyun araması"
-            disabled={!online}
-            value={keys["media.igdb_client_secret"] ?? ""}
-            onChange={(value) => onKey("media.igdb_client_secret", value)}
-            onSave={(value) => onSave("media.igdb_client_secret", value)}
-          />
-          <SecretField
-            label="Google Books API anahtarı"
-            hint="media.google_books_key"
-            placeholder="kitap araması (isteğe bağlı)"
-            disabled={!online}
-            value={keys["media.google_books_key"] ?? ""}
-            onChange={(value) => onKey("media.google_books_key", value)}
-            onSave={(value) => onSave("media.google_books_key", value)}
-          />
-        </div>
-      </Section>
-      <Section title="Tarama ve yaklaşanlar">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Yaklaşan penceresi (gün)">
-            <div onBlur={onSaveUpcomingDays}>
-              <NumberInput value={upcomingDays} min={1} max={365} onChange={onUpcomingDays} className="w-full" />
-            </div>
-          </Field>
-          <Field label="Otomatik tarama aralığı (saat)">
-            <div onBlur={onSaveSyncIntervalHours}>
-              <NumberInput
-                value={syncIntervalHours}
-                min={1}
-                max={168}
-                onChange={onSyncIntervalHours}
-                className="w-full"
-              />
-            </div>
-          </Field>
-        </div>
-        <p className="mt-2 text-meta text-muted">
-          Yalnızca takip edilen kayıtlar bu aralıkla yeniden taranır; yaklaşanlar penceresi yayın takvimini belirler.
-        </p>
-      </Section>
-      <MediaArtworkCacheSection online={online} />
-      <Section title="Hızlı bağlantılar">
-        <div className="space-y-2">
-          {media.map((link, index) => (
-            <div key={`${link.name}-${index}`} className="flex justify-between text-meta">
-              <a
-                href={link.url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-accent"
-              >
-                {link.name}
-                <ExternalLink size={11} aria-hidden />
-              </a>
-              <Button variant="danger" disabled={!online} onClick={() => onRemoveLink(index)}>
-                Sil
-              </Button>
-            </div>
-          ))}
-        </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-          <Input value={mediaName} disabled={!online} onChange={onMediaName} placeholder="Letterboxd" />
-          <Input value={mediaUrl} disabled={!online} onChange={onMediaUrl} placeholder="https://…" />
-          <Button disabled={!online || !mediaName || !mediaUrl} onClick={onAddLink}>
-            Ekle
-          </Button>
-        </div>
-      </Section>
-    </div>
-  );
-}
-
-type MediaArtworkStats = components["schemas"]["MediaArtworkStatsOut"];
-type MediaArtworkPrune = components["schemas"]["MediaArtworkPruneOut"];
-
-/** Insan dili boyut: 512 KB / 5.0 MB. */
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${Math.round(kb)} KB`;
-  return `${(kb / 1024).toFixed(1)} MB`;
-}
-
-/**
- * Gorsel onbellegi: saglayici kapaklarinin yerel kopyalari. Temizleme yalnizca
- * hicbir kaydin referans etmedigi ve 7 gunden eski dosyalari siler; kendi
- * yukledigin gorseller korunur.
- */
-function MediaArtworkCacheSection({ online }: { online: boolean }) {
-  const toast = useToast();
-  const stats = useQuery({
-    queryKey: ["media-artwork-stats"],
-    queryFn: () => api.get<MediaArtworkStats>("/media/artwork/stats"),
-  });
-  const prune = useMutation({
-    mutationFn: () => api.post<MediaArtworkPrune>("/media/artwork/prune"),
-    onSuccess: (result) => {
-      invalidateAfter("settings.write");
-      void stats.refetch();
-      toast.push(`${result.removed} görsel silindi, ${formatBytes(result.freed_bytes)} kazanıldı.`, { tone: "ok" });
-    },
-    onError: (error) => toast.push(`Önbellek temizlenemedi: ${error.message}`, { tone: "danger" }),
-  });
-
-  const data = stats.data;
-  const summary =
-    data && Number.isFinite(data.files) && Number.isFinite(data.bytes) && Number.isFinite(data.max_bytes)
-      ? `${data.files} görsel · ${formatBytes(data.bytes)} / ${formatBytes(data.max_bytes)}`
-      : stats.isLoading
-        ? "Önbellek bilgisi yükleniyor…"
-        : "Önbellek bilgisi okunamadı.";
-
-  return (
-    <Section title="Görsel önbelleği">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-meta text-secondary" aria-live="polite">
-          {summary}
-        </p>
-        <Button
-          size="sm"
-          disabled={!online || prune.isPending || !data}
-          onClick={() => prune.mutate()}
-          ariaLabel="Önbelleği temizle"
-        >
-          Önbelleği temizle
-        </Button>
-      </div>
-      <p className="mt-1.5 text-meta text-muted">
-        Önbellek temizliği kendi görsellerine dokunmaz; yalnızca 7 günden eski ve hiçbir kayda bağlı olmayan kopyaları
-        siler.
-      </p>
-    </Section>
-  );
-}
-
 export function BackupSection({
   online,
   backupPending,
   onBackup,
   backupData,
   backupStatus,
-  driveFolder,
-  onDriveFolder,
-  onSaveDriveFolder,
 }: {
   online: boolean;
   backupPending: boolean;
   onBackup: () => void;
   backupData: { path: string; size: number } | undefined;
   backupStatus: BackupStatus | undefined;
-  driveFolder: string;
-  onDriveFolder: (value: string) => void;
-  onSaveDriveFolder: (value: string) => void;
 }) {
   const last = backupStatus?.last_backup;
-  const drive = backupStatus?.last_drive_upload;
   return (
     <Section title="Yedekleme / Export">
-      <div className="mb-3 flex items-center gap-2">
-        <Input
-          value={driveFolder}
-          disabled={!online}
-          onChange={onDriveFolder}
-          onBlur={(value) => onSaveDriveFolder(value.trim())}
-          placeholder="Google Drive hedef klasör kimliği"
-          ariaLabel="Google Drive hedef klasör kimliği"
-          className="min-w-0 flex-1"
-        />
-        <span className="shrink-0 text-meta text-muted">backup.drive_folder_id</span>
-      </div>
       <div className="flex flex-wrap gap-2">
         {(
           [
@@ -697,11 +469,8 @@ export function BackupSection({
           </a>
         ))}
         {[
-          ["Harcama (CSV)", EXPORT_MODULE],
           ["Görev (CSV)", "todo"],
           ["Fırsat (CSV)", "opportunity"],
-          ["Gelir (CSV)", "income"],
-          ["Not (CSV)", "note"],
         ].map(([label, moduleName]) => (
           <a
             key={moduleName}
@@ -727,14 +496,6 @@ export function BackupSection({
           <p>
             Son yedek: {last ? `${last.file} · ${Math.round(last.size / 1024)} KB · ${relativeTime(last.at)}` : "—"}
           </p>
-          <p>Drive hedefi: {backupStatus.drive_folder_id ? backupStatus.drive_folder_id : "ayarlanmadı"}</p>
-          <p>
-            Son Drive yüklemesi:{" "}
-            {drive ? `${drive.file} · ${relativeTime(drive.at)}` : backupStatus.last_drive_error ? "başarısız" : "—"}
-          </p>
-          {backupStatus.last_drive_error && (
-            <p className="text-danger">Yükleme hatası: {backupStatus.last_drive_error.message}</p>
-          )}
           <p>Detaylı durum: Sağlık paneli → "Yedekleme" widget'ı.</p>
         </div>
       )}

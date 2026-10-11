@@ -18,7 +18,7 @@ def _spec():
                 linkable=False,
             )
         ],
-        event_verbs=["pomodoro.completed", "pomodoro.interrupted", "pomodoro.deleted"],
+        event_verbs=["pomodoro.completed", "pomodoro.interrupted", "pomodoro.deleted", "pomodoro.updated"],
     )
 
 

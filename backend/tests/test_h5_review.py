@@ -199,7 +199,8 @@ async def test_weekly_review_has_no_productivity_score(
     )
     blob = response.model_dump_json().lower()
 
-    for forbidden in ("productivity", "discipline", "alignment", "score", "grade", "mood"):
+    # Canonical Goals alignment is factual allocation, not a productivity rating.
+    for forbidden in ("productivity", "discipline", "score", "grade", "mood"):
         assert forbidden not in blob
 
 

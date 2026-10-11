@@ -129,8 +129,6 @@ export interface SystemDiagnosticsInput {
     last_backup_at?: string | null;
     last_backup_size?: string | null;
     pending_changes?: number | null;
-    drive_configured: boolean;
-    last_drive_error?: string | null;
   } | null;
   brain?: {
     mcp: string;
@@ -213,8 +211,6 @@ export function formatSystemDiagnostics(input: SystemDiagnosticsInput): string {
         line("Last backup", input.backup.last_backup_at ?? "none"),
         line("Last backup size", input.backup.last_backup_size),
         line("Pending changes", input.backup.pending_changes),
-        line("Drive configured", input.backup.drive_configured ? "yes" : "no"),
-        line("Last Drive error", input.backup.last_drive_error),
       ]),
     );
   }

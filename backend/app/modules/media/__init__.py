@@ -1,5 +1,9 @@
-from app.modules.media.router import router
-from app.modules.media.service import deadline_provider as media_deadlines
+"""V1 retired product. Schema and historical event vocabulary only; no active jobs or API."""
+from fastapi import APIRouter
+
+from app.modules.media import models as _models  # noqa: F401
+
+router = APIRouter()
 
 
 def _spec():
@@ -9,16 +13,12 @@ def _spec():
         title="Medya",
         router=router,
         entity_types=[
-            EntityTypeSpec('media_item', 'Medya', 'Medyalar', '/media/{id}', 'Film'),
+            EntityTypeSpec('media_item', 'Medya', 'Medyalar', '/activity', 'Film', searchable=False, linkable=False),
             EntityTypeSpec(
-                'media_collection', 'Koleksiyon', 'Koleksiyonlar', '/media/collections', 'Library',
-            linkable=False),
-            EntityTypeSpec('media_unit', 'Bölüm', 'Bölümler', '/media', 'FileVideo',
-        linkable=False, searchable=False),
-            EntityTypeSpec('media_cycle', 'Döngü', 'Döngüler', '/media', 'RefreshCw',
-        linkable=False, searchable=False),
-            EntityTypeSpec('media_consumption', 'Tüketim', 'Tüketimler', '/media', 'Play',
-        linkable=False, searchable=False),
+                'media_collection', 'Koleksiyon', 'Koleksiyonlar', '/activity', 'Library', searchable=False, linkable=False),
+            EntityTypeSpec('media_unit', 'Bölüm', 'Bölümler', '/activity', 'FileVideo', searchable=False, linkable=False),
+            EntityTypeSpec('media_cycle', 'Döngü', 'Döngüler', '/activity', 'RefreshCw', searchable=False, linkable=False),
+            EntityTypeSpec('media_consumption', 'Tüketim', 'Tüketimler', '/activity', 'Play', searchable=False, linkable=False),
         ],
         event_verbs=[
             "media.item_added",
@@ -43,7 +43,6 @@ def _spec():
             "media.sync_empty",
             "media.artwork_pruned",
         ],
-        deadline_provider=media_deadlines,
     )
 
 

@@ -32,10 +32,7 @@ const parent: AgendaRow = {
   feed_title: null,
   url: null,
   recur: null,
-  media_kind: null,
-  media_status: null,
   progress_label: null,
-  cover_url: null,
   children: [
     {
       kind: "todo",
@@ -55,10 +52,7 @@ const parent: AgendaRow = {
       url: null,
       recur: null,
       children: [],
-      media_kind: null,
-      media_status: null,
       progress_label: null,
-      cover_url: null,
     },
   ],
 };
@@ -80,20 +74,6 @@ const rssRow: AgendaRow = {
   title: "Yazıyı oku",
   action: "mark_rss_read",
   feed_title: "Yerel akış",
-  project_title: null,
-};
-const mediaRow: AgendaRow = {
-  ...todoRow,
-  kind: "media",
-  source: "planned",
-  id: "media-1",
-  slot_id: "slot-media",
-  title: "Dune",
-  action: "log_media",
-  media_kind: "book",
-  media_status: "in_progress",
-  progress_label: "120 / 400 sayfa",
-  cover_url: "/api/media/assets/dune.webp",
   project_title: null,
 };
 const routineRow: AgendaRow = {
@@ -126,7 +106,7 @@ const agenda: TodayAgenda = {
       starts_at: "2026-08-23T09:30:00+03:00",
     },
   ],
-  checklist: [parent, todoRow, plannedTodoRow, routineRow, rssRow, mediaRow],
+  checklist: [parent, todoRow, plannedTodoRow, routineRow, rssRow],
   completed: [{ ...todoRow, id: "completed-1", title: "Biten görev", completed: true, action: null }],
   suggestions: {
     flashcards: [],
@@ -135,7 +115,6 @@ const agenda: TodayAgenda = {
       { ...todoRow, id: "suggested-2", title: "İkinci öneri", source: "suggestion" },
     ],
     rss: [{ ...rssRow, id: "suggested-rss-1", title: "Üçüncü öneri", source: "suggestion" }],
-    media: [],
     study: [
       {
         ...todoRow,
@@ -285,13 +264,7 @@ describe("unified Today agenda", () => {
     expect(mutationNamed("today-schedule")).toBeUndefined();
 
     complete?.onSuccess?.();
-    expect(harness.invalidate).toHaveBeenCalledWith(
-      "todo.write",
-      "plan.write",
-      "rss.write",
-      "media.write",
-      "calendar.write",
-    );
+    expect(harness.invalidate).toHaveBeenCalledWith("todo.write", "plan.write", "rss.write", "calendar.write");
   });
 
   it("shows no automatic suggestion surface", () => {
@@ -302,14 +275,6 @@ describe("unified Today agenda", () => {
     expect(markup).not.toContain("oto ");
     expect(markup).not.toContain("Birinci öneri");
     expect(markup).not.toContain("Tekrar edilecek konu");
-  });
-
-  it("links planned media to its logging target without treating it as a todo", () => {
-    const markup = renderToStaticMarkup(<TodayAgendaWidget />);
-
-    expect(markup).toContain('href="#/media?focus=media-1"');
-    expect(markup).toContain("120 / 400 sayfa");
-    expect(markup).not.toContain("Dune tamamla");
   });
 
   it("keeps completed rows collapsed until asked", () => {

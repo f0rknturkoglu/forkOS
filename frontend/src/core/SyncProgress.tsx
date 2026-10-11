@@ -8,26 +8,26 @@ import { runStateView, type StatusTone } from "@/core/sourceStatus";
 import type { SourceSyncStatus } from "@/core/types";
 import { Button, Chip, cx } from "@/core/ui";
 
-export type SourceSyncScope = "opportunity" | "media";
+export type SourceSyncScope = "opportunity";
 
 export function sourceSyncApiPath(scope: SourceSyncScope): string {
-  return scope === "media" ? "/sources/sync?scope=media" : "/sources/sync";
+  return "/sources/sync";
 }
 
 export function sourceSyncHistoryApiPath(scope: SourceSyncScope): string {
-  return scope === "media" ? "/sources/sync/history?scope=media" : "/sources/sync/history";
+  return "/sources/sync/history";
 }
 
 export function sourceSyncRoute(scope: SourceSyncScope): string {
-  return scope === "media" ? "/sources?scope=media" : "/sources";
+  return "/sources";
 }
 
 export function sourceSyncQueryKey(scope: SourceSyncScope): readonly string[] {
-  return scope === "media" ? ["source-sync", "media"] : ["source-sync"];
+  return ["source-sync"];
 }
 
 export function sourceSyncHistoryQueryKey(scope: SourceSyncScope): readonly string[] {
-  return scope === "media" ? ["source-sync-history", "media"] : ["source-sync-history"];
+  return ["source-sync-history"];
 }
 
 /** Cekim surerken yoklama araligi (ilerleme gorunur kalsin). Dosya ici. */

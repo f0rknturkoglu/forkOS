@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
+from app.integrations.google_router import router as google_router
 from app.modules.calendar import service
 
 router = APIRouter(tags=["calendar"])
@@ -61,3 +62,8 @@ async def push_plan(slot_id: uuid.UUID, session: AsyncSession = Depends(get_sess
     if result is None:
         raise HTTPException(404, "plan slot bulunamadı")
     return result
+
+
+# Calendar retains independent Google OAuth; Drive scopes and clients are retired.
+
+router.include_router(google_router)

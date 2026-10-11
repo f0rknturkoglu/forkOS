@@ -67,12 +67,7 @@ const SURFACES: Record<string, string | string[]> = {
   // Ogrenme yuzeyi artik konu detayi ("Baglantilar" sekmesi); sayfa yalniz kabuk.
   study_topic: "src/modules/learning/TopicDetail.tsx",
   learning_resource: "src/modules/learning/TopicDetail.tsx",
-  media_item: "src/modules/media/MediaDetailPage.tsx",
   bookmark: "src/modules/bookmarks/BookmarksPage.tsx",
-  document: "src/modules/documents/DocumentsPage.tsx",
-  expense: "src/modules/finance/FinancePage.tsx",
-  income: "src/modules/finance/FinancePage.tsx",
-  recurring_payment: "src/modules/finance/FinancePage.tsx",
   flashcard_deck: "src/modules/flashcard/DeckDetail.tsx",
 };
 
@@ -112,6 +107,11 @@ describe("entity relation visibility (Faz 18/32)", () => {
         "external_event",
         "feed",
         "feed_item",
+        "document",
+        "expense",
+        "income",
+        "recurring_payment",
+        "media_item",
         "media_collection",
         "media_consumption",
         "media_cycle",

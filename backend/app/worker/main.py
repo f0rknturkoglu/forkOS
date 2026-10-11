@@ -21,12 +21,10 @@ from app.modules.opportunity.service import (
 from app.modules.system.maintenance import run_maintenance
 from app.worker.jobs import (
     catch_up,
-    catch_up_media,
     consume_source_sync_batches,
     critical_catch_up,
     nightly_backup,
     poll_feeds,
-    poll_media,
     poll_opportunities,
     proactivity_catch_up,
     proactivity_tick,
@@ -46,7 +44,7 @@ RSS_POLL_TICK_MINUTES = 5
 
 
 async def maintenance_job() -> None:
-    """Gunde bir kez: operasyonel saklama + RSS + gorsel onbellegi.
+    """Gunde bir kez: operasyonel saklama + RSS.
 
     Gun kapisi ve idempotanslik `run_maintenance` icinde.
     """
@@ -104,14 +102,6 @@ async def main() -> None:
         "interval",
         minutes=1,
         id="source_sync_queue",
-        max_instances=1,
-        coalesce=True,
-    )
-    scheduler.add_job(
-        poll_media,
-        "interval",
-        hours=1,
-        id="poll_media",
         max_instances=1,
         coalesce=True,
     )
@@ -183,7 +173,6 @@ def _startup_tasks() -> list:
         # Kritik kaynaklar once: aciliş tanıtımında YLSY/OSYM tazelenir.
         ("critical_catch_up", critical_catch_up),
         ("catch_up_feeds", catch_up),
-        ("catch_up_media", catch_up_media),
         # Kaynaklar tazelendikten SONRA: H6 telafisi guncel duruma bakar.
         ("proactivity_catch_up", proactivity_catch_up),
         ("sync_calendar", sync_calendar),

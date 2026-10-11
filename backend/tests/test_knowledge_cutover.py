@@ -91,7 +91,7 @@ def test_legacy_note_entity_types_are_not_live_knowledge() -> None:
         assert spec is not None, f"{entity_type} tarihsel yönlendirme için kayıtlı kalmalı"
         assert spec.searchable is False
         assert spec.linkable is False
-        assert spec.route.startswith("/notes")
+        assert spec.route.startswith("/activity")
 
     assert set(search_svc.searchable_types()).isdisjoint({"note", "note_folder"})
 
@@ -147,7 +147,7 @@ async def test_related_panel_hides_archived_note_relations_only() -> None:
 
 async def test_maintenance_never_touches_the_frozen_archive() -> None:
     """§6: günlük bakımda Notlar adımı YOKTUR."""
-    assert [name for name, _ in maintenance.STEPS] == ["retention", "rss", "artwork"]
+    assert [name for name, _ in maintenance.STEPS] == ["retention", "rss"]
 
     from app.modules.note import service as note_service
     from app.modules.note.schemas import NoteIn

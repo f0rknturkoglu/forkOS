@@ -67,6 +67,7 @@ ACTIVITY_FILTERS: dict[str, tuple[str, ...]] = {
     "focus": (
         "pomodoro.completed",
         "pomodoro.deleted",
+        "pomodoro.updated",
         "pomodoro.interrupted",
     ),
     "learning": (
@@ -163,6 +164,14 @@ ACTIVITY_FILTERS: dict[str, tuple[str, ...]] = {
         "career_proposal.materialized",
         "career_proposal.unsupported",
         "career_proposal.expired",
+        "strategic_plan.created",
+        "strategic_plan.updated",
+        "strategic_plan.revised",
+        "strategic_pillar.created",
+        "strategic_pillar.updated",
+        "key_result.created",
+        "key_result.updated",
+        "key_result.manual_value_updated",
         "goal.created",
         "goal.updated",
         "goal.milestone_added",
