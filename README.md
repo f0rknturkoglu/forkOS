@@ -12,6 +12,10 @@ Akademik ve kariyer gelişimi; günlük yürütme, hedefler/strateji, projeler, 
 
 Pomodoro geçmişinde tamamlanan seanslar elle eklenebilir, düzenlenebilir ve onayla silinebilir. Sayaç ve elle kayıt aynı kalıcı modeli kullanır.
 
+## Başlangıç ve kişisel akış
+
+Yeni kurulumun karşılama akışı, isteğe bağlı kaynak seçimi ve tekrar açılabilen rehberleri vardır. Her sayfanın header'ındaki `(i)` bilgiyi ve rehberleri toplar. Akış kaynakları kullanıcı seçimiyle açılır; HN, GitHub · Yeni ve Popüler, Hugging Face Papers, Reddit ve mevcut RSS abonelikleri desteklenir. [Başlangıç ve rehberler](docs/product/v1-welcome-onboarding.md) · [Kişisel akış](docs/product/personal-feed-discovery.md).
+
 ## Neler sunuyor?
 
 Navigasyon ürün alanlarına göre kurulur (tek kaynak: `docs/product-navigation.md`):

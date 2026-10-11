@@ -40,3 +40,7 @@ Frontend `entityRoute()` ve `typeLabel()` kullanır. Komutlar, Today widget'lar�
 sidebar ve rotalar frontend modül kaydından türer; emekli ürün kaydı yoktur.
 Bilgi Obsidian'dadır; Ayarlar yalnız bağlantı, sağlık ve ajan yapılandırmasını yönetir.
 Google entegrasyonu Calendar'dır; Drive sync veya bulut yedek davranışı sunulmaz.
+
+## Başlangıç ve sayfa yardımı
+
+Header'daki `(i)` sayfa bilgisini ve aranabilir rehberleri açar; Ayarlar ve komut paletinden de erişilir. Karşılama/tur ayrı bir navigasyon ürünü veya sidebar alanı değildir. `/feed` Kaynaklar galerisi kişisel sağlayıcıları ve seçkileri yönetir; `/rss` mevcut abonelik/OPML/okuyucu yüzeyidir. Proje ve konu bağlamında yerel özet doğrudan görünür, Hermes mesajı Enter ile mevcut Goal Studio akışına girer. [Detay](product/v1-welcome-onboarding.md).
