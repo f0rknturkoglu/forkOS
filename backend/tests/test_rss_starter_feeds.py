@@ -1,30 +1,52 @@
-"""V1 preserves legacy subscriptions and never creates implicit starter feeds."""
+"""Startup has no starter subscription job; historical markers remain untouched."""
+
+from unittest.mock import AsyncMock
+
 from sqlalchemy import select
 
 from app.core.models import Entity
 from app.db import SessionLocal
+from app.main import app, lifespan
 from app.modules.rss import service
 from app.modules.rss.models import Feed
 from app.modules.rss.schemas import FeedIn
 from app.modules.system.models import Setting
 
 
-async def test_empty_installation_has_no_starter_feeds_or_marker(monkeypatch):
-    async def reject_probe(*args):
-        raise AssertionError("Startup must not contact providers")
-    monkeypatch.setattr(service, "_probe_title", reject_probe)
-    async with SessionLocal() as session:
-        assert await service.ensure_starter_feeds(session) == (0,0)
-        assert list(await session.scalars(select(Feed))) == []
-        assert await session.get(Setting, service.STARTER_FEEDS_SETTING_KEY) is None
+async def test_startup_has_no_implicit_subscriptions_or_marker(monkeypatch):
+    import app.main as main
 
-async def test_existing_explicit_rss_is_untouched_and_deleted_feeds_stay_deleted():
-    async with SessionLocal() as session:
-        feed, _ = await service.add_feed(session, FeedIn(url="https://fmhy.net/feed.rss",title="Kendi başlığım",category="Kişisel"),probe=False)
-        assert await service.ensure_starter_feeds(session) == (0,0)
-        assert await session.scalar(select(Entity.title).where(Entity.id == feed.id)) == "Kendi başlığım"
-        assert feed.category == "Kişisel"
-        assert len(list(await session.scalars(select(Feed)))) == 1
-        await service.delete_feed(session,feed.id)
-        assert await service.ensure_starter_feeds(session) == (0,0)
-        assert list(await session.scalars(select(Feed))) == []
+    monkeypatch.setattr(main, "_startup_critical_catch_up", AsyncMock())
+    monkeypatch.setattr(main, "_startup_maintenance", AsyncMock())
+
+    async def reject_probe(*args):
+        raise AssertionError("Startup must not contact RSS providers")
+
+    monkeypatch.setattr(service, "_probe_title", reject_probe)
+    async with lifespan(app), SessionLocal() as db:
+        assert list(await db.scalars(select(Feed))) == []
+        assert await db.get(Setting, "rss.starter_feeds.v1") is None
+
+
+async def test_existing_subscriptions_and_historical_marker_survive_startup(monkeypatch):
+    import app.main as main
+
+    monkeypatch.setattr(main, "_startup_critical_catch_up", AsyncMock())
+    monkeypatch.setattr(main, "_startup_maintenance", AsyncMock())
+    async with SessionLocal() as db:
+        feed, _ = await service.add_feed(
+            db,
+            FeedIn(url="https://fmhy.net/feed.rss", title="Kendi başlığım", category="Kişisel"),
+            probe=False,
+        )
+        identity = feed.id
+        db.add(Setting(key="rss.starter_feeds.v1", value={"version": 1}))
+        await db.commit()
+    async with lifespan(app), SessionLocal() as db:
+        assert (await db.get(Entity, identity)).title == "Kendi başlığım"
+        assert (await db.get(Feed, identity)).category == "Kişisel"
+        assert await db.get(Setting, "rss.starter_feeds.v1") is not None
+        assert await service.delete_feed(db, identity)
+    async with lifespan(app), SessionLocal() as db:
+        assert list(await db.scalars(select(Feed))) == []
+        assert await db.get(Setting, "rss.starter_feeds.v1") is not None

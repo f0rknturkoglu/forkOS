@@ -366,7 +366,7 @@ export function RssPage() {
     mutationFn: (id: string) => api.del(`/rss/feeds/${id}`),
     onSuccess: () => {
       if (feedId) setFeedId(null);
-      invalidateAfter("rss.write");
+      invalidateAfter("rss.write", "settings.write");
     },
   });
 

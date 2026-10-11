@@ -5750,6 +5750,14 @@
             "title": "First Run",
             "type": "boolean"
           },
+          "invalid_feed_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Invalid Feed Ids",
+            "type": "array"
+          },
           "onboarding": {
             "$ref": "#/components/schemas/OnboardingState"
           },
@@ -5789,6 +5797,22 @@
           "counts"
         ],
         "title": "ExperienceOut",
+        "type": "object"
+      },
+      "ExperienceRepairIn": {
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "ExperienceRepairIn",
         "type": "object"
       },
       "ExperienceUpdate": {
@@ -34813,6 +34837,47 @@
           }
         },
         "summary": "Put Experience",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/system/experience/repair": {
+      "post": {
+        "operationId": "repair_experience_api_system_experience_repair_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperienceRepairIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperienceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Repair Experience",
         "tags": [
           "system"
         ]

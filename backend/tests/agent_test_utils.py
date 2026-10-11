@@ -401,7 +401,6 @@ async def mcp_session():
     # Senkron yamalar (mock.patch) ile asenkron kaynaklar (lifespan/transport)
     # iç içe kurulur: ikisi farklı bağlam yöneticisi protokolü kullanır.
     with (
-        patch.object(app_main, "_startup_rss_starter_feeds", AsyncMock()),
         patch.object(app_main, "_startup_critical_catch_up", AsyncMock()),
         patch.object(app_main, "_startup_maintenance", AsyncMock()),
     ):
@@ -432,7 +431,6 @@ async def hermetic_lifespan():
     from app.main import app
 
     with (
-        patch.object(app_main, "_startup_rss_starter_feeds", AsyncMock()),
         patch.object(app_main, "_startup_critical_catch_up", AsyncMock()),
         patch.object(app_main, "_startup_maintenance", AsyncMock()),
     ):

@@ -623,6 +623,11 @@ async def put_experience(body: experience.ExperienceUpdate, session: AsyncSessio
     return await experience.update(session, body)
 
 
+@experience_router.post("/system/experience/repair", response_model=experience.ExperienceOut)
+async def repair_experience(body: experience.ExperienceRepairIn, session: AsyncSession = Depends(get_session)):
+    return await experience.repair_feed_memberships(session, expected_revision=body.revision)
+
+
 @router.get("/news/huggingface-papers")
 async def huggingface_papers(date: str | None = None, limit: int = Query(20, ge=1, le=30), session: AsyncSession = Depends(get_session)):
     if not await experience.enabled(session, "hf"):

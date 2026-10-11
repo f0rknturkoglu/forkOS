@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from xml.etree.ElementTree import ParseError
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
@@ -27,24 +29,29 @@ router = APIRouter(tags=["rss"])
 
 @router.get("/rss/feeds", response_model=list[FeedOut])
 async def list_feeds(
-    category: str | None = None, session: AsyncSession = Depends(get_session),
+    category: str | None = None,
+    session: AsyncSession = Depends(get_session),
 ):
     return await service.list_feeds(session, category=category)
 
 
 @router.post("/rss/feeds", response_model=FeedOut, status_code=201)
 async def add_feed(body: FeedIn, session: AsyncSession = Depends(get_session)):
-    feed, created = await service.add_feed(session, body, probe=body.probe)
+    feed, created = await service.add_feed(session, body, probe=body.probe, commit=False)
     if body.probe:
         from app.modules.system.experience import activate_rss
-        await activate_rss(session)
+
+        await activate_rss(session, commit=False)
+    await session.commit()
     feeds = await service.list_feeds(session)
     return next(f for f in feeds if f.id == feed.id)
 
 
 @router.patch("/rss/feeds/{feed_id}", response_model=FeedOut)
 async def update_feed(
-    feed_id: uuid.UUID, body: FeedUpdate, session: AsyncSession = Depends(get_session),
+    feed_id: uuid.UUID,
+    body: FeedUpdate,
+    session: AsyncSession = Depends(get_session),
 ):
     if await service.update_feed(session, feed_id, body) is None:
         raise HTTPException(404)
@@ -81,11 +88,14 @@ async def import_opml(
     content = await file.read(2_000_001)
     try:
         added, skipped, names = await service.import_opml(session, content)
-    except Exception as exc:
-        raise HTTPException(422, f"OPML okunamadi: {exc}") from exc
+    except (ValidationError, ValueError, ParseError) as exc:
+        raise HTTPException(
+            422,
+            "OPML geçersiz; hiçbir abonelik kaydedilmedi. HTTP(S) adreslerini ve dosya sınırlarını kontrol et.",
+        ) from exc
+    except TimeoutError as exc:
+        raise HTTPException(503, "OPML işlem süresi aşıldı; hiçbir abonelik kaydedilmedi") from exc
     if added:
-        from app.modules.system.experience import activate_rss
-        await activate_rss(session)
         # Sorunun cozumu: import sonrasi yazilar aninda cekilsin diye
         # arka plan tazelemesi kuyruklanir (worker'i 30 dk beklemene gerek yok).
         background.add_task(service.refresh_all)
@@ -105,8 +115,15 @@ async def list_items(
     session: AsyncSession = Depends(get_session),
 ):
     return await service.list_items(
-        session, feed_id=feed_id, category=category, unread_only=unread_only,
-        saved_only=saved_only, since=since, q=q, limit=limit, offset=offset,
+        session,
+        feed_id=feed_id,
+        category=category,
+        unread_only=unread_only,
+        saved_only=saved_only,
+        since=since,
+        q=q,
+        limit=limit,
+        offset=offset,
     )
 
 
@@ -157,7 +174,9 @@ async def mark_all_read(
 
 @router.post("/rss/items/{item_id}/save", response_model=BookmarkOut, status_code=201)
 async def save_item(
-    item_id: uuid.UUID, body: SaveItemIn, session: AsyncSession = Depends(get_session),
+    item_id: uuid.UUID,
+    body: SaveItemIn,
+    session: AsyncSession = Depends(get_session),
 ):
     """Item -> bookmark + link(feed_item -> bookmark, 'saved_from')."""
     if body.collection not in COLLECTIONS:
@@ -175,7 +194,8 @@ async def rss_stats(session: AsyncSession = Depends(get_session)):
 
 @router.post("/rss/refresh-all")
 async def refresh_all(
-    background: BackgroundTasks, session: AsyncSession = Depends(get_session),
+    background: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
 ):
     """Suresi gelmis tum feed'leri arka planda ceker; yanit hemen doner.
 

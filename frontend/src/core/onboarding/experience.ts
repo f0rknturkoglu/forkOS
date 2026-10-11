@@ -50,6 +50,17 @@ export function useSaveExperience() {
     onError: () => void query.refetch(),
   });
 }
+export function useRepairExperience() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (revision: string) => api.post<Experience>("/system/experience/repair", { revision }),
+    onSuccess: (data) => {
+      invalidateAfter("settings.write");
+      client.setQueryData(EXPERIENCE_KEY, data);
+      writeStored("experience.revision", data.revision);
+    },
+  });
+}
 export function openGuide() {
   window.dispatchEvent(new Event("forkos:guide"));
 }

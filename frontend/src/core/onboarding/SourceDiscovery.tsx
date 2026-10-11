@@ -9,7 +9,14 @@ import { requestNavigation } from "@/core/navigationGuard";
 import { navigate } from "@/app/router";
 import { useOnline } from "@/lib/hooks";
 import { SOURCE_CATALOG, PRESET_BUNDLES } from "./catalog";
-import { useExperience, useSaveExperience, type FeedPreferences, type Experience, type FeedBundle } from "./experience";
+import {
+  useExperience,
+  useSaveExperience,
+  useRepairExperience,
+  type FeedPreferences,
+  type Experience,
+  type FeedBundle,
+} from "./experience";
 
 type Feed = { id: string; title: string | null; url: string };
 export function SourceDiscovery({
@@ -75,6 +82,7 @@ function SourceEditor({
   const online = useOnline();
   const toast = useToast();
   const save = useSaveExperience();
+  const repair = useRepairExperience();
   const feeds = useQuery({ queryKey: ["feeds"], queryFn: () => api.get<Feed[]>("/rss/feeds"), retry: false });
   const addFeed = useMutation({
     mutationFn: () => api.post<Feed>("/rss/feeds", { url: url.trim(), probe: false }),
@@ -168,6 +176,34 @@ function SourceEditor({
       }
     >
       <div className="stack-y-5">
+        {(initial.invalid_feed_ids?.length ?? 0) > 0 && (
+          <div className="rounded-card border border-warn-border p-3 stack-y-2">
+            <p className="text-meta text-warn">Seçkilerde silinmiş RSS abonelikleri var. Diğer seçimlerin korunur.</p>
+            <Button
+              disabled={!online || repair.isPending || save.isPending}
+              onClick={async () => {
+                setError("");
+                try {
+                  const missing = new Set(initial.invalid_feed_ids);
+                  const data = await repair.mutateAsync(baseline.current.revision);
+                  baseline.current = data;
+                  setDraft((value) => ({
+                    ...value,
+                    bundles: value.bundles.map((bundle) => ({
+                      ...bundle,
+                      feed_ids: bundle.feed_ids.filter((id) => !missing.has(id)),
+                    })),
+                  }));
+                  toast.push("Seçki üyelikleri onarıldı");
+                } catch (e) {
+                  setError((e as Error).message);
+                }
+              }}
+            >
+              Seçki üyeliklerini onar
+            </Button>
+          </div>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           {SOURCE_CATALOG.map((source) => {
             const Icon = source.icon;

@@ -4878,6 +4878,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/experience/repair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Repair Experience */
+        post: operations["repair_experience_api_system_experience_repair_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/refresh": {
         parameters: {
             query?: never;
@@ -7275,6 +7292,8 @@ export interface components {
             feed?: components["schemas"]["FeedPreferences"];
             /** First Run */
             first_run: boolean;
+            /** Invalid Feed Ids */
+            invalid_feed_ids?: string[];
             onboarding?: components["schemas"]["OnboardingState"];
             /** Revision */
             revision: string;
@@ -7288,6 +7307,11 @@ export interface components {
             version: 1;
             /** Warnings */
             warnings?: string[];
+        };
+        /** ExperienceRepairIn */
+        ExperienceRepairIn: {
+            /** Revision */
+            revision: string;
         };
         /** ExperienceUpdate */
         ExperienceUpdate: {
@@ -22134,6 +22158,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ExperienceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperienceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    repair_experience_api_system_experience_repair_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExperienceRepairIn"];
             };
         };
         responses: {

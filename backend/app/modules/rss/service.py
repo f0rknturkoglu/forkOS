@@ -4,6 +4,7 @@ Feed ve feed_item da birer entity'dir (kural 1) -- boylece global search,
 link ve activity bedava gelir. Item'i "Save -> Read Later" yapmak yeni bir
 bookmark uretir ve aralarina link(feed_item -> bookmark, 'saved_from') kurar.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -47,23 +48,8 @@ from app.sources.rss_source import (
 
 MAX_ERRORS_BEFORE_DISABLE = 5
 SAVED_FROM = "saved_from"
-STARTER_FEEDS_SETTING_KEY = "rss.starter_feeds.v1"
-STARTER_FEEDS_VERSION = 1
-STARTER_FEEDS: tuple[FeedIn, ...] = (
-    FeedIn(
-        url="https://fmhy.net/feed.rss",
-        title="FMHY",
-        category="Rehberler / Araçlar",
-    ),
-    FeedIn(
-        url="https://github.com/champagnewiki/champagne-wiki/commits.atom",
-        title="Champagne Piracy",
-        category="Arşiv / Güvenlik",
-    ),
-)
-
-
 # ── Feed CRUD ──────────────────────────────────────────────────────────────
+
 
 async def _probe_title(url: str) -> tuple[str, str | None, str | None]:
     """(baslik, site_url, logo). Ag hatasi feed eklemeyi ENGELLEMEZ."""
@@ -77,14 +63,22 @@ async def _probe_title(url: str) -> tuple[str, str | None, str | None]:
 
 
 async def add_feed(
-    session: AsyncSession, data: FeedIn, *, probe: bool = True,
+    session: AsyncSession,
+    data: FeedIn,
+    *,
+    probe: bool = True,
+    commit: bool = True,
 ) -> tuple[Feed, bool]:
     """Doner: (feed, created). Ayni URL ikinci kez eklenirse mevcut kayit doner."""
     from sqlalchemy import text
+
+    from app.modules.system import experience
+
+    await experience.lock(session)
     await session.execute(text("SELECT pg_advisory_xact_lock(hashtext(:url))"), {"url": data.url})
-    existing = (await session.execute(
-        select(Feed).where(Feed.url == data.url)
-    )).scalar_one_or_none()
+    existing = (
+        await session.execute(select(Feed).where(Feed.url == data.url))
+    ).scalar_one_or_none()
     if existing is not None:
         return existing, False
 
@@ -93,25 +87,30 @@ async def add_feed(
         title, site_url, favicon = await _probe_title(data.url)
     title = title or data.url
 
-    entity = await create_entity(session, type=Feed.ENTITY_TYPE, title=title,
-                                 search_text=f"{data.url} {data.category or ''}")
-    feed = Feed(id=entity.id, url=data.url, site_url=site_url,
-                favicon_url=favicon, category=data.category)
+    entity = await create_entity(
+        session, type=Feed.ENTITY_TYPE, title=title, search_text=f"{data.url} {data.category or ''}"
+    )
+    feed = Feed(
+        id=entity.id, url=data.url, site_url=site_url, favicon_url=favicon, category=data.category
+    )
     session.add(feed)
-    await log_event(session, verb="rss.feed_added", entity_id=entity.id,
-                    entity_type="feed",
-                    payload={"url": run_svc.sanitize_error(data.url), "category": data.category})
-    await session.commit()
+    await log_event(
+        session,
+        verb="rss.feed_added",
+        entity_id=entity.id,
+        entity_type="feed",
+        payload={"url": run_svc.sanitize_error(data.url), "category": data.category},
+    )
+    await session.flush()
+    if commit:
+        await session.commit()
     return feed, True
 
 
-async def ensure_starter_feeds(session: AsyncSession) -> tuple[int, int]:
-    """Legacy startup entry: V1 never creates starter subscriptions or rewrites user feeds."""
-    return 0, 0
-
-
 async def update_feed(
-    session: AsyncSession, feed_id: uuid.UUID, data: FeedUpdate,
+    session: AsyncSession,
+    feed_id: uuid.UUID,
+    data: FeedUpdate,
 ) -> Feed | None:
     feed = await session.get(Feed, feed_id)
     if feed is None:
@@ -121,76 +120,120 @@ async def update_feed(
     if data.active is not None:
         feed.active = data.active
         if data.active:
-            feed.error_count = 0          # elle yeniden acilinca temiz sayfa
+            feed.error_count = 0  # elle yeniden acilinca temiz sayfa
     await touch_entity(session, feed_id, title=data.title.strip() if data.title else None)
     await session.commit()
     return feed
 
 
 async def delete_feed(session: AsyncSession, feed_id: uuid.UUID) -> bool:
-    """entity silinince feed + feed_item'lar cascade ile gider."""
-    entity = await session.get(Entity, feed_id)
-    if entity is None:
-        return False
-    item_ids = list((await session.execute(
-        select(FeedItem.id).where(FeedItem.feed_id == feed_id)
-    )).scalars())
-    await log_event(session, verb="rss.feed_removed", entity_id=feed_id,
-                    entity_type="feed", payload={"title": entity.title})
-    await session.flush()
-    await session.delete(entity)
-    if item_ids:
-        # feed_item.id -> entity.id FK; feed cascade item'i siler ama entity satiri kalir
-        await session.execute(sa_delete(Entity).where(Entity.id.in_(item_ids)))
-    await session.commit()
-    return True
+    """Delete subscription/items and prune bundle memberships atomically; bookmarks/events survive."""
+    from app.modules.system import experience
+
+    try:
+        await experience.lock(session)
+        if await session.get(Feed, feed_id, populate_existing=True) is None:
+            return False
+        entity = await session.get(Entity, feed_id)
+        item_ids = list(
+            (
+                await session.execute(select(FeedItem.id).where(FeedItem.feed_id == feed_id))
+            ).scalars()
+        )
+        await experience.repair_feed_memberships(session, removed_ids={feed_id}, commit=False)
+        await log_event(
+            session,
+            verb="rss.feed_removed",
+            entity_id=feed_id,
+            entity_type="feed",
+            payload={"title": entity.title},
+        )
+        await session.flush()
+        await session.delete(entity)
+        if item_ids:
+            await session.execute(sa_delete(Entity).where(Entity.id.in_(item_ids)))
+        await session.commit()
+        return True
+    except Exception:
+        await session.rollback()
+        raise
 
 
 async def list_feeds(session: AsyncSession, *, category: str | None = None) -> list[FeedOut]:
-    unread_counts = dict((await session.execute(
-        select(FeedItem.feed_id, func.count())
-        .where(FeedItem.read_at.is_(None))
-        .group_by(FeedItem.feed_id)
-    )).all())
+    unread_counts = dict(
+        (
+            await session.execute(
+                select(FeedItem.feed_id, func.count())
+                .where(FeedItem.read_at.is_(None))
+                .group_by(FeedItem.feed_id)
+            )
+        ).all()
+    )
 
-    stmt = (select(Feed, Entity.title)
-            .join(Entity, Entity.id == Feed.id)
-            .order_by(Feed.category.nulls_last(), Entity.title))
+    stmt = (
+        select(Feed, Entity.title)
+        .join(Entity, Entity.id == Feed.id)
+        .order_by(Feed.category.nulls_last(), Entity.title)
+    )
     if category:
         stmt = stmt.where(Feed.category == category)
 
     return [
         FeedOut(
-            id=f.id, title=title, url=f.url, site_url=f.site_url,
-            favicon_url=f.favicon_url, category=f.category,
-            active=f.active, error_count=f.error_count, last_status=f.last_status,
-            last_fetched_at=f.last_fetched_at, unread=unread_counts.get(f.id, 0),
+            id=f.id,
+            title=title,
+            url=f.url,
+            site_url=f.site_url,
+            favicon_url=f.favicon_url,
+            category=f.category,
+            active=f.active,
+            error_count=f.error_count,
+            last_status=f.last_status,
+            last_fetched_at=f.last_fetched_at,
+            unread=unread_counts.get(f.id, 0),
         )
         for f, title in (await session.execute(stmt)).all()
     ]
 
 
 async def import_opml(session: AsyncSession, content: bytes) -> tuple[int, int, list[str]]:
-    """OPML -> feed'ler. Ag'a hic cikmaz (baslik OPML'den gelir), 200 feed hizli girer."""
+    """All-or-nothing, DNS/probe-free import; sorted URL locks prevent parallel import deadlocks."""
+    from app.modules.system import experience
+    from app.sources.opml import MAX_FEEDS
+
+    entries = parse_opml(content)
+    validated = [
+        FeedIn(url=e.url, title=e.title, category=e.category, probe=False) for e in entries
+    ]
+    if len(validated) > MAX_FEEDS:
+        raise ValueError(f"OPML en fazla {MAX_FEEDS} abonelik içerebilir")
     added, skipped, names = 0, 0, []
-    for entry in parse_opml(content):
-        feed, created = await add_feed(
-            session,
-            FeedIn(url=entry.url, title=entry.title, category=entry.category),
-            probe=False,
-        )
-        if created:
-            added += 1
-            names.append(entry.title)
-        else:
-            skipped += 1
+    try:
+        async with asyncio.timeout(30):
+            await experience.lock(session)
+            # Commit only at the end, including explicit RSS consent. No upstream calls.
+            for data in sorted(validated, key=lambda entry: entry.url):
+                feed, created = await add_feed(session, data, probe=False, commit=False)
+                if created:
+                    added += 1
+                    names.append(data.title)
+                else:
+                    skipped += 1
+            if validated:
+                await experience.activate_rss(session, commit=False)
+            await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
     return added, skipped, names
 
 
 # ── Item okuma ─────────────────────────────────────────────────────────────
 
+
 async def list_items(
-    session: AsyncSession, *,
+    session: AsyncSession,
+    *,
     feed_id: uuid.UUID | None = None,
     category: str | None = None,
     unread_only: bool = False,
@@ -207,7 +250,8 @@ async def list_items(
         .join(Feed, Feed.id == FeedItem.feed_id)
         .join(FeedEntity, FeedEntity.id == Feed.id)
         .order_by(FeedItem.published_at.desc().nulls_last(), FeedItem.fetched_at.desc())
-        .limit(limit).offset(offset)
+        .limit(limit)
+        .offset(offset)
     )
     if feed_id:
         stmt = stmt.where(FeedItem.feed_id == feed_id)
@@ -217,8 +261,7 @@ async def list_items(
         stmt = stmt.where(FeedItem.read_at.is_(None))
     if saved_only:
         # "Kaydedilenler" akilli gorunumu: bookmark'a saved_from linki atilmis itemlar
-        stmt = stmt.where(FeedItem.id.in_(
-            select(Link.from_id).where(Link.relation == SAVED_FROM)))
+        stmt = stmt.where(FeedItem.id.in_(select(Link.from_id).where(Link.relation == SAVED_FROM)))
     if since is not None:
         stmt = stmt.where(FeedItem.published_at >= since)
     if q and q.strip():
@@ -228,10 +271,17 @@ async def list_items(
     saved = await _saved_bookmarks(session, [item.id for item, _, _ in rows])
     return [
         FeedItemOut(
-            id=item.id, feed_id=item.feed_id, feed_title=ftitle, title=title,
-            url=item.url, author=item.author, summary=item.summary,
-            published_at=item.published_at, fetched_at=item.fetched_at,
-            read_at=item.read_at, saved_bookmark_id=saved.get(item.id),
+            id=item.id,
+            feed_id=item.feed_id,
+            feed_title=ftitle,
+            title=title,
+            url=item.url,
+            author=item.author,
+            summary=item.summary,
+            published_at=item.published_at,
+            fetched_at=item.fetched_at,
+            read_at=item.read_at,
+            saved_bookmark_id=saved.get(item.id),
         )
         for item, title, ftitle in rows
     ]
@@ -239,40 +289,54 @@ async def list_items(
 
 async def get_item(session: AsyncSession, item_id: uuid.UUID) -> FeedItemOut | None:
     FeedEntity = aliased(Entity, name="feed_entity")
-    row = (await session.execute(
-        select(FeedItem, Entity.title, FeedEntity.title)
-        .join(Entity, Entity.id == FeedItem.id)
-        .join(Feed, Feed.id == FeedItem.feed_id)
-        .join(FeedEntity, FeedEntity.id == Feed.id)
-        .where(FeedItem.id == item_id)
-    )).first()
+    row = (
+        await session.execute(
+            select(FeedItem, Entity.title, FeedEntity.title)
+            .join(Entity, Entity.id == FeedItem.id)
+            .join(Feed, Feed.id == FeedItem.feed_id)
+            .join(FeedEntity, FeedEntity.id == Feed.id)
+            .where(FeedItem.id == item_id)
+        )
+    ).first()
     if row is None:
         return None
     item, title, feed_title_ = row
     saved = await _saved_bookmarks(session, [item.id])
     return FeedItemOut(
-        id=item.id, feed_id=item.feed_id, feed_title=feed_title_, title=title,
-        url=item.url, author=item.author, summary=item.summary, content=item.content,
-        published_at=item.published_at, fetched_at=item.fetched_at,
-        read_at=item.read_at, saved_bookmark_id=saved.get(item.id),
+        id=item.id,
+        feed_id=item.feed_id,
+        feed_title=feed_title_,
+        title=title,
+        url=item.url,
+        author=item.author,
+        summary=item.summary,
+        content=item.content,
+        published_at=item.published_at,
+        fetched_at=item.fetched_at,
+        read_at=item.read_at,
+        saved_bookmark_id=saved.get(item.id),
     )
 
 
 async def _saved_bookmarks(
-    session: AsyncSession, item_ids: list[uuid.UUID],
+    session: AsyncSession,
+    item_ids: list[uuid.UUID],
 ) -> dict[uuid.UUID, uuid.UUID]:
     if not item_ids:
         return {}
-    rows = (await session.execute(
-        select(Link.from_id, Link.to_id)
-        .where(Link.from_id.in_(item_ids), Link.relation == SAVED_FROM)
-    )).all()
+    rows = (
+        await session.execute(
+            select(Link.from_id, Link.to_id).where(
+                Link.from_id.in_(item_ids), Link.relation == SAVED_FROM
+            )
+        )
+    ).all()
     return {from_id: to_id for from_id, to_id in rows}
 
 
 # ── Tam metin (talebe bagli) ────────────────────────────────────────────────
 
-_fetching: set[str] = set()          # ayni item'a eszamanli cift fetch kilidi
+_fetching: set[str] = set()  # ayni item'a eszamanli cift fetch kilidi
 
 _FULL_TEXT_HEADERS = {
     "User-Agent": (
@@ -281,11 +345,23 @@ _FULL_TEXT_HEADERS = {
     ),
     "Accept": "text/html",
 }
-_FULL_TEXT_MIN_CHARS = 200           # bundan kisa metin kaydedilmez
+_FULL_TEXT_MIN_CHARS = 200  # bundan kisa metin kaydedilmez
 _FULL_TEXT_SELECTORS = ("article", "[role=main]", "[itemprop=articleBody]", "main")
 _FULL_TEXT_DROP = ("script", "style", "nav", "aside", "form", "header", "footer")
-_FULL_TEXT_KEEP = ("p", "h1", "h2", "h3", "h4", "h5", "h6", "li",
-                   "blockquote", "code", "pre", "img")
+_FULL_TEXT_KEEP = (
+    "p",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "li",
+    "blockquote",
+    "code",
+    "pre",
+    "img",
+)
 
 _OPEN_TAG = re.compile(r"<([a-zA-Z][a-zA-Z0-9]*)([^<>]*)>")
 
@@ -312,13 +388,13 @@ def _prune(candidate) -> None:
     self_id = candidate.mem_id
     for node in candidate.css("*"):
         if node.mem_id == self_id:
-            continue                    # css("*") kokenin kendisini de doner
+            continue  # css("*") kokenin kendisini de doner
         if node.tag not in _FULL_TEXT_KEEP:
             node.unwrap()
         elif node.tag == "img":
             src = node.attributes.get("src", "").strip()
             if not src.lower().startswith(("http://", "https://")):
-                node.decompose()      # lazy-load placeholder'i (data:, bos, goreceli)
+                node.decompose()  # lazy-load placeholder'i (data:, bos, goreceli)
 
 
 def _densest_paragraph_section(root) -> Node | None:
@@ -374,7 +450,10 @@ async def fetch_full_text(session: AsyncSession, item: FeedItem) -> str | None:
         return None
     try:
         async with httpx.AsyncClient(
-            timeout=15.0, follow_redirects=True, headers=_FULL_TEXT_HEADERS, trust_env=False,
+            timeout=15.0,
+            follow_redirects=True,
+            headers=_FULL_TEXT_HEADERS,
+            trust_env=False,
         ) as client:
             response = await get_public(client, item.url)
             response.raise_for_status()
@@ -413,7 +492,10 @@ async def get_item_full_text(session: AsyncSession, item_id: uuid.UUID) -> str |
 
 
 async def mark_read(
-    session: AsyncSession, item_id: uuid.UUID, *, read: bool = True,
+    session: AsyncSession,
+    item_id: uuid.UUID,
+    *,
+    read: bool = True,
 ) -> FeedItem | None:
     item = await session.get(FeedItem, item_id)
     if item is None:
@@ -421,15 +503,20 @@ async def mark_read(
     was_read = item.read_at is not None
     item.read_at = datetime.now(UTC) if read else None
     if read and not was_read:
-        await log_event(session, verb="rss.item_read", entity_id=item_id,
-                        entity_type="feed_item", payload={"feed_id": str(item.feed_id)})
+        await log_event(
+            session,
+            verb="rss.item_read",
+            entity_id=item_id,
+            entity_type="feed_item",
+            payload={"feed_id": str(item.feed_id)},
+        )
     await session.commit()
     return item
 
 
-async def mark_all_read(session: AsyncSession, *,
-                          feed_id: uuid.UUID | None = None,
-                          category: str | None = None) -> int:
+async def mark_all_read(
+    session: AsyncSession, *, feed_id: uuid.UUID | None = None, category: str | None = None
+) -> int:
     stmt = select(FeedItem).where(FeedItem.read_at.is_(None))
     if feed_id:
         stmt = stmt.where(FeedItem.feed_id == feed_id)
@@ -440,24 +527,34 @@ async def mark_all_read(session: AsyncSession, *,
     for item in items:
         item.read_at = now
     if items:
-        await log_event(session, verb="rss.marked_all_read",
-                        entity_id=feed_id, entity_type="feed" if feed_id else None,
-                        payload={"count": len(items),
-                                 "feed_id": str(feed_id) if feed_id else None,
-                                 "category": category})
+        await log_event(
+            session,
+            verb="rss.marked_all_read",
+            entity_id=feed_id,
+            entity_type="feed" if feed_id else None,
+            payload={
+                "count": len(items),
+                "feed_id": str(feed_id) if feed_id else None,
+                "category": category,
+            },
+        )
     await session.commit()
     return len(items)
 
 
 async def save_item(
-    session: AsyncSession, item_id: uuid.UUID, collection: str,
+    session: AsyncSession,
+    item_id: uuid.UUID,
+    collection: str,
 ) -> Bookmark | None:
     """Item -> bookmark. Iki entity arasinda 'saved_from' link'i kurar."""
-    row = (await session.execute(
-        select(FeedItem, Entity.title)
-        .join(Entity, Entity.id == FeedItem.id)
-        .where(FeedItem.id == item_id)
-    )).first()
+    row = (
+        await session.execute(
+            select(FeedItem, Entity.title)
+            .join(Entity, Entity.id == FeedItem.id)
+            .where(FeedItem.id == item_id)
+        )
+    ).first()
     if row is None:
         return None
     item, title = row
@@ -468,48 +565,77 @@ async def save_item(
         if existing is not None:
             return existing
 
-    bookmark, _, _ = await capture_bookmark(session, CaptureIn(
-        url=item.url or "", title=title, description=item.summary,
-        collection=collection, source="rss",
-    ))
+    bookmark, _, _ = await capture_bookmark(
+        session,
+        CaptureIn(
+            url=item.url or "",
+            title=title,
+            description=item.summary,
+            collection=collection,
+            source="rss",
+        ),
+    )
     await link(session, item_id, bookmark.id, SAVED_FROM)
     if item.read_at is None:
         item.read_at = datetime.now(UTC)
-    await log_event(session, verb="rss.item_saved", entity_id=item_id,
-                    entity_type="feed_item",
-                    payload={"bookmark_id": str(bookmark.id), "collection": collection})
+    await log_event(
+        session,
+        verb="rss.item_saved",
+        entity_id=item_id,
+        entity_type="feed_item",
+        payload={"bookmark_id": str(bookmark.id), "collection": collection},
+    )
     await session.commit()
     return bookmark
 
 
 async def stats(session: AsyncSession) -> dict:
     total = (await session.execute(select(func.count()).select_from(Feed))).scalar_one()
-    active = (await session.execute(
-        select(func.count()).select_from(Feed).where(Feed.active.is_(True))
-    )).scalar_one()
-    failing = (await session.execute(
-        select(func.count()).select_from(Feed)
-        .where(or_(Feed.active.is_(False), Feed.error_count > 0))
-    )).scalar_one()
-    unread = (await session.execute(
-        select(func.count()).select_from(FeedItem).where(FeedItem.read_at.is_(None))
-    )).scalar_one()
-    today_start, tomorrow_start = local_day_bounds(local_today())
-    today = (await session.execute(
-        select(func.count()).select_from(FeedItem).where(
-            FeedItem.published_at >= today_start,
-            FeedItem.published_at < tomorrow_start,
+    active = (
+        await session.execute(select(func.count()).select_from(Feed).where(Feed.active.is_(True)))
+    ).scalar_one()
+    failing = (
+        await session.execute(
+            select(func.count())
+            .select_from(Feed)
+            .where(or_(Feed.active.is_(False), Feed.error_count > 0))
         )
-    )).scalar_one()
-    saved = (await session.execute(
-        select(func.count()).select_from(FeedItem).where(
-            FeedItem.id.in_(select(Link.from_id).where(Link.relation == SAVED_FROM)))
-    )).scalar_one()
-    return {"feeds": total, "active_feeds": active, "failing_feeds": failing,
-            "unread": unread, "today": today, "saved": saved}
+    ).scalar_one()
+    unread = (
+        await session.execute(
+            select(func.count()).select_from(FeedItem).where(FeedItem.read_at.is_(None))
+        )
+    ).scalar_one()
+    today_start, tomorrow_start = local_day_bounds(local_today())
+    today = (
+        await session.execute(
+            select(func.count())
+            .select_from(FeedItem)
+            .where(
+                FeedItem.published_at >= today_start,
+                FeedItem.published_at < tomorrow_start,
+            )
+        )
+    ).scalar_one()
+    saved = (
+        await session.execute(
+            select(func.count())
+            .select_from(FeedItem)
+            .where(FeedItem.id.in_(select(Link.from_id).where(Link.relation == SAVED_FROM)))
+        )
+    ).scalar_one()
+    return {
+        "feeds": total,
+        "active_feeds": active,
+        "failing_feeds": failing,
+        "unread": unread,
+        "today": today,
+        "saved": saved,
+    }
 
 
 # ── Worker tarafi ──────────────────────────────────────────────────────────
+
 
 async def poll_interval_minutes(session: AsyncSession) -> int:
     """Etkin RSS cekim araligi (dakika). 0 = YALNIZ MANUEL.
@@ -528,6 +654,7 @@ async def poll_interval_minutes(session: AsyncSession) -> int:
 async def due_feeds(session: AsyncSession, *, interval_minutes: int | None = None) -> list[Feed]:
     """Suresi gelmis feed'ler. last_fetched_at NULL olanlar hep once gelir (catch-up)."""
     from app.modules.system.experience import enabled
+
     if not await enabled(session, "rss"):
         return []
     # 0 gecerli bir deger (catch-up "hepsini simdi cek" der) -- "or" ile ezme
@@ -535,12 +662,16 @@ async def due_feeds(session: AsyncSession, *, interval_minutes: int | None = Non
         await poll_interval_minutes(session) if interval_minutes is None else interval_minutes
     )
     cutoff = datetime.now(UTC) - timedelta(minutes=interval)
-    return list((await session.execute(
-        select(Feed)
-        .where(Feed.active.is_(True))
-        .where(or_(Feed.last_fetched_at.is_(None), Feed.last_fetched_at < cutoff))
-        .order_by(Feed.last_fetched_at.nulls_first())
-    )).scalars())
+    return list(
+        (
+            await session.execute(
+                select(Feed)
+                .where(Feed.active.is_(True))
+                .where(or_(Feed.last_fetched_at.is_(None), Feed.last_fetched_at < cutoff))
+                .order_by(Feed.last_fetched_at.nulls_first())
+            )
+        ).scalars()
+    )
 
 
 def source_for(feed: Feed) -> RssSource:
@@ -552,9 +683,13 @@ async def ingest(session: AsyncSession, feed: Feed, items: list[RawItem]) -> int
     if not items:
         return 0
     guids = [i.external_id for i in items]
-    known = set((await session.execute(
-        select(FeedItem.guid).where(FeedItem.feed_id == feed.id, FeedItem.guid.in_(guids))
-    )).scalars())
+    known = set(
+        (
+            await session.execute(
+                select(FeedItem.guid).where(FeedItem.feed_id == feed.id, FeedItem.guid.in_(guids))
+            )
+        ).scalars()
+    )
 
     added = 0
     for raw in items:
@@ -562,21 +697,33 @@ async def ingest(session: AsyncSession, feed: Feed, items: list[RawItem]) -> int
             continue
         known.add(raw.external_id)
         entity = await create_entity(
-            session, type=FeedItem.ENTITY_TYPE, title=raw.title,
+            session,
+            type=FeedItem.ENTITY_TYPE,
+            title=raw.title,
             search_text=" ".join(filter(None, [raw.url, raw.summary])),
         )
-        session.add(FeedItem(
-            id=entity.id, feed_id=feed.id, guid=raw.external_id, url=raw.url,
-            author=raw.extra.get("author"), summary=raw.summary,
-            content=raw.extra.get("content"),
-            published_at=raw.published_at,
-        ))
+        session.add(
+            FeedItem(
+                id=entity.id,
+                feed_id=feed.id,
+                guid=raw.external_id,
+                url=raw.url,
+                author=raw.extra.get("author"),
+                summary=raw.summary,
+                content=raw.extra.get("content"),
+                published_at=raw.published_at,
+            )
+        )
         added += 1
 
     if added:
-        await log_event(session, verb="rss.items_added", entity_id=feed.id,
-                        entity_type="feed",
-                        payload={"count": added, "feed_url": run_svc.sanitize_error(feed.url)})
+        await log_event(
+            session,
+            verb="rss.items_added",
+            entity_id=feed.id,
+            entity_type="feed",
+            payload={"count": added, "feed_url": run_svc.sanitize_error(feed.url)},
+        )
     return added
 
 
@@ -595,24 +742,36 @@ async def record_fetch(session: AsyncSession, feed: Feed, result: FetchResult) -
         #: URL'i `?token=` ya da `user:pass@` icerebilir, httpx metni istegin
         #: URL'ini aynen yazar). Sir olmayan URL degismeden gecer.
         url = run_svc.sanitize_error(feed.url)
-        await log_event(session, verb="rss.feed_failed", entity_id=feed.id,
-                        entity_type="feed",
-                        payload={"error": run_svc.sanitize_error(result.error),
-                                 "count": feed.error_count,
-                                 "url": url})
+        await log_event(
+            session,
+            verb="rss.feed_failed",
+            entity_id=feed.id,
+            entity_type="feed",
+            payload={
+                "error": run_svc.sanitize_error(result.error),
+                "count": feed.error_count,
+                "url": url,
+            },
+        )
         if feed.error_count >= MAX_ERRORS_BEFORE_DISABLE:
             feed.active = False
-            await log_event(session, verb="rss.feed_disabled", entity_id=feed.id,
-                            entity_type="feed",
-                            payload={"url": url, "errors": feed.error_count,
-                                     "message": f"{url}: {feed.error_count} hata, kapatildi"})
+            await log_event(
+                session,
+                verb="rss.feed_disabled",
+                entity_id=feed.id,
+                entity_type="feed",
+                payload={
+                    "url": url,
+                    "errors": feed.error_count,
+                    "message": f"{url}: {feed.error_count} hata, kapatildi",
+                },
+            )
         return
 
     feed.error_count = 0
     if result.status != NOT_MODIFIED:
         feed.etag = result.etag
         feed.last_modified = result.last_modified
-
 
 
 async def poll_feed(session: AsyncSession, feed: Feed) -> tuple[str, int]:
@@ -622,6 +781,7 @@ async def poll_feed(session: AsyncSession, feed: Feed) -> tuple[str, int]:
     Doner: (status, eklenen_item_sayisi)
     """
     from app.modules.system.experience import enabled
+
     if not await enabled(session, "rss"):
         return "disabled", 0
     source_id = f"rss:{feed.id}"
@@ -638,10 +798,20 @@ async def poll_feed(session: AsyncSession, feed: Feed) -> tuple[str, int]:
     # 304 = degisiklik yok; 'bos' saymayiz, yoksa saglikli feed'ler uyari uretir.
     # Benzer sekilde feed 200 donup ogeleri dondurmus ama hepsi zaten ekliyse (added == 0),
     # bu durum feed'in saglikli oldugunu gosterir; EMPTY (olu feed) sayilmaz.
-    run_status = {OK: run_svc.OK, EMPTY: run_svc.EMPTY,
-                  NOT_MODIFIED: run_svc.OK, ERROR: run_svc.ERROR}[result.status]
-    await run_svc.finish_run(session, run, status=run_status, items_found=added,
-                             items_seen=len(result.items), error=result.error)
+    run_status = {
+        OK: run_svc.OK,
+        EMPTY: run_svc.EMPTY,
+        NOT_MODIFIED: run_svc.OK,
+        ERROR: run_svc.ERROR,
+    }[result.status]
+    await run_svc.finish_run(
+        session,
+        run,
+        status=run_status,
+        items_found=added,
+        items_seen=len(result.items),
+        error=result.error,
+    )
     await session.commit()
 
     if run_status == run_svc.EMPTY:
@@ -666,6 +836,7 @@ async def refresh_all(concurrency: int = 8, *, ignore_interval: bool = False) ->
 
     async with SessionLocal() as session:
         from app.modules.system.experience import enabled
+
         if not await enabled(session, "rss"):
             return 0
         feeds = await due_feeds(
@@ -712,12 +883,16 @@ async def prune_items(session: AsyncSession, *, days: int | None = None) -> int:
         retention = value if value is not None else settings.rss_retention_days
     cutoff = datetime.now(UTC) - timedelta(days=retention)
     saved = select(Link.from_id).where(Link.relation == SAVED_FROM)
-    ids = list((await session.execute(
-        select(FeedItem.id)
-        .where(FeedItem.fetched_at < cutoff)
-        .where(FeedItem.read_at.is_(None))
-        .where(FeedItem.id.not_in(saved))
-    )).scalars())
+    ids = list(
+        (
+            await session.execute(
+                select(FeedItem.id)
+                .where(FeedItem.fetched_at < cutoff)
+                .where(FeedItem.read_at.is_(None))
+                .where(FeedItem.id.not_in(saved))
+            )
+        ).scalars()
+    )
     if not ids:
         return 0
     await session.execute(sa_delete(Entity).where(Entity.id.in_(ids)))

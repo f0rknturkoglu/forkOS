@@ -85,6 +85,11 @@ class ExperienceOut(ExperienceData):
     first_run: bool
     counts: dict[str, int]
     warnings: list[str] = Field(default_factory=list)
+    invalid_feed_ids: list[UUID] = Field(default_factory=list)
+
+
+class ExperienceRepairIn(Closed):
+    revision: str = Field(min_length=64, max_length=64)
 
 
 class ExperienceUpdate(Closed):
@@ -102,7 +107,7 @@ def revision(value):
 async def read(session):
     from app.modules.rss.models import Feed
 
-    row = await session.get(Setting, KEY)
+    row = await session.get(Setting, KEY, populate_existing=True)
     warning = []
     if row:
         try:
@@ -146,28 +151,89 @@ async def read(session):
     )
     # Neither failed HTTP nor an unreadable preference is evidence of an empty installation.
     first_run = row is None and not counts and not configured
+    ids = {identity for bundle in state.feed.bundles for identity in bundle.feed_ids}
+    actual = set(await session.scalars(select(Feed.id).where(Feed.id.in_(ids)))) if ids else set()
+    invalid = sorted(ids - actual, key=str)
+    if invalid:
+        warning.append(
+            f"Seçkilerde {len(invalid)} silinmiş RSS aboneliği referansı var. Üyelikleri onarabilirsin."
+        )
     return ExperienceOut(
         **state.model_dump(),
         revision=revision(row.value if row else None),
         first_run=first_run,
         counts=counts,
         warnings=warning,
+        invalid_feed_ids=invalid,
     )
 
 
-async def update(session, body):
-    from app.modules.rss.models import Feed
-
+async def lock(session):
+    """Global preference lock BEFORE RSS URL/entity locks; all writers share this order."""
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtext('forkos.product.experience'))")
     )
+
+
+async def store(session, state, *, payload=None, commit=True):
+    state.updated_at = datetime.now(UTC)
+    row = await session.get(Setting, KEY, populate_existing=True)
+    if row is None:
+        session.add(Setting(key=KEY, value=state.model_dump(mode="json")))
+    else:
+        row.value = state.model_dump(mode="json")
+    await log_event(session, verb="settings.updated", payload={"key": KEY, **(payload or {})})
+    await session.flush()
+    if commit:
+        await session.commit()
+
+
+async def repair_feed_memberships(
+    session, *, expected_revision=None, removed_ids=None, commit=True
+):
+    """Explicit repair or atomic RSS deletion: remove only absent/selected memberships, never bundles."""
+    await lock(session)
+    current = await read(session)
+    if expected_revision is not None and current.revision != expected_revision:
+        raise HTTPException(
+            409, "Tercihler başka bir sekmede değişti. Güncel seçimleri yeniden aç."
+        )
+    row = await session.get(Setting, KEY, populate_existing=True)
+    if row is None:
+        return current
+    try:
+        state = ExperienceData.model_validate(row.value)
+    except ValidationError as exc:
+        raise HTTPException(409, "Bu tercih sürümü okunamıyor; kayıt değiştirilmedi") from exc
+    invalid = set(current.invalid_feed_ids) if removed_ids is None else set(removed_ids)
+    removed = 0
+    for bundle in state.feed.bundles:
+        kept = [identity for identity in bundle.feed_ids if identity not in invalid]
+        removed += len(bundle.feed_ids) - len(kept)
+        bundle.feed_ids = kept
+    if removed:
+        await store(
+            session,
+            state,
+            payload={"repair": "rss_memberships", "removed_memberships": removed},
+            commit=commit,
+        )
+    return await read(session)
+
+
+async def update(session, body, *, commit=True):
+    from app.modules.rss.models import Feed
+
+    await lock(session)
     current = await read(session)
     if body.revision != current.revision:
         raise HTTPException(
             409, "Tercihler başka bir sekmede değişti. Güncel seçimleri yeniden aç."
         )
     state = ExperienceData.model_validate(
-        current.model_dump(exclude={"revision", "first_run", "counts", "warnings"})
+        current.model_dump(
+            exclude={"revision", "first_run", "counts", "warnings", "invalid_feed_ids"}
+        )
     )
     if body.feed is not None:
         if "reddit" in body.feed.providers and not body.feed.subreddits:
@@ -193,14 +259,7 @@ async def update(session, body):
             if journey_type and not current.counts.get(journey_type):
                 raise HTTPException(422, "İlk gerçek kaydını oluştur veya rehberi şimdilik kapat")
         state.onboarding = body.onboarding
-    state.updated_at = datetime.now(UTC)
-    row = await session.get(Setting, KEY)
-    if row is None:
-        session.add(Setting(key=KEY, value=state.model_dump(mode="json")))
-    else:
-        row.value = state.model_dump(mode="json")
-    await log_event(session, verb="settings.updated", payload={"key": KEY})
-    await session.commit()
+    await store(session, state, commit=commit)
     return await read(session)
 
 
@@ -224,11 +283,9 @@ async def enabled(session, provider):
     return False
 
 
-async def activate_rss(session):
+async def activate_rss(session, *, commit=True):
     """Explicit reader subscription/import opts in; pending gallery add does not."""
-    await session.execute(
-        text("SELECT pg_advisory_xact_lock(hashtext('forkos.product.experience'))")
-    )
+    await lock(session)
     current = await read(session)
     if not current.feed.rss_enabled:
         await update(
@@ -237,4 +294,5 @@ async def activate_rss(session):
                 revision=current.revision,
                 feed=current.feed.model_copy(update={"rss_enabled": True}),
             ),
+            commit=commit,
         )

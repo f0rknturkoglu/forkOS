@@ -72,16 +72,6 @@ async def _startup_critical_catch_up() -> None:
 _BACKGROUND_TASKS: set[asyncio.Task] = set()
 
 
-async def _startup_rss_starter_feeds() -> None:
-    """RSS modülünün tek-seferlik başlangıç aboneliklerini kur."""
-    from app.modules.rss.service import ensure_starter_feeds
-
-    async with SessionLocal() as session:
-        added, skipped = await ensure_starter_feeds(session)
-    if added or skipped:
-        log.info("RSS başlangıç beslemeleri: %d eklendi, %d zaten vardı", added, skipped)
-
-
 async def _startup_maintenance() -> None:
     """Gunluk hafif bakimi arka planda dene (acilisi BLOKLAMAZ).
 
@@ -101,10 +91,6 @@ async def _startup_maintenance() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
-        await _startup_rss_starter_feeds()
-    except Exception:  # noqa: BLE001 - başlangıç, RSS kurulumu yüzünden düşmemeli
-        log.exception("RSS başlangıç beslemeleri kurulamadı")
     try:
         await _startup_critical_catch_up()
     except Exception:  # noqa: BLE001 - acilis, kaynak tazeleme yuzunden dusmemeli

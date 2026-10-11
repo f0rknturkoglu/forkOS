@@ -202,3 +202,31 @@ it("tutorial can repeatedly restart Welcome while preserving chosen sources and 
   await screen.findByRole("dialog", { name: "forkOS’a hoş geldin" });
   expect(current.feed).toEqual(feed);
 });
+it("explicit bundle repair preserves pending provider choices and advances the CAS baseline", async () => {
+  const missing = "00000000-0000-4000-8000-000000000001";
+  current = {
+    ...current,
+    invalid_feed_ids: [missing],
+    feed: {
+      ...current.feed,
+      bundles: [{ id: "00000000-0000-4000-8000-000000000002", title: "Keep", channels: [], feed_ids: [missing] }],
+    },
+  };
+  vi.mocked(api.post).mockImplementation(async (path) => {
+    expect(path).toBe("/system/experience/repair");
+    current = {
+      ...current,
+      invalid_feed_ids: [],
+      revision: "d".repeat(64),
+      feed: { ...current.feed, bundles: current.feed.bundles.map((b) => ({ ...b, feed_ids: [] })) },
+    };
+    return structuredClone(current);
+  });
+  render(<SourceDiscovery onClose={vi.fn()} />, { wrapper });
+  fireEvent.click(await screen.findByRole("button", { name: "Hacker News ekle" }));
+  fireEvent.click(screen.getByRole("button", { name: "Seçki üyeliklerini onar" }));
+  await screen.findByText("Seçki üyelikleri onarıldı");
+  fireEvent.click(screen.getByRole("button", { name: "Seçimleri kaydet" }));
+  await waitFor(() => expect(current.feed.providers).toEqual(["hn"]));
+  expect(current.feed.bundles[0].feed_ids).toEqual([]);
+});
