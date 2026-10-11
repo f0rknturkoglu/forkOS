@@ -291,6 +291,7 @@ export function Button({
   autoFocus,
   ariaLabel,
   ariaExpanded,
+  ariaControls,
   ariaPressed,
 }: {
   children: ReactNode;
@@ -306,6 +307,7 @@ export function Button({
   ariaLabel?: string;
   /** Acilir paneli tetikleyen dugmeler icin (ekran okuyucu durumu). */
   ariaExpanded?: boolean;
+  ariaControls?: string;
   ariaPressed?: boolean;
 }) {
   return (
@@ -314,6 +316,7 @@ export function Button({
       title={title}
       aria-label={ariaLabel ?? title}
       aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
       aria-pressed={ariaPressed}
       autoFocus={autoFocus}
       disabled={disabled}

@@ -6,7 +6,7 @@ import { Button, cx, relativeTime } from "@/core/ui";
 import { invalidateAfter } from "@/core/invalidation";
 import { entityRoute } from "@/core/entityRegistry";
 import { sourceInfo } from "@/core/onboarding/catalog";
-import { technologyChip } from "@/core/FeedStreamList";
+import { TechnologyBadge } from "@/core/TechnologyBadge";
 import type { StreamItem } from "@/core/feedStream";
 import { BookmarkLearningAttach } from "@/modules/bookmarks/BookmarkLearningAttach";
 import { useOnline } from "@/lib/hooks";
@@ -62,7 +62,7 @@ function ReadingCard({ item, featured }: { item: StreamItem; featured: boolean }
     >
       <div className="mb-3 flex items-center gap-2 text-meta text-secondary">
         <Icon size={16} className={info.skin} />
-        <span>{item.origin === "gh" ? "GitHub · Yeni ve Popüler" : item.source}</span>
+        <span>{item.origin === "gh" ? "GitHub" : item.source}</span>
         <span className="ml-auto text-micro text-muted">
           {item.origin === "hf" ? "Makale" : item.origin === "gh" ? "Depo" : "Yazı"}
         </span>
@@ -86,9 +86,7 @@ function ReadingCard({ item, featured }: { item: StreamItem; featured: boolean }
         <p className="mt-3 line-clamp-2 text-meta text-muted">{item.authors.join(", ")}</p>
       ) : null}
       <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-meta text-muted">
-        {item.origin === "gh" && (
-          <span className={cx("rounded-control border px-2", technologyChip(item.source))}>{item.source}</span>
-        )}
+        {item.origin === "gh" && <TechnologyBadge language={item.source} />}
         {item.host && <span>{item.host}</span>}
         {item.at > 0 && (
           <span>
@@ -98,9 +96,12 @@ function ReadingCard({ item, featured }: { item: StreamItem; featured: boolean }
         )}
         {item.featuredAt && <span>Seçki · {item.featuredAt.slice(0, 10)}</span>}
         {item.score !== null && (
-          <span className="inline-flex items-center gap-1">
+          <span
+            className="inline-flex items-center gap-1"
+            aria-label={item.scoreIcon === "stars" ? `${item.score} yıldız` : undefined}
+          >
             {item.scoreIcon === "stars" && <Star size={12} />} {item.score}{" "}
-            {item.origin === "hf" ? "oy" : item.scoreIcon === "stars" ? "yıldız" : "puan"}
+            {item.origin === "hf" ? "oy" : item.scoreIcon === "stars" ? "" : "puan"}
           </span>
         )}
       </div>

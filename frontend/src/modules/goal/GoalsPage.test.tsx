@@ -63,3 +63,20 @@ it("keeps plan revision history inspectable with comparison explanation", async 
   expect(await screen.findByText("Tanımlar farklı; delta hesaplanmadı.")).toBeTruthy();
   expect(screen.getByText(/Plan revizyonu 1/)).toBeTruthy();
 });
+it("tutorial target toggles the new goal editor and preserves an unfinished title", async () => {
+  location.hash = "#/goals?view=objectives";
+  show();
+  const toggle = await screen.findByRole("button", { name: "Yeni hedef" });
+  const title = screen.getByLabelText("Hedef başlığı") as HTMLInputElement;
+  expect(title.closest("[hidden]")).not.toBeNull();
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  expect(title.closest("[hidden]")).toBeNull();
+  fireEvent.change(title, { target: { value: "Taslak hedef" } });
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(title.closest("[hidden]")).not.toBeNull();
+  fireEvent.click(toggle);
+  expect(title.value).toBe("Taslak hedef");
+  expect(toggle.closest('[data-onboarding="goal-create"]')).not.toBeNull();
+});

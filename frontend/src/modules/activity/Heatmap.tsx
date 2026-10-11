@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
 import { Button, Section, cx, Skeleton } from "@/core/ui";
 import type { Heatmap as HeatmapData, HeatmapDay } from "@/core/types";
 import { formatTrDate } from "@/lib/date";
+import { HeatmapPreview } from "./HeatmapPreview";
 
 /**
  * Emek haritasi: son bir yilin gunluk kutulari.
@@ -29,6 +31,18 @@ const STEP_BG = ["bg-heat-0", "bg-heat-1", "bg-heat-2", "bg-heat-3", "bg-heat-4"
 
 const WEEKDAYS = ["Pzt", "", "Çar", "", "Cum", "", "Paz"];
 
+function previewPosition(anchor: HTMLElement) {
+  const rect = anchor.getBoundingClientRect();
+  const width = Math.min(288, window.innerWidth - 24);
+  const above = rect.bottom + 260 > window.innerHeight;
+  return {
+    width,
+    above,
+    left: Math.max(12, Math.min(rect.left - width / 2 + rect.width / 2, window.innerWidth - width - 12)),
+    top: above ? rect.top - 8 : rect.bottom + 8,
+  };
+}
+
 function tooltip(entry: HeatmapDay, labels: Record<string, string>): string {
   const date = formatTrDate(entry.day, { day: "numeric", month: "long", year: "numeric" });
   if (entry.total === 0) return `${date} — kayıt yok`;
@@ -49,6 +63,52 @@ export function Heatmap({
 }) {
   const recent = compact && days <= 31;
   const scroller = useRef<HTMLDivElement>(null);
+  const previewId = useId();
+  const previewAnchor = useRef<HTMLElement | null>(null);
+  const closing = useRef<ReturnType<typeof setTimeout>>();
+  const [preview, setPreview] = useState<{
+    entry: HeatmapDay;
+    left: number;
+    top: number;
+    above: boolean;
+    width: number;
+  } | null>(null);
+  const cancelClose = () => clearTimeout(closing.current);
+  const closeSoon = () => {
+    cancelClose();
+    closing.current = setTimeout(() => setPreview(null), 150);
+  };
+  const showPreview = (entry: HeatmapDay, anchor: HTMLElement) => {
+    cancelClose();
+    previewAnchor.current = anchor;
+    setPreview({ entry, ...previewPosition(anchor) });
+  };
+  useEffect(() => {
+    const close = () => {
+      clearTimeout(closing.current);
+      setPreview(null);
+    };
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("keydown", key);
+    window.addEventListener("resize", close);
+    const onScroll = (event: Event) => {
+      if (event.target instanceof Element && event.target.closest("[data-heatmap-preview]")) return;
+      const anchor = previewAnchor.current;
+      if (anchor && document.activeElement === anchor) {
+        // Klavye odağı tarayıcıyı otomatik kaydırabilir; panel yeni konumu izler.
+        setPreview((current) => (current ? { ...current, ...previewPosition(anchor) } : null));
+      } else close();
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      clearTimeout(closing.current);
+      window.removeEventListener("keydown", key);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, []);
   const { data } = useQuery({
     queryKey: ["activity", "heatmap", days],
     queryFn: () => api.get<HeatmapData>(`/activity/heatmap${qs({ days })}`),
@@ -130,8 +190,12 @@ export function Heatmap({
                   <a
                     key={entry.day}
                     href={`#/day?d=${entry.day}`}
-                    title={tooltip(entry, data.labels)}
                     aria-label={tooltip(entry, data.labels)}
+                    aria-describedby={preview?.entry.day === entry.day ? previewId : undefined}
+                    onMouseEnter={(event) => showPreview(entry, event.currentTarget)}
+                    onMouseLeave={closeSoon}
+                    onFocus={(event) => showPreview(entry, event.currentTarget)}
+                    onBlur={closeSoon}
                     className={cx(
                       "rounded-control transition-colors hover:ring-2 hover:ring-accent",
                       recent ? "h-5 w-5" : "h-2.5 w-2.5",
@@ -144,6 +208,30 @@ export function Heatmap({
           </div>
         </div>
       </div>
+
+      {preview &&
+        createPortal(
+          <div
+            id={previewId}
+            role="tooltip"
+            data-heatmap-preview
+            className="fixed z-popover overflow-y-auto rounded-card border border-strong bg-surface-raised shadow-overlay"
+            style={{
+              left: preview.left,
+              top: preview.top,
+              width: preview.width,
+              maxHeight: Math.max(80, (preview.above ? preview.top : window.innerHeight - preview.top) - 12),
+              transform: preview.above ? "translateY(-100%)" : undefined,
+            }}
+            onMouseEnter={cancelClose}
+            onMouseLeave={closeSoon}
+            onFocus={cancelClose}
+            onBlur={closeSoon}
+          >
+            <HeatmapPreview key={preview.entry.day} entry={preview.entry} labels={data.labels} />
+          </div>,
+          document.body,
+        )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-subtle pt-2.5 text-meta text-muted">
         {!compact && (

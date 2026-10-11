@@ -118,7 +118,6 @@ function DailyCardReviews() {
           </>
         )
       )}
-      <p className="text-meta text-muted">Konu tekrarları aşağıda; kartlar ve konular ayrı kuyruklardır.</p>
     </section>
   );
 }

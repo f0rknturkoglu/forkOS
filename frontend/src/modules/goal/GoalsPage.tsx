@@ -85,6 +85,7 @@ export function GoalsPage() {
   }, [params]);
   const [days, setDays] = useState<7 | 30 | 90>(30);
   const [selected, setSelected] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const read = useQuery({
     queryKey: ["strategy-overview", days],
     queryFn: () => api.get<Overview>(`/goals/strategy/overview?days=${days}`),
@@ -180,7 +181,15 @@ export function GoalsPage() {
                 <>
                   {!data.objectives.length && (
                     <Empty title="İlk hedefini tanımla">
-                      <Button onClick={() => setView("objectives")}>Hedef oluştur</Button>
+                      <Button
+                        onClick={() => {
+                          setSelected(null);
+                          setCreateOpen(true);
+                          setView("objectives");
+                        }}
+                      >
+                        Hedef oluştur
+                      </Button>
                     </Empty>
                   )}
                   <div className="flex flex-wrap items-center gap-2">
@@ -283,8 +292,19 @@ export function GoalsPage() {
               )}
               {view === "objectives" && (
                 <>
-                  <div data-onboarding="goal-create" className="flex flex-wrap gap-2">
-                    <Button onClick={() => setSelected(null)}>Yeni hedef</Button>
+                  <div className="flex flex-wrap gap-2">
+                    <span data-onboarding="goal-create" className="inline-flex">
+                      <Button
+                        ariaExpanded={!selected && createOpen}
+                        ariaControls="goal-editor"
+                        onClick={() => {
+                          setCreateOpen(selected ? true : !createOpen);
+                          setSelected(null);
+                        }}
+                      >
+                        Yeni hedef
+                      </Button>
+                    </span>
                     {data.objectives.map((o) => (
                       <Button
                         key={o.goal.id}
@@ -295,12 +315,14 @@ export function GoalsPage() {
                       </Button>
                     ))}
                   </div>
-                  <GoalEditor
-                    key={selected ?? "new"}
-                    goal={detail.data ?? objective?.goal}
-                    data={data}
-                    onSaved={setSelected}
-                  />
+                  <div id="goal-editor" hidden={!selected && !createOpen}>
+                    <GoalEditor
+                      key={selected ?? "new"}
+                      goal={detail.data ?? objective?.goal}
+                      data={data}
+                      onSaved={setSelected}
+                    />
+                  </div>
                   {objective && (
                     <ContextualHelp
                       key={objective.goal.id}

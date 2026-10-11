@@ -8,7 +8,7 @@ export function PageInfoButton() {
       onClick={openGuide}
       className="page-info-button rounded-full"
     >
-      <Info size={18} />
+      <Info size={14} />
     </IconButton>
   );
 }

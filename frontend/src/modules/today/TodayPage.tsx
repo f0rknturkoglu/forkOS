@@ -3,6 +3,7 @@ import type { TodayWidgetView } from "@/core/registry";
 import type { TodayPlacement } from "@/core/types";
 import { Empty } from "@/core/ui";
 import { WorkspaceBody, WorkspaceScrollArea } from "@/core/workspace/Workspace";
+import { TodaySummary } from "@/core/TodaySummary";
 import { TodayHero } from "./TodayHero";
 
 /** Widget kimlikleri ve görünürlük tercihleri registry'de kalır. */
@@ -26,23 +27,7 @@ export function TodayPage() {
   return (
     <WorkspaceScrollArea className="bg-canvas">
       <WorkspaceBody mode="full" className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
-        <TodayHero>
-          {stats.length > 0 && (
-            <details className="text-meta">
-              <summary className="cursor-pointer rounded-control px-2 py-1 text-muted hover:text-primary">
-                Günlük özet
-              </summary>
-              <section
-                aria-label="Günlük kısa özet"
-                className="today-summary absolute left-0 top-full z-popover mt-2 w-64 rounded-card border border-subtle bg-surface p-3 shadow-card sm:left-auto sm:right-0"
-              >
-                {stats.map((Tile, index) => (
-                  <Tile key={index} />
-                ))}
-              </section>
-            </details>
-          )}
-        </TodayHero>
+        <TodayHero>{stats.length > 0 && <TodaySummary stats={stats} />}</TodayHero>
         {stats.length + views.length === 0 ? (
           <Empty variant="page" title="Bugün için yüzey yok">
             Ayarlar'dan modülleri açarak günün planını ve bağlamını görebilirsin.

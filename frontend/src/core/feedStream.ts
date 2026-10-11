@@ -65,7 +65,7 @@ export const FEED_FILTERS: { id: FeedFilter; label: string }[] = [
   { id: "rss", label: "RSS" },
   { id: "reddit", label: "Reddit" },
   { id: "hn", label: "Hacker News" },
-  { id: "gh", label: "GitHub · Yeni ve Popüler" },
+  { id: "gh", label: "GitHub" },
   { id: "hf", label: "Papers" },
 ];
 const hnItem = "https://news.ycombinator.com/item?id=";

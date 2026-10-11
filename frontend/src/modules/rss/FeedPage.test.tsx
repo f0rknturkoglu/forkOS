@@ -152,7 +152,7 @@ describe("Okuma Akışı sayfası", () => {
     renderPage();
 
     await screen.findByText("RSS yazısı");
-    fireEvent.click(screen.getByRole("tab", { name: "GitHub · Yeni ve Popüler" }));
+    fireEvent.click(screen.getByRole("tab", { name: "GitHub" }));
 
     await waitFor(() => expect(screen.getByText("owner/repo")).toBeTruthy());
     expect(screen.queryByText("RSS yazısı")).toBeNull();

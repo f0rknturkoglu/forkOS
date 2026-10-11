@@ -83,11 +83,9 @@ import {
 const FRAMING_COPY = {
   system: {
     title: "Kaynak operasyonları",
-    hint: "Sistem çerçevesi: çekim, sağlık özeti, koşu geçmişi ve disk önbelleği tek yüzeyde.",
   },
   career: {
     title: "Kaynak sağlığı",
-    hint: "Kariyer akışını besleyen kaynaklar: keşif, kapsam ve önbellek aynı yüzeyde.",
   },
 } as const;
 
@@ -286,7 +284,6 @@ export function SourcesWorkspace({
           <Chip tone={overall.tone}>{overall.label}</Chip>
           <span className="text-meta text-secondary">{healthSummaryLabel(summary)}</span>
         </div>
-        <p className="text-meta text-muted">{copy.hint}</p>
       </div>
 
       {/* ── Özet: yükleme sırasında sahte sıfır yok ── */}

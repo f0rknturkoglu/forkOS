@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
-import { Metric } from "@/core/ui";
+import { SummaryMetric as Metric } from "@/core/TodaySummary";
 import type { BookmarkStats } from "@/core/types";
 
 /** Today ust seridi. Modul kendi sayilarini kendi verir. */

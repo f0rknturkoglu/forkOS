@@ -1,4 +1,4 @@
-import { Metric } from "@/core/ui";
+import { SummaryMetric as Metric } from "@/core/TodaySummary";
 import { useRssStats } from "@/core/runtimeQueries";
 
 /**
