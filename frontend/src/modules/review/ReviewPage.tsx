@@ -202,7 +202,6 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
               >
                 <ChevronLeft size={14} /> Önceki
               </Button>
-              <span className="text-meta text-secondary">{periodRange}</span>
               <Button
                 size="sm"
                 variant="ghost"
@@ -226,7 +225,8 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
             </div>
             <ContextualHelp
               key={`${kind}:${period}`}
-              label={kind === "weekly" ? "Haftayı birlikte değerlendirelim" : "Dönemi birlikte değerlendirelim"}
+              summaryInitiallyOpen={false}
+              label="Yerel özeti aç"
               context={{ kind: "review", period_kind: kind, period_start: period, review_id: saved?.id ?? null }}
             />
             {kind === "weekly" && history.length >= 3 && !reminderDismissed && (
@@ -254,22 +254,13 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                 </Button>
               </div>
             )}
-            {stats.strategy_snapshot && (
-              <Section title="Hedeflerdeki durum">
-                <p className="text-meta text-muted">
-                  {saved
-                    ? "Kaydedildiği andaki sonuç, rota ve uyum kanıtı. Güncel duruma göre yeniden hesaplanmaz."
-                    : "Mevcut sonuç ölçümleri ve bu dönemin uyum kanıtı. Eksik ölçümler ilerleme sayılmaz."}
-                </p>
-                <StrategySnapshotSummary snapshot={stats.strategy_snapshot} />
-                <details>
-                  <summary className="text-meta">Ölçümler ve tanımlar</summary>
-                  <pre className="whitespace-pre-wrap break-all text-meta">
-                    {JSON.stringify(stats.strategy_snapshot, null, 2)}
-                  </pre>
-                </details>
-              </Section>
-            )}
+            {stats.strategy_snapshot &&
+              Array.isArray(stats.strategy_snapshot.objectives) &&
+              stats.strategy_snapshot.objectives.length > 0 && (
+                <Section title="Hedefler">
+                  <StrategySnapshotSummary snapshot={stats.strategy_snapshot} />
+                </Section>
+              )}
 
             <div className="stack-y-3">
               <SectionHeader label="Dönem özeti" />
@@ -281,7 +272,7 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
             </div>
 
             {kind === "weekly" && (
-              <Section title="Kariyer haftası" hint="Kayıtlı gözlemler; sonuç veya neden tahmini değil">
+              <Section title="Kariyer haftası">
                 <div className="flex flex-wrap gap-2">
                   {careerReviewRows(
                     stats,
@@ -293,10 +284,6 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                     </Chip>
                   ))}
                 </div>
-                <p className="mt-2 text-meta text-muted">
-                  Karşılaştırma yalnızca bitişik haftanın kayıtlı snapshot’ı varsa yapılır. Eksik yanıt veya sonuç sıfır
-                  başarı sayılmaz.
-                </p>
                 {(stats.career_goals ?? []).length > 0 && (
                   <div className="mt-3 stack-y-1 border-t border-subtle pt-3">
                     <p className="text-meta font-semibold text-primary">Hedef adımları (milestone)</p>
@@ -311,10 +298,6 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                     ))}
                   </div>
                 )}
-                <p className="mt-2 text-meta text-muted">
-                  Karar bekleyen kariyer önerisi: {stats.career_proposals_pending ?? "ölçülmedi"}. Bu sayı kaydedilmiş
-                  değerlendirmede o andaki snapshot’tır.
-                </p>
               </Section>
             )}
 
@@ -509,11 +492,9 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                 <Chip tone="ok">Bu dönemin değerlendirmesi kaydedildi</Chip>
               ) : (
                 <>
-                  <span className="text-meta text-muted">
-                    {online
-                      ? "Karar vermek zorunda değilsin; sadece not yazıp kaydedebilirsin."
-                      : "Çevrimdışısın — kaydetmek için bağlantı gerekir."}
-                  </span>
+                  {!online && (
+                    <span className="text-meta text-muted">Çevrimdışısın — kaydetmek için bağlantı gerekir.</span>
+                  )}
                   <Button variant="primary" disabled={!online || save.isPending} onClick={() => save.mutate()}>
                     <Check size={14} /> {save.isPending ? "Kaydediliyor" : "Değerlendirmeyi kaydet"}
                   </Button>

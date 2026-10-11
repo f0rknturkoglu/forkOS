@@ -21,6 +21,7 @@ import { SystemStatusPanel } from "@/modules/health/SystemStatus";
 import { LinkedInProfilesEditor } from "@/modules/opportunity/LinkedInProfilesEditor";
 import type { LucideIcon } from "lucide-react";
 import { Button, NumberInput, PageFrame, Section, Select, Skeleton, SkeletonRows, cx, useToast } from "@/core/ui";
+import { TutorialTestMode } from "@/core/onboarding/TutorialTestMode";
 import { openGuide, openSourceDiscovery } from "@/core/onboarding/experience";
 import { BrainAgentSection } from "./BrainAgentSection";
 import {
@@ -327,6 +328,7 @@ export function SettingsPage() {
               <Button onClick={openGuide}>Rehberleri aç</Button>
               <Button onClick={openSourceDiscovery}>Akış kaynakları</Button>
             </div>
+            <TutorialTestMode />
           </Section>
           <Section title="Tema">
             <ThemePicker />

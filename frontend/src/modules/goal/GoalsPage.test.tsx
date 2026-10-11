@@ -34,7 +34,8 @@ afterEach(() => {
 it("offers a plan-free objective and keeps an empty denominator unknown", async () => {
   show();
   await screen.findByText("İlk hedefini tanımla");
-  expect(screen.getByText("0/0 anlamlı hareket")).toBeTruthy();
+  expect(screen.getByText("Ölçüm yok")).toBeTruthy();
+  expect(screen.getByRole("tab", { name: "Stratejik plan" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Hedef oluştur" }));
   expect(await screen.findByLabelText("Hedef başlığı")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Hedef oluştur" }).hasAttribute("disabled")).toBe(true);

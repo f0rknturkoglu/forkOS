@@ -1,5 +1,6 @@
 """DNS pinning, redirect and payload limits; never opens a real socket."""
 
+import gzip
 import socket
 
 import httpx
@@ -98,3 +99,41 @@ async def test_response_limit_and_redirect_loop():
 def test_entity_declarations_rejected(parse):
     with pytest.raises(ValueError):
         parse(b'<!DOCTYPE rss [<!ENTITY x "expanded">]><rss/>')
+
+
+async def test_compressed_feed_is_decoded_once_and_keeps_conditional_metadata():
+    raw = b'<rss version="2.0"><channel><title>Feed</title><item><title>Entry</title><guid>one</guid></item></channel></rss>'
+    compressed = gzip.compress(raw)
+
+    def upstream(request):
+        return httpx.Response(
+            200,
+            stream=httpx.ByteStream(compressed),
+            headers={
+                "Content-Encoding": "gzip",
+                "Content-Length": str(len(compressed)),
+                "ETag": '"rss-v1"',
+                "Content-Type": "application/rss+xml",
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as client:
+        response = await public_http.get_public(client, "https://example.com/rss")
+    assert response.content == raw
+    assert "content-encoding" not in response.headers
+    assert int(response.headers["content-length"]) == len(raw)
+    assert response.headers["etag"] == '"rss-v1"'
+    assert parse_entries(response.content)[0].title == "Entry"
+
+
+async def test_compressed_feed_size_limit_applies_after_decoding():
+    compressed = gzip.compress(b"x" * (public_http.MAX_BYTES + 1))
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200, stream=httpx.ByteStream(compressed), headers={"Content-Encoding": "gzip"}
+            )
+        )
+    ) as client:
+        with pytest.raises(ValueError, match="boyut"):
+            await public_http.get_public(client, "https://example.com/rss")

@@ -1,7 +1,8 @@
+import { ArrowUp, RefreshCw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, streamGoalStudio } from "@/core/api";
-import { Button, Field, Input, Textarea, Select } from "@/core/ui";
+import { Button, IconButton, Field, Input, Textarea, Select } from "@/core/ui";
 import { invalidateAfter } from "@/core/invalidation";
 import { entityRoute, typeLabel } from "@/core/entityRegistry";
 import { readStored, writeStored } from "@/core/storage";
@@ -155,67 +156,50 @@ export function GoalStudio({
   return (
     <section
       aria-label={assistanceContext ? "Bağlam hakkında görüşme" : "Hermes Goal Studio"}
-      className="min-w-0 rounded-card border border-subtle bg-surface p-4 stack-y-4"
+      className="min-w-0 rounded-card border border-subtle bg-surface p-3 stack-y-2"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="flex-1 text-heading">
-          {assistanceContext ? "Bunun hakkında konuş" : "Hermes ile hedef hazırla"}
-        </h2>
-        <Button onClick={onClose}>Kapat</Button>
-      </div>
-      <p role="status" className="text-meta text-secondary">
-        {status.data?.message ??
-          (status.isError
-            ? "Hermes durumu alınamadı; yerel özet ve normal işlemleri kullanabilirsin."
-            : "Bağlantı kontrol ediliyor…")}
-      </p>
-      {status.data?.state !== "ready" && (
-        <Button disabled={status.isFetching} onClick={() => void status.refetch()}>
-          Bağlantıyı yeniden kontrol et
-        </Button>
-      )}
-      <details className="text-meta text-muted">
-        <summary>Bağlam ve gizlilik</summary>
-        <p>
-          {status.data?.provider_notice} Yalnız seçili bağlamın sınırlı kaynak özeti ve yazdığın mesajlar iletilir.
-          Hafıza adayları ve günlük gövdeleri otomatik gönderilmez. Sohbet onay sayılmaz.
-        </p>
-      </details>
-      {!session && !initialMessage && (
-        <div className="flex flex-wrap items-end gap-2">
-          {!assistanceContext && (
-            <Field label="Görüşme bağlamı">
-              <Select value={context} onChange={setContext}>
-                <option value="">Yeni hedef</option>
-                {goals.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.title}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          )}
+        <h2 className="flex-1 text-body font-medium">{assistanceContext ? "Hermes" : "Hermes ile hedef hazırla"}</h2>
+        {!session && !assistanceContext && goals.length > 0 && (
+          <Select ariaLabel="Görüşme bağlamı" value={context} onChange={setContext}>
+            <option value="">Yeni hedef</option>
+            {goals.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.title}
+              </option>
+            ))}
+          </Select>
+        )}
+        {resume && !session && (
           <Button
+            size="sm"
+            variant="ghost"
             disabled={mutation.isPending}
-            onClick={() =>
-              run(() =>
-                api.post<Session>("/goals/studio/sessions", {
-                  client_uuid: creationUuid.current,
-                  ...(assistanceContext ? { context: assistanceContext } : { goal_id: context || null }),
-                }),
-              )
-            }
+            onClick={() => run(() => api.get<Session>(`/goals/studio/sessions/${resume}`))}
           >
-            Görüşme aç
+            Son görüşme
           </Button>
-          {resume && (
-            <Button
-              disabled={mutation.isPending}
-              onClick={() => run(() => api.get<Session>(`/goals/studio/sessions/${resume}`))}
-            >
-              Son görüşmeye dön
-            </Button>
-          )}
+        )}
+        <IconButton title="Kapat" onClick={onClose}>
+          <X size={14} />
+        </IconButton>
+      </div>
+      {status.data?.state !== "ready" && (
+        <div className="flex items-center gap-2 text-meta text-muted">
+          <span role="status" title={status.data?.message}>
+            {status.isError
+              ? "Hermes’e bağlanılamadı"
+              : status.data?.state === "not_configured"
+                ? "Hermes yapılandırılmamış"
+                : (status.data?.message ?? "Bağlantı kontrol ediliyor…")}
+          </span>
+          <IconButton
+            title="Bağlantıyı yeniden kontrol et"
+            disabled={status.isFetching}
+            onClick={() => void status.refetch()}
+          >
+            <RefreshCw size={14} />
+          </IconButton>
         </div>
       )}
       {error && (
@@ -231,9 +215,19 @@ export function GoalStudio({
           }}
           className="flex flex-wrap gap-2"
         >
-          <Input ariaLabel="Hermes mesajı" value={message} onChange={setMessage} className="min-w-0 flex-1" />
-          <Button type="submit" disabled={mutation.isPending || status.data?.state !== "ready" || !message.trim()}>
-            Hermes’e gönder
+          <Input
+            ariaLabel="Hermes mesajı"
+            placeholder="Hedefini yaz…"
+            value={message}
+            onChange={setMessage}
+            className="min-w-0 flex-1"
+          />
+          <Button
+            type="submit"
+            ariaLabel="Hermes’e gönder"
+            disabled={mutation.isPending || status.data?.state !== "ready" || !message.trim()}
+          >
+            <ArrowUp size={16} aria-hidden />
           </Button>
         </form>
       )}
@@ -326,7 +320,7 @@ export function GoalStudio({
               />
             </Field>
             <Button type="submit" disabled={busy || status.data?.state !== "ready" || !message.trim()}>
-              Hermes’e gönder
+              <ArrowUp size={16} aria-hidden />
             </Button>
           </form>
           {!assistanceContext && proposal && session.revision && (

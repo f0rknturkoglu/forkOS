@@ -189,7 +189,7 @@ export function CalendarPage() {
           <div
             className={cx(
               "overflow-hidden rounded-control border border-subtle bg-surface",
-              view === "month" ? "min-w-calendar-month" : "min-w-calendar-week",
+              view === "month" ? "min-w-0" : "min-w-calendar-week",
             )}
           >
             <div className="grid grid-cols-7 border-b border-subtle bg-surface-sunken">
@@ -216,11 +216,11 @@ export function CalendarPage() {
                       outside && "bg-surface-sunken/40",
                     )}
                   >
-                    <div className="mb-1 flex items-center gap-1.5">
+                    <div className="mb-1 flex flex-wrap items-center gap-1">
                       <span
                         className={cx(
-                          "numeral flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-meta tabular-nums",
-                          isToday ? "bg-accent font-medium text-canvas" : outside ? "text-muted" : "text-secondary",
+                          "flex h-8 min-w-8 items-center justify-center rounded-full px-1 text-title font-semibold tabular-nums sm:h-9 sm:min-w-9 sm:text-numeral-lg",
+                          isToday ? "bg-accent text-canvas" : outside ? "text-muted" : "text-secondary",
                         )}
                       >
                         {day.getUTCDate()}

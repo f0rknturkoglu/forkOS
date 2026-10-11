@@ -76,7 +76,7 @@ function useSave(after?: () => void) {
 export function GoalsPage() {
   const { params } = useHashRoute();
   const requested = params.get("entity");
-  const [studioOpen, setStudioOpen] = useState(false);
+  const [studioOpen, setStudioOpen] = useState(true);
   const [studioGoalId, setStudioGoalId] = useState<string | null>(null);
   const [view, setView] = useState(params.get("view") ?? "overview");
   useEffect(() => {
@@ -127,21 +127,23 @@ export function GoalsPage() {
             items={[
               { id: "overview", label: "Genel Bakış" },
               { id: "objectives", label: "Hedefler" },
-              { id: "plans", label: "Plan" },
+              { id: "plans", label: "Stratejik plan" },
               { id: "history", label: "Geçmiş" },
             ]}
           />
         </WorkspacePaneHeader>
         <WorkspaceScrollArea className="min-w-0 stack-y-4 p-4">
           <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={() => {
-                setStudioGoalId(null);
-                setStudioOpen(true);
-              }}
-            >
-              Hermes ile Hedef Hazırla
-            </Button>
+            {!studioOpen && (
+              <Button
+                onClick={() => {
+                  setStudioGoalId(null);
+                  setStudioOpen(true);
+                }}
+              >
+                Hermes ile Hedef Hazırla
+              </Button>
+            )}
             {selected && (
               <Button
                 onClick={() => {
@@ -178,7 +180,6 @@ export function GoalsPage() {
                 <>
                   {!data.objectives.length && (
                     <Empty title="İlk hedefini tanımla">
-                      Plan oluşturmak zorunlu değil.{" "}
                       <Button onClick={() => setView("objectives")}>Hedef oluştur</Button>
                     </Empty>
                   )}
@@ -194,32 +195,28 @@ export function GoalsPage() {
                       <option value="90">Son 90 gün</option>
                     </Select>
                   </div>
-                  <MetricStrip className="grid-cols-2 sm:grid-cols-3">
-                    <Metric
-                      label="Stratejik uyum"
-                      value={percent(data.alignment.percent)}
-                      hint={`${data.alignment.linked_count}/${data.alignment.eligible_count} anlamlı hareket`}
-                    />
-                    <Metric
-                      label="Bağlanmamış hareket"
-                      value={data.alignment.unaligned_count}
-                      hint="Sonuç yüzdesini değiştirmez"
-                    />
-                    <Metric
-                      label="Ölçülebilir hedef"
-                      value={`${data.objectives.filter((o) => o.measurable_count > 0).length}/${data.objectives.length}`}
-                      hint="Milestone ≠ stratejik sonuç"
-                    />
-                  </MetricStrip>
+                  <div
+                    aria-label="Strateji özeti"
+                    className="flex w-fit flex-wrap items-center gap-x-5 gap-y-2 rounded-control border border-subtle px-3 py-2 text-meta text-secondary"
+                  >
+                    <span>
+                      <strong className="text-primary">{percent(data.alignment.percent)}</strong> uyum
+                    </span>
+                    <span>
+                      <strong className="text-primary">{data.alignment.unaligned_count}</strong> bağlanmamış hareket
+                    </span>
+                    <span>
+                      <strong className="text-primary">
+                        {data.objectives.filter((o) => o.measurable_count > 0).length}/{data.objectives.length}
+                      </strong>{" "}
+                      ölçülebilir hedef
+                    </span>
+                  </div>
                   {data.alignment.warnings.map((r) => (
                     <p key={r.code} className="text-meta text-warn">
                       {r.explanation}
                     </p>
                   ))}
-                  <p className="text-meta text-muted">
-                    Uyum: anlamlı kullanıcı hareketleri ve açık hedef ilişkileri. Bir hareket birden fazla hedefe
-                    bağlıysa dağılım eşit bölünür.
-                  </p>
                   {data.plans
                     .filter((p) => p.status === "active")
                     .map((p) => {
@@ -232,9 +229,6 @@ export function GoalsPage() {
                           <p className="text-meta">
                             Sonuç: {percent(agg?.progress_percent)} · kapsam {agg?.measurable_objectives}/
                             {agg?.active_objectives} · kanıt {confidence[agg?.confidence ?? "low"]}
-                          </p>
-                          <p className="text-meta text-muted">
-                            Genel yüzde için etkin hedeflerin en az %80'i tam ölçülebilir olmalı.
                           </p>
                           {p.summary && <p className="mt-2 text-body">{p.summary}</p>}
                         </div>

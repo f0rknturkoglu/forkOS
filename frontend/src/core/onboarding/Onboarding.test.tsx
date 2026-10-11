@@ -3,6 +3,7 @@ import "@/modules";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
+import { TutorialTestMode } from "./TutorialTestMode";
 import { OnboardingHost } from "./OnboardingHost";
 import { SourceDiscovery } from "./SourceDiscovery";
 import { experienceFixture } from "./testFixtures";
@@ -168,4 +169,36 @@ it("persisted tour waits for a lazy target, respects navigation guard and restor
   expect(document.activeElement).toBe(screen.getByRole("button", { name: "Bu sayfa hakkında bilgi ve rehberler" }));
   expect(screen.getByRole("button", { name: "Rehbere devam et" })).toBeTruthy();
   expect(current.onboarding.active_step).toBe("planning");
+});
+
+it("tutorial can repeatedly restart Welcome while preserving chosen sources and existing content counts", async () => {
+  current.onboarding = {
+    ...current.onboarding,
+    status: "completed",
+    visited_steps: ["old-step"],
+    skipped_steps: ["old-skip"],
+  };
+  current.counts = { goals: 3, todos: 5 };
+  const feed = structuredClone(current.feed);
+  render(
+    <>
+      <TutorialTestMode />
+      <OnboardingHost />
+    </>,
+    { wrapper },
+  );
+  fireEvent.click(await screen.findByRole("checkbox", { name: "Tutorial deneme modu" }));
+  const start = screen.getByRole("button", { name: "Tutorialı sıfırdan başlat" });
+  await waitFor(() => expect(start.hasAttribute("disabled")).toBe(false));
+  fireEvent.click(start);
+  await screen.findByRole("dialog", { name: "forkOS’a hoş geldin" });
+  expect(current.onboarding.visited_steps).toEqual([]);
+  expect(current.onboarding.skipped_steps).toEqual([]);
+  expect(current.feed).toEqual(feed);
+  expect(current.counts).toEqual({ goals: 3, todos: 5 });
+  fireEvent.click(screen.getByRole("button", { name: "Sonra keşfederim" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  fireEvent.click(start);
+  await screen.findByRole("dialog", { name: "forkOS’a hoş geldin" });
+  expect(current.feed).toEqual(feed);
 });

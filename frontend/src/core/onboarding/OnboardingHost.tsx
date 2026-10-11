@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { BookOpen, Check, ChevronLeft, ChevronRight, Play, X } from "lucide-react";
 import { useHashRoute, navigate } from "@/app/router";
@@ -6,12 +5,11 @@ import { enabledModules, moduleForPath, titleForPath } from "@/core/registry";
 import { requestNavigation } from "@/core/navigationGuard";
 import { Button, Input, Modal, cx } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
-import { JOURNEYS, TOUR_IDS, helpForModule, tourSteps } from "./catalog";
+import { JOURNEYS, TOUR_IDS, helpForModule, pageNotes, tourSteps } from "./catalog";
 import { useExperience, useSaveExperience, type OnboardingState } from "./experience";
 import { SourceDiscovery } from "./SourceDiscovery";
 
 export function OnboardingHost() {
-  const client = useQueryClient();
   const query = useExperience();
   const save = useSaveExperience();
   const route = useHashRoute();
@@ -38,7 +36,6 @@ export function OnboardingHost() {
   const modal = guide || sources || welcome;
   const module = moduleForPath(route.path);
   const title = titleForPath(route.path) || "forkOS";
-  const [quiet, setQuiet] = useState(false);
   const [targetReady, setTargetReady] = useState(false);
   const panel = useRef<HTMLElement>(null);
   const requestedTarget = useRef<string | null>(null);
@@ -52,13 +49,22 @@ export function OnboardingHost() {
       setSearch("");
     };
     const showSources = () => setSources(true);
+    const restart = () => {
+      setWelcomeClosed(false);
+      setGuide(false);
+      setSources(false);
+      setTourOpen(false);
+      setError("");
+    };
     const sync = (event: StorageEvent) => {
       if (event.key === "forkos.experience.revision") void query.refetch();
     };
+    window.addEventListener("forkos:tutorial-restart", restart);
     window.addEventListener("forkos:guide", showGuide);
     window.addEventListener("forkos:feed-discovery", showSources);
     window.addEventListener("storage", sync);
     return () => {
+      window.removeEventListener("forkos:tutorial-restart", restart);
       window.removeEventListener("forkos:guide", showGuide);
       window.removeEventListener("forkos:feed-discovery", showSources);
       window.removeEventListener("storage", sync);
@@ -98,30 +104,6 @@ export function OnboardingHost() {
       marked?.removeAttribute("data-tour-active");
     };
   }, [tourOpen, step?.id, route.path, modal]);
-  useEffect(() => {
-    const detect = () => {
-      const active = document.activeElement;
-      const typing =
-        active instanceof HTMLElement && (active.matches("input,textarea,select") || active.isContentEditable);
-      const busy = Boolean(
-        document.querySelector(
-          '[role="dialog"], [role="alert"], [aria-label="Bağlam hakkında görüşme"], [aria-label="Hermes Goal Studio"]',
-        ),
-      );
-      const focus = client.getQueryData(["pomodoro-active"]);
-      setQuiet(typing || busy || Boolean(focus));
-    };
-    detect();
-    const observer = new MutationObserver(detect);
-    observer.observe(document.body, { childList: true, subtree: true });
-    document.addEventListener("focusin", detect);
-    document.addEventListener("focusout", detect);
-    return () => {
-      observer.disconnect();
-      document.removeEventListener("focusin", detect);
-      document.removeEventListener("focusout", detect);
-    };
-  }, [client, route.path]);
   const update = async (patch: Partial<OnboardingState>) => {
     if (!state) return false;
     setError("");
@@ -200,9 +182,6 @@ export function OnboardingHost() {
         .toLocaleLowerCase("tr-TR")
         .includes(search.toLocaleLowerCase("tr-TR")),
     );
-  const hintId = "page:" + module?.id;
-  const hint = module ? helpForModule(module.id)[0] : null;
-  const showHint = state?.status === "completed" && hint && !state.dismissed_hints.includes(hintId) && !modal && !quiet;
   return (
     <>
       {welcome && state?.phase !== "sources" && (
@@ -302,6 +281,12 @@ export function OnboardingHost() {
             <p className="text-body text-secondary">
               {module?.description || "Kayıtlarını, planını ve kaynaklarını tek çalışma alanında yönet."}
             </p>
+            {module &&
+              pageNotes(module.id).map((text) => (
+                <p key={text} className="text-meta text-secondary">
+                  {text}
+                </p>
+              ))}
             {module &&
               helpForModule(module.id).map((item) => (
                 <div key={item.id}>
@@ -528,29 +513,6 @@ export function OnboardingHost() {
             </Button>
           </div>
         ))}
-      {showHint && (
-        <aside
-          aria-label="Sayfa ipucu"
-          className="fixed bottom-3 right-3 z-popover w-[min(22rem,calc(100vw-1.5rem))] rounded-card border border-subtle bg-surface p-3 shadow-card stack-y-2"
-        >
-          <div className="flex items-center gap-2">
-            <h3 className="flex-1 text-heading">{hint.title}</h3>
-            <Button
-              size="sm"
-              ariaLabel="İpucunu bir daha gösterme"
-              disabled={!online || save.isPending}
-              onClick={() =>
-                void update({ dismissed_hints: [...new Set([...state.dismissed_hints, hintId])].slice(-80) })
-              }
-            >
-              <X size={14} />
-            </Button>
-          </div>
-          <Button variant="ghost" onClick={() => setGuide(true)}>
-            Sayfa rehberini aç
-          </Button>
-        </aside>
-      )}
     </>
   );
 }

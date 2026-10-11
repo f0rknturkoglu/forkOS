@@ -6,7 +6,13 @@ Backend gerçekten boşsa ilk açılışta karşılama görünür. Kullanıcı h
 
 Kaynak seçimi isteğe bağlıdır. Kullanıcı geri dönebilir, geçebilir, kapatabilir ve devam edebilir. Karşılama ve tur; sahte görev, başvuru, konu veya hedef oluşturmaz. İlk adımlar kontrolü backend'deki gerçek kayıtları, ziyaret edilen adımı ve kaynakların seçilmesini/özellikle geçilmesini kullanır. Teknik kurulum checklist'i ayrı kalır.
 
-Her ortak sayfa header'ında `(i)` düğmesi vardır: sayfa bilgisi, aranabilir rehberler, tekrar başlatma ve kaynak galerisi burada toplanır. Ayarlar ve komut paleti de rehberi açar. Yeni sidebar alanı yoktur. Proje/konu/kariyer/plan bağlamındaki yerel kayıt özeti doğrudan görünür; Hermes mesajı yazıp Enter'a basmak mevcut Goal Studio oturum/turn protokolünü başlatır. Pasif özet yerel deterministik uçtan alınır; modele istek göndermez.
+Her ortak sayfa header'ında `(i)` düğmesi vardır: sayfa bilgisi, aranabilir rehberler, tekrar başlatma ve kaynak galerisi burada toplanır. Ayarlar ve komut paleti de rehberi açar. Yeni sidebar alanı yoktur. Proje/konu/kariyer/plan bağlamındaki yerel kayıt özeti doğrudan görünür; Hermes mesajı yazıp Enter'a basmak mevcut Goal Studio oturum/turn protokolünü başlatır. Pasif özet yerel deterministik uçtan alınır; modele istek göndermez. Değerlendirme sayfasında tekrar eden özet varsayılan olarak kapalıdır.
+
+## Geçici tutorial deneme modu
+
+Ayarlar → Genel & Görünüm → Başlangıç ve rehberler altında **Tutorial deneme modu** açılır. **Tutorialı sıfırdan başlat**, ziyaret/geçme kayıtlarını temizleyip karşılama aşamasını yeniden açar; her kullanımda yol seçimi ve kaynak adımları tekrar denenebilir. Kişisel kayıtlar ve kaynak tercihleri değişmez. Görünürlük tercihi `forkos.tutorial.testMode.v1` localStorage anahtarında, rehber ilerlemesi mevcut revision korumalı experience sözleşmesinde kalır. Yeni backend ayarı veya migration yoktur.
+
+Vite proxy Host bilgisini korur (`changeOrigin: false`); Compose içindeki API hedefinin adı yerel UI host’u yerine geçmez. Host/Origin/CSRF kontrolleri backend’de aynen uygulanır.
 
 ## Kalıcılık ve mimari
 
@@ -16,7 +22,7 @@ Onboarding durumları: new / in_progress / completed / dismissed; aşamalar: wel
 
 `catalog.ts` tur tanımları modül registry'sindeki etkin route'lardan türetilir. Hedef adımları/KR, gerçek görev, haftalık plan, proje, konu/kaynak, konu SRS, kart SRS, kariyer profili/başvurular, akış/RSS/yer imi ve değerlendirme açıklanır. Gerçek kayıt gerektiren koşullu kontroller bulunamazsa İleri devre dışıdır; kullanıcı kaydı açabilir veya adımı geçebilir. Eksik kontroller varmış gibi işaretlenmez.
 
-Nonmodal tur paneli işlem yapmayı engellemez. Lazy hedefler MutationObserver ile izlenir; sabit timeout yoktur. Route değiştirmek mevcut navigation guard'dan geçer. Refresh sonrası adım korunur; zorla farklı sayfaya gidilmez. Adıma git gerçek hedefi odaklar. Escape/küçültme odağı header yardım düğmesine döndürür. İpuçları bir tane gösterilir; yazma, modal, hata, odak seansı veya Hermes görüşmesi sırasında bastırılır. Kaydırma animasyonsuzdur.
+Nonmodal tur paneli işlem yapmayı engellemez. Lazy hedefler MutationObserver ile izlenir; sabit timeout yoktur. Route değiştirmek mevcut navigation guard'dan geçer. Refresh sonrası adım korunur; zorla farklı sayfaya gidilmez. Adıma git gerçek hedefi odaklar. Escape/küçültme odağı header yardım düğmesine döndürür. Sağ altta kendiliğinden açılan sayfa ipucu yoktur; sayfa bilgisi yalnız header’daki `(i)` üzerinden açılır. Kaydırma animasyonsuzdur.
 
 ## Referanslardan alınan kararlar
 

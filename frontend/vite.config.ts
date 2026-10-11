@@ -118,7 +118,8 @@ export default defineConfig({
   server: {
     // Compose icinde API_TARGET=http://api:8787 gelir; disarida npm run dev
     // ile calistirinca 127.0.0.1'e duser.
-    proxy: { "/api": process.env.API_TARGET ?? "http://127.0.0.1:8787" },
+    // Host’u koru: local-only uçlar gerçek UI host’unu doğrular.
+    proxy: { "/api": { target: process.env.API_TARGET ?? "http://127.0.0.1:8787", changeOrigin: false } },
     // Container icinde inotify calismiyor (Podman/Docker VM + bind mount):
     // dosyayi degistiriyorsun, HMR hic tetiklenmiyor. compose WATCH_POLLING=1
     // gonderir. Native Linux'ta 0 yaparak CPU'yu geri alabilirsin.

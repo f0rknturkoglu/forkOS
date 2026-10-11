@@ -3,8 +3,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
   CheckCircle2,
-  Flower2,
-  Leaf,
   Maximize2,
   MoonStar,
   Pencil,
@@ -12,7 +10,6 @@ import {
   Play,
   Plus,
   Settings2,
-  Sprout,
   Timer,
   Trash2,
   XCircle,
@@ -105,7 +102,7 @@ export function PomodoroPage() {
   const { data: active = null } = useActivePomodoro();
   const now = usePomodoroClock(active);
   const [historyPage, setHistoryPage] = useState(0);
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+  const { data: analytics } = useQuery({
     queryKey: ["pomodoro-analytics", range],
     queryFn: () => api.get<PomodoroAnalytics>(`/pomodoro/analytics?range=${range}`),
   });
@@ -197,11 +194,6 @@ export function PomodoroPage() {
             {tab === "focus" && (
               <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,0.72fr)]">
                 <div className="stack-y-3">
-                  <FocusGarden
-                    points={analytics?.daily ?? []}
-                    totalMinutes={analytics?.minutes ?? 0}
-                    loading={analyticsLoading}
-                  />
                   <FocusComposer
                     active={active}
                     left={left}
@@ -318,73 +310,6 @@ export function PomodoroPage() {
 
       {focusMode && active && <FocusMode onClose={() => setFocusMode(false)} />}
     </>
-  );
-}
-
-function FocusGarden({
-  points,
-  totalMinutes,
-  loading,
-}: {
-  points: PomodoroDailyPoint[];
-  totalMinutes: number;
-  loading: boolean;
-}) {
-  const visible = points.slice(-7);
-  return (
-    <Section
-      title="Bu haftanın bahçesi"
-      hint={loading ? "hesaplanıyor" : `Toplam ${durationLabel(totalMinutes)}`}
-      bodyClassName="p-0"
-    >
-      <p className="px-4 pt-3 text-meta text-muted">Tamamladığın her odak seansı burada büyür.</p>
-      {visible.length === 0 ? (
-        <div className="m-4">
-          <Empty>İlk odak bloğunu tamamladığında bahçen burada filizlenecek.</Empty>
-        </div>
-      ) : (
-        <div
-          className="mt-3 grid min-h-64 grid-cols-7 stack-divide-x divide-subtle border-y border-subtle"
-          role="img"
-          aria-label="Haftalık odak bahçesi"
-        >
-          {visible.map((point, index) => (
-            <GardenDay key={point.date} point={point} index={index} />
-          ))}
-        </div>
-      )}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-meta text-muted">
-        <span>Her gün biraz daha derinleşen çalışma alanın.</span>
-        <span className="flex items-center gap-1.5">
-          <Sprout size={14} className="text-ok" /> tamamlanan seans
-        </span>
-      </div>
-    </Section>
-  );
-}
-
-function GardenDay({ point, index }: { point: PomodoroDailyPoint; index: number }) {
-  const count = Math.min(4, point.sessions);
-  const icons = [Sprout, Leaf, Flower2, Sprout];
-  return (
-    <div
-      className="flex min-w-0 flex-col items-center px-1 py-3 text-center"
-      title={`${point.date}: ${durationLabel(point.minutes)}`}
-    >
-      <span className="text-micro text-muted">{dateLabel(point.date)}</span>
-      <span className="mt-1 text-meta font-medium tabular-nums text-secondary">{durationLabel(point.minutes)}</span>
-      <div className="flex min-h-36 flex-1 flex-wrap content-end items-end justify-center gap-1.5 pb-3 pt-4">
-        {count === 0 ? (
-          <span className="h-1.5 w-1.5 rounded-full bg-strong" aria-hidden />
-        ) : (
-          Array.from({ length: count }, (_, itemIndex) => {
-            const Plant = icons[(index + itemIndex) % icons.length];
-            return <Plant key={itemIndex} size={20 + itemIndex * 3} className="text-ok" aria-hidden />;
-          })
-        )}
-      </div>
-      <span className="text-micro text-muted">{point.sessions} seans</span>
-    </div>
   );
 }
 

@@ -561,3 +561,20 @@
   outline: 2px solid var(--accent);
   outline-offset: 4px;
 }
+
+/* Görünür çeper yalnız Info ikonudur; dokunma ve klavye hedefi korunur. */
+.page-info-button,
+.page-info-button:hover {
+  border-color: transparent;
+  background: transparent;
+}
+
+.today-summary > :is(a, div) {
+  @apply grid grid-cols-[auto_1fr] items-baseline gap-x-2 px-0 py-1;
+}
+.today-summary > :is(a, div) > .numeral {
+  @apply row-span-2 min-w-4 font-sans text-body font-medium;
+}
+.today-summary .text-meta {
+  @apply mt-0;
+}

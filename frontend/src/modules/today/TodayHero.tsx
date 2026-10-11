@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/core/ui";
 import { appTimeParts, formatAppDate } from "@/lib/date";
 import { useWeather, weatherIcon, weatherLabel } from "./weather";
@@ -11,7 +11,7 @@ function greeting(hour: number): string {
 }
 
 /** Tarih ve hava çalışma gününe bağlam verir; planın üstünde büyük kart kurmaz. */
-export function TodayHero() {
+export function TodayHero({ children }: { children?: ReactNode }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     let timer = 0;
@@ -40,7 +40,10 @@ export function TodayHero() {
           {time}
         </time>
       </div>
-      <WeatherPanel />
+      <div className="relative flex items-center gap-3">
+        <WeatherPanel />
+        {children}
+      </div>
     </header>
   );
 }

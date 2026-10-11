@@ -31,6 +31,14 @@ const draft = {
     },
   },
 };
+async function sendMessage() {
+  await waitFor(() => expect(api.get).toHaveBeenCalled());
+  fireEvent.change(screen.getByLabelText("Hermes mesajı"), { target: { value: "Hedefimi hazırla" } });
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Hermes’e gönder" }).hasAttribute("disabled")).toBe(false),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Hermes’e gönder" }));
+}
 function show(initialMessage?: string) {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -73,18 +81,18 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 it("unavailable Hermes keeps discussion editable and cannot authorize writes", async () => {
-  vi.mocked(api.post).mockResolvedValue({ ...draft, revision: null, state: "drafting" });
   show();
   expect(await screen.findByText("Hermes yapılandırılmamış")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Görüşme aç" }));
-  await screen.findByText("Görüşme");
+  fireEvent.change(screen.getByLabelText("Hermes mesajı"), { target: { value: "Hedefimi hazırla" } });
   expect(screen.getByRole("button", { name: "Hermes’e gönder" }).hasAttribute("disabled")).toBe(true);
-  expect(screen.queryByRole("button", { name: "Bu revizyonu onayla ve uygula" })).toBeNull();
+  expect(api.post).not.toHaveBeenCalled();
 });
+
 it("edited preview cannot approve and a rejection binds the new revision", async () => {
+  vi.mocked(api.get).mockResolvedValue({ state: "ready" });
   vi.mocked(api.post).mockResolvedValue(draft);
   show();
-  fireEvent.click(screen.getByRole("button", { name: "Görüşme aç" }));
+  await sendMessage();
   const title = await screen.findByLabelText("Taslak başlık 1");
   const approve = screen.getByRole("button", { name: "Bu revizyonu onayla ve uygula" });
   expect(approve.hasAttribute("disabled")).toBe(false);
@@ -124,17 +132,19 @@ it("edited preview cannot approve and a rejection binds the new revision", async
   });
 });
 it("unknown delivery restored from server retries the same turn", async () => {
+  vi.mocked(api.get).mockResolvedValue({ state: "ready" });
   const pending = { client_uuid: "turn-identity", message: "hazırla" };
   vi.mocked(api.post).mockResolvedValue({ ...draft, revision: null, state: "unknown_delivery", pending_turn: pending });
   show();
-  fireEvent.click(screen.getByRole("button", { name: "Görüşme aç" }));
+  await sendMessage();
   fireEvent.click(await screen.findByRole("button", { name: "Aynı turu uzlaştır" }));
   await waitFor(() => expect(api.post).toHaveBeenLastCalledWith("/goals/studio/sessions/session/turns", pending));
 });
 it("raw JSON editing blocks approval until the changed draft is validated", async () => {
+  vi.mocked(api.get).mockResolvedValue({ state: "ready" });
   vi.mocked(api.post).mockResolvedValue(draft);
   show();
-  fireEvent.click(screen.getByRole("button", { name: "Görüşme aç" }));
+  await sendMessage();
   await screen.findByLabelText("Taslak başlık 1");
   fireEvent.click(screen.getByText("Gelişmiş taslak düzenleme (JSON)"));
   const text = screen.getByLabelText("Taslak JSON");

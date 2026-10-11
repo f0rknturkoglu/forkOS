@@ -2,6 +2,8 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ToastProvider } from "@/core/ui";
 import { WeeklyPlannerPage } from "./WeeklyPlannerPage";
 
 type MutationOptions = {
@@ -19,6 +21,13 @@ const harness = vi.hoisted(() => ({
 
 vi.mock("@dnd-kit/core", () => ({
   DndContext: ({ children }: { children: unknown }) => children,
+  DragOverlay: ({ children }: { children: unknown }) => children,
+  PointerSensor: class {},
+  KeyboardSensor: class {},
+  useSensor: vi.fn(),
+  useSensors: vi.fn(),
+  pointerWithin: vi.fn(),
+  rectIntersection: vi.fn(),
   useDraggable: () => ({
     setNodeRef: vi.fn(),
     listeners: {},
@@ -75,7 +84,13 @@ describe("WeeklyPlannerPage", () => {
   afterEach(cleanup);
 
   it("lets keyboard users select a backlog task and place it on a day", async () => {
-    render(<WeeklyPlannerPage />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <WeeklyPlannerPage />
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Klavye ile planlanacak görevini planlamak için seç" }));
     const place = screen.getAllByRole("button", { name: /Seçili görevi .* gününe planla/ })[0];
@@ -93,7 +108,13 @@ describe("WeeklyPlannerPage", () => {
   });
 
   it("planlanan gorev 'Planlanmamış' listesinden ANINDA duser", async () => {
-    render(<WeeklyPlannerPage />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <WeeklyPlannerPage />
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Klavye ile planlanacak görevini planlamak için seç" }));
     fireEvent.click(screen.getAllByRole("button", { name: /Seçili görevi .* gününe planla/ })[0]);
@@ -107,7 +128,13 @@ describe("WeeklyPlannerPage", () => {
   });
 
   it("haftalık görünümde aynı görev oluşturucusu yeni işi seçili haftaya planlar", async () => {
-    render(<WeeklyPlannerPage />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ToastProvider>
+          <WeeklyPlannerPage />
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
     fireEvent.change(screen.getByLabelText("Görev başlığı"), { target: { value: "Yeni haftalık iş" } });
     fireEvent.click(screen.getByRole("button", { name: "Ekle" }));
 

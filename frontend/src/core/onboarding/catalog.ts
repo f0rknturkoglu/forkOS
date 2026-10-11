@@ -270,3 +270,18 @@ export function tourSteps(id: string) {
 export function helpForModule(id: string) {
   return steps.filter((step) => step.module === id);
 }
+
+/** Ayrıntılı hesaplama kuralları ana çalışma yüzeyi yerine sayfa bilgisinde yaşar. */
+export function pageNotes(id: string): string[] {
+  if (id === "goal")
+    return [
+      "Hedef, ulaşmak istediğin ölçülebilir sonuçtur. Stratejik plan, bir dönemin hedeflerini ve odak alanlarını bir araya getirir. Haftalık plan ise görevlerin hangi gün yapılacağını belirler.",
+      "Uyum, anlamlı hareketlerin açık hedef ilişkilerini ölçer; birden fazla hedefe bağlanan hareket eşit bölünür. Hareket sayısı sonuç ilerlemesi değildir. Genel sonuç için etkin hedeflerin en az %80’i tam ölçülebilir olmalıdır.",
+      "Hermes yalnız seçili bağlamın sınırlı özeti ve gönderdiğin mesajlarla çalışır. Hafıza adayları ve günlük gövdeleri otomatik gönderilmez. Sohbet değişiklik onayı sayılmaz.",
+    ];
+  if (id === "review")
+    return [
+      "Kaydedilmiş değerlendirme, o dönemdeki ölçümleri korur; bugünkü verilerle yeniden hesaplanmaz. Haftalık karşılaştırma yalnız bitişik haftanın kaydı varsa yapılır. Eksik ölçümler sıfır başarı kabul edilmez.",
+    ];
+  return [];
+}

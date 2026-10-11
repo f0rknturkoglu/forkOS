@@ -30,10 +30,18 @@ function tomorrow() {
 }
 
 /** Local summary is visible; Hermes is contacted only after an explicit message. */
-export function ContextualHelp({ context, label }: { context: AssistanceContext; label: string }) {
+export function ContextualHelp({
+  context,
+  label,
+  summaryInitiallyOpen = true,
+}: {
+  context: AssistanceContext;
+  label: string;
+  summaryInitiallyOpen?: boolean;
+}) {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<string | null>(null);
-  const [summary, setSummary] = useState(true);
+  const [summary, setSummary] = useState(summaryInitiallyOpen);
   const online = useOnline();
   return (
     <div className="min-w-0 stack-y-3">

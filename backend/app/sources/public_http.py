@@ -73,9 +73,14 @@ async def get_public(client, url, *, headers=None):
                 data.extend(chunk)
                 if len(data) > MAX_BYTES:
                     raise ValueError("RSS yanıtı boyut sınırını aştı")
+            # aiter_bytes() already decoded the transfer. Reusing Content-Encoding
+            # would make httpx decode the plain XML a second time.
+            decoded_headers = dict(response.headers)
+            decoded_headers.pop("content-encoding", None)
+            decoded_headers.pop("content-length", None)
             return httpx.Response(
                 response.status_code,
-                headers=response.headers,
+                headers=decoded_headers,
                 content=bytes(data),
                 request=httpx.Request("GET", original),
             )

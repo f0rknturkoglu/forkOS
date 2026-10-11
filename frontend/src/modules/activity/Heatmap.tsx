@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { Section, cx, Skeleton } from "@/core/ui";
+import { Button, Section, cx, Skeleton } from "@/core/ui";
 import type { Heatmap as HeatmapData, HeatmapDay } from "@/core/types";
 import { formatTrDate } from "@/lib/date";
 
@@ -38,7 +38,16 @@ function tooltip(entry: HeatmapDay, labels: Record<string, string>): string {
   return `${date} — ${parts.join(" · ")}`;
 }
 
-export function Heatmap({ days = 365, compact = false }: { days?: number; compact?: boolean }) {
+export function Heatmap({
+  days = 365,
+  compact = false,
+  rangeControl,
+}: {
+  days?: number;
+  compact?: boolean;
+  rangeControl?: ReactNode;
+}) {
+  const recent = compact && days <= 31;
   const scroller = useRef<HTMLDivElement>(null);
   const { data } = useQuery({
     queryKey: ["activity", "heatmap", days],
@@ -82,26 +91,33 @@ export function Heatmap({ days = 365, compact = false }: { days?: number; compac
   return (
     <Section
       title="Emek haritası"
-      hint={`son ${Math.round(days / 30)} ay`}
-      action={data.streak > 0 ? <span className="text-meta text-accent">{data.streak} gün üst üste</span> : undefined}
+      hint={compact ? undefined : `son ${Math.round(days / 30)} ay`}
+      action={
+        rangeControl ??
+        (data.streak > 0 ? <span className="text-meta text-accent">{data.streak} gün üst üste</span> : undefined)
+      }
       bodyClassName="stack-y-3 px-3.5 py-3"
     >
       {/* Gun etiketleri kaydirma ALANININ DISINDA: harita saga kayinca
           onlarla birlikte kaymasin, hangi satirin hangi gun oldugu kalsin. */}
-      <div className="flex gap-1">
+      <div className={cx("flex gap-1", recent && "justify-center")}>
         <div className="grid shrink-0 grid-rows-7 gap-1 pr-1 pt-4 text-micro leading-[10px] text-muted">
           {WEEKDAYS.map((label, index) => (
-            <span key={index} className="flex h-2.5 items-center">
+            <span key={index} className={cx("flex items-center", recent ? "h-5" : "h-2.5")}>
               {label}
             </span>
           ))}
         </div>
 
-        <div ref={scroller} className="min-w-0 flex-1 overflow-x-auto pb-1">
+        <div ref={scroller} className={cx("min-w-0 overflow-x-auto pb-1", !recent && "flex-1")}>
           <div className="inline-flex flex-col gap-1">
             <div className="flex gap-1 text-micro leading-3 text-muted">
               {monthTicks.map((tick) => (
-                <span key={tick.week} style={{ width: `${tick.span * 14 - 4}px` }} className="shrink-0 truncate">
+                <span
+                  key={tick.week}
+                  style={{ width: `${tick.span * (recent ? 24 : 14) - 4}px` }}
+                  className="shrink-0 truncate"
+                >
                   {tick.label}
                 </span>
               ))}
@@ -109,7 +125,7 @@ export function Heatmap({ days = 365, compact = false }: { days?: number; compac
             <div className="grid grid-flow-col grid-rows-7 gap-1">
               {cells.map((entry, index) =>
                 entry === null ? (
-                  <span key={`pad-${index}`} className="h-2.5 w-2.5" />
+                  <span key={`pad-${index}`} className={recent ? "h-5 w-5" : "h-2.5 w-2.5"} />
                 ) : (
                   <a
                     key={entry.day}
@@ -117,7 +133,8 @@ export function Heatmap({ days = 365, compact = false }: { days?: number; compac
                     title={tooltip(entry, data.labels)}
                     aria-label={tooltip(entry, data.labels)}
                     className={cx(
-                      "h-2.5 w-2.5 rounded-[2px] transition hover:ring-2 hover:ring-accent",
+                      "rounded-control transition-colors hover:ring-2 hover:ring-accent",
+                      recent ? "h-5 w-5" : "h-2.5 w-2.5",
                       STEP_BG[step(entry.total)],
                     )}
                   />
@@ -129,10 +146,12 @@ export function Heatmap({ days = 365, compact = false }: { days?: number; compac
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-subtle pt-2.5 text-meta text-muted">
-        <span>
-          <span className="text-primary">{data.total}</span> kayıt ·{" "}
-          <span className="text-primary">{data.active_days}</span> aktif gün
-        </span>
+        {!compact && (
+          <span>
+            <span className="text-primary">{data.total}</span> kayıt ·{" "}
+            <span className="text-primary">{data.active_days}</span> aktif gün
+          </span>
+        )}
         <span className="ml-auto flex items-center gap-1">
           az
           {STEP_BG.map((bg) => (
@@ -158,11 +177,21 @@ export function Heatmap({ days = 365, compact = false }: { days?: number; compac
 }
 
 /**
- * Home'daki kompakt sürüm: AYNI bileşen, AYNI sorgu anahtarı (ikinci istek
- * doğmaz), yalnız tür kırılımı listesi gizlenir -- Home bir kart, rapor değil.
+ * Home varsayılan olarak son 30 günü gösterir; yıl görünümü açık seçimdir.
  */
 export function HomeHeatmap() {
-  return <Heatmap compact />;
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <Heatmap
+      compact
+      days={expanded ? 365 : 30}
+      rangeControl={
+        <Button size="sm" variant="ghost" ariaPressed={expanded} onClick={() => setExpanded((value) => !value)}>
+          {expanded ? "Son ay" : "Tüm aylar"}
+        </Button>
+      }
+    />
+  );
 }
 
 /** Ay adlarini basladiklari haftanin ustune yerlestirir. */

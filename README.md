@@ -16,6 +16,8 @@ Pomodoro geçmişinde tamamlanan seanslar elle eklenebilir, düzenlenebilir ve o
 
 Yeni kurulumun karşılama akışı, isteğe bağlı kaynak seçimi ve tekrar açılabilen rehberleri vardır. Her sayfanın header'ındaki `(i)` bilgiyi ve rehberleri toplar. Akış kaynakları kullanıcı seçimiyle açılır; HN, GitHub · Yeni ve Popüler, Hugging Face Papers, Reddit ve mevcut RSS abonelikleri desteklenir. [Başlangıç ve rehberler](docs/product/v1-welcome-onboarding.md) · [Kişisel akış](docs/product/personal-feed-discovery.md).
 
+Tutorialı tekrar denemek için **Ayarlar → Genel & Görünüm → Tutorial deneme modu → Tutorialı sıfırdan başlat**. Bu işlem yalnız rehber ilerlemesini sıfırlar; hedefler, görevler, öğrenme kayıtları ve akış kaynakları korunur.
+
 ## Neler sunuyor?
 
 Navigasyon ürün alanlarına göre kurulur (tek kaynak: `docs/product-navigation.md`):

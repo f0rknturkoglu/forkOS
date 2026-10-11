@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Repeat } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
 import { api, qs } from "@/core/api";
 import { RelatedPanel } from "@/core/RelatedPanel";
-import { Empty, PageFrame, RowList, Section, SkeletonRows } from "@/core/ui";
+import { Button, Empty, PageFrame, RowList, Section, SkeletonRows } from "@/core/ui";
 import type { TagCount, Todo } from "@/core/types";
 import { TodoComposer } from "./TodoComposer";
 import { PlanViews } from "./PlanViews";
@@ -116,45 +115,28 @@ export function TodoPage() {
     <PageFrame className="py-3">
       <Workspace
         rail={
-          <WorkspaceRailContent>
-            <WorkspaceRailGroup label="Durum">
-              {FILTERS.map((item) => (
-                <WorkspaceRailButton
-                  key={item.value || "all"}
-                  label={item.label}
-                  active={status === item.value}
-                  onClick={() => setStatus(item.value)}
-                />
-              ))}
-            </WorkspaceRailGroup>
-            <WorkspaceRailGroup label="Tür">
-              <WorkspaceRailButton label="Tüm görevler" active={!routineOnly} onClick={() => setRoutineOnly(false)} />
-              <WorkspaceRailButton
-                label="Rutinler"
-                active={routineOnly}
-                icon={<Repeat size={13} />}
-                onClick={() => setRoutineOnly(true)}
-              />
-            </WorkspaceRailGroup>
-            {tags.length > 0 ? (
-              <WorkspaceRailGroup label="Etiketler" hint={tags.length}>
-                {tag ? (
-                  <WorkspaceRailButton label={`#${tag}`} active onClick={() => setTag("")} />
-                ) : (
-                  tags
-                    .slice(0, 12)
-                    .map((item) => (
-                      <WorkspaceRailButton
-                        key={item.name}
-                        label={`#${item.name}`}
-                        count={item.count}
-                        onClick={() => setTag(item.name)}
-                      />
-                    ))
-                )}
-              </WorkspaceRailGroup>
-            ) : null}
-          </WorkspaceRailContent>
+          tags.length > 0 ? (
+            <WorkspaceRailContent>
+              {tags.length > 0 ? (
+                <WorkspaceRailGroup label="Etiketler" hint={tags.length}>
+                  {tag ? (
+                    <WorkspaceRailButton label={`#${tag}`} active onClick={() => setTag("")} />
+                  ) : (
+                    tags
+                      .slice(0, 12)
+                      .map((item) => (
+                        <WorkspaceRailButton
+                          key={item.name}
+                          label={`#${item.name}`}
+                          count={item.count}
+                          onClick={() => setTag(item.name)}
+                        />
+                      ))
+                  )}
+                </WorkspaceRailGroup>
+              ) : null}
+            </WorkspaceRailContent>
+          ) : undefined
         }
         inspector={
           focusId ? (
@@ -176,6 +158,19 @@ export function TodoPage() {
             </a>
           }
         >
+          <div role="group" aria-label="Durum filtresi" className="flex flex-wrap gap-1">
+            {FILTERS.map((item) => (
+              <Button
+                key={item.value || "all"}
+                size="sm"
+                variant={status === item.value ? "primary" : "ghost"}
+                ariaPressed={status === item.value}
+                onClick={() => setStatus(item.value)}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
           {projectFilter || plannedFilter ? (
             <p className="flex items-center gap-2 text-meta text-muted">
               {projectFilter ? (
