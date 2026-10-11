@@ -162,10 +162,14 @@ async function flushQueue() {
           due_at: item.due_at || null,
         };
       } else if (isNote) {
-        targetUrl = `${apiBase}/notes`;
+        targetUrl = `${apiBase}/obsidian/capture`;
         payload = {
           title: item.title || "Not",
-          body_text: item.body_text || "",
+          body: item.body_text ?? item.body ?? "",
+          client_uuid: item.client_uuid,
+          tags: item.tags || [],
+          relate_to: item.relate_to || null,
+          source_url: item.url || null,
           folder: item.folder || "general",
           pinned: Boolean(item.pinned),
         };

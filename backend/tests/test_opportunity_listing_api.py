@@ -1,7 +1,8 @@
 import uuid
 from datetime import UTC, datetime
-from httpx import ASGITransport, AsyncClient
+
 import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
 from app.db import engine

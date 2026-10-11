@@ -2,21 +2,19 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
 
 import pytest
-from sqlalchemy import select
 
 from app.core.models import Entity
 from app.db import SessionLocal
 from app.modules.opportunity import intelligence, service
 from app.modules.opportunity.candidate_context import build_candidate_career_context
+from app.modules.opportunity.candidate_fit import score_canonical_opportunity
 from app.modules.opportunity.candidate_match import apply_candidate_match
 from app.modules.opportunity.evaluation_service import CareerEvaluationService
 from app.modules.opportunity.models import Opportunity
 from app.modules.opportunity.reasoner.base import CareerReasoner, DeepEvaluationDraft
 from app.modules.opportunity.reasoner.mock import DeterministicMockCareerReasoner
-from app.modules.opportunity.candidate_fit import score_canonical_opportunity
 from app.modules.opportunity.schemas import OpportunityIn
 
 

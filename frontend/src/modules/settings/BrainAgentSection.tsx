@@ -519,10 +519,6 @@ function VaultCard({ online }: { online: boolean }) {
               </Disclosure>
             </div>
           )}
-
-          <Button variant="ghost" size="sm" onClick={() => navigate("/notes")}>
-            <BookOpen size={13} /> Bilgi alanını aç
-          </Button>
         </div>
       </CardBody>
     </Section>

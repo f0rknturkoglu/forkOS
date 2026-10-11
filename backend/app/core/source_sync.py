@@ -44,6 +44,8 @@ def batch_out(batch: SourceSyncBatch) -> dict:
 async def create_or_extend_batch(
     session: AsyncSession, source_ids: list[str], *, scope: str = "opportunity"
 ) -> tuple[SourceSyncBatch, list[str]]:
+    if scope != "opportunity":
+        raise ValueError("Yalnızca fırsat kaynakları senkronize edilebilir")
     ids = list(dict.fromkeys(source_ids))
     # A row lock cannot serialize the empty-table case. Scope-level transaction
     # advisory locking keeps creation and extension in one PostgreSQL critical section.

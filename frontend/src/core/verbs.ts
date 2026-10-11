@@ -214,6 +214,7 @@ export const VERB_LABELS: Record<string, string> = {
   "source.stalled": "Kaynak sessizleşti",
   "source.failing": "Kaynak hata veriyor",
   "source_sync.queued": "Kaynak senkronizasyonu kuyruğa alındı",
+  "source_sync.retired": "Emekli kaynak kuyruğu kapatıldı",
   "source_sync.started": "Kaynak senkronizasyonu başladı",
   "source_sync.sources_added": "Senkronizasyona kaynak eklendi",
   "source_sync.completed": "Kaynak senkronizasyonu tamamlandı",

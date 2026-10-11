@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Integer, and_, case, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity, touch_entity
@@ -13,7 +13,7 @@ from app.core.models import Entity, Event
 from app.core.time import local_datetime, local_day_bounds, local_zone
 from app.modules.flashcard.models import FlashcardDeck
 from app.modules.goal import service as goal_service
-from app.modules.learning.models import StudyArea, StudyTopic
+from app.modules.learning.models import LearningResource, StudyArea, StudyTopic
 from app.modules.opportunity.career_strategy_models import CareerActionProposal
 from app.modules.pomodoro.models import PomodoroSession
 from app.modules.review.models import Review
@@ -100,8 +100,10 @@ async def completed_todo_rows(
 async def preview(session: AsyncSession, kind: str, period_start: date) -> ReviewPreview:
     start, end = period_bounds(kind, period_start)
     start_dt, end_dt = local_day_bounds(start)[0], local_day_bounds(end)[0]
-    minutes_expr = Event.payload["minutes"].astext.cast(Integer)
-    topic_expr = Event.payload["topic"].astext
+    minutes_expr = PomodoroSession.actual_min
+    topic_expr = PomodoroSession.topic
+    focus_filter = (PomodoroSession.kind == "focus", PomodoroSession.ended_at.is_not(None),
+                    PomodoroSession.started_at >= start_dt, PomodoroSession.started_at < end_dt)
     # Tarihsel veri dalı: habit.checked event'leri Faz 1'de habit modulu
     # kaldirilmasina ragmen event tablosunda DURUYOR (append-only, kural 3).
     # Bu dal onlari rutin sayiminda tutar -- kaldirilirsa gecmis haftalarin
@@ -112,11 +114,7 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
     )
     focus_rows = (
         await session.execute(
-            select(Event.occurred_at, minutes_expr).where(
-                Event.verb == "pomodoro.completed",
-                Event.occurred_at >= start_dt,
-                Event.occurred_at < end_dt,
-            )
+            select(PomodoroSession.started_at, minutes_expr).where(*focus_filter)
         )
     ).all()
     focus_by_day: dict[date, int] = {}
@@ -127,7 +125,8 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
         day = occurred_at.astimezone(local_zone()).date()
         focus_by_day[day] = focus_by_day.get(day, 0) + minutes
     best_focus = max(focus_by_day.items(), key=lambda item: item[1], default=(None, 0))
-    interrupted = await _event_count(session, "pomodoro.interrupted", start_dt, end_dt)
+    interrupted = int((await session.execute(select(func.count()).select_from(PomodoroSession)
+        .where(*focus_filter, PomodoroSession.interrupted.is_(True)))).scalar_one())
     topic_rows = (
         await session.execute(
             select(
@@ -135,9 +134,7 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
                 func.sum(minutes_expr),
             )
             .where(
-                Event.verb == "pomodoro.completed",
-                Event.occurred_at >= start_dt,
-                Event.occurred_at < end_dt,
+                *focus_filter,
             )
             .group_by(topic_expr)
             .order_by(func.sum(minutes_expr).desc())
@@ -162,11 +159,14 @@ async def preview(session: AsyncSession, kind: str, period_start: date) -> Revie
             .group_by(routine_title_expr)
         )
     ).all()
+    topic_context = func.coalesce(
+        select(LearningResource.topic_id).where(LearningResource.id == PomodoroSession.context_entity_id)
+        .correlate(PomodoroSession).scalar_subquery(), PomodoroSession.context_entity_id)
     study_rows = (
         await session.execute(
             select(Entity.title, func.coalesce(func.sum(PomodoroSession.actual_min), 0))
             .select_from(PomodoroSession)
-            .join(StudyTopic, StudyTopic.id == PomodoroSession.context_entity_id)
+            .join(StudyTopic, StudyTopic.id == topic_context)
             .join(StudyArea, StudyArea.id == StudyTopic.area_id)
             .join(Entity, Entity.id == StudyArea.id)
             .where(

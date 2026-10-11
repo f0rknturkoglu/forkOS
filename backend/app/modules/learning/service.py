@@ -624,7 +624,8 @@ select a.id, e.title, a.color, a.active, a.position, e.archived_at,
        (select count(*) from learning_resource r join study_topic t on t.id = r.topic_id
           where t.area_id = a.id and r.completed_at is not null) as resource_done,
        (select coalesce(sum(p.actual_min), 0) from pomodoro_session p
-          join study_topic t on t.id = p.context_entity_id
+          join study_topic t on t.id = coalesce(
+            (select r.topic_id from learning_resource r where r.id = p.context_entity_id), p.context_entity_id)
          where t.area_id = a.id and p.kind = 'focus' and p.ended_at is not null)
          as focus_minutes,
        (select count(*) from study_topic t
@@ -953,13 +954,16 @@ async def _topic_metrics(session: AsyncSession, topic_id: UUID) -> dict:
                         where r.topic_id in (select id from subtree)
                           and r.completed_at is not null) as done,
                       (select coalesce(sum(p.actual_min), 0) from pomodoro_session p
-                        where p.context_entity_id in (select id from subtree)
+                        where coalesce((select r.topic_id from learning_resource r where r.id = p.context_entity_id),
+                                       p.context_entity_id) in (select id from subtree)
                           and p.kind = 'focus' and p.ended_at is not null) as minutes,
                       (select count(*) from pomodoro_session p
-                        where p.context_entity_id in (select id from subtree)
+                        where coalesce((select r.topic_id from learning_resource r where r.id = p.context_entity_id),
+                                       p.context_entity_id) in (select id from subtree)
                           and p.kind = 'focus' and p.ended_at is not null) as sessions,
                       (select coalesce(sum(p.actual_min), 0) from pomodoro_session p
-                        where p.context_entity_id in (select id from subtree)
+                        where coalesce((select r.topic_id from learning_resource r where r.id = p.context_entity_id),
+                                       p.context_entity_id) in (select id from subtree)
                           and p.kind = 'focus' and p.ended_at is not null
                           and p.started_at >= :week_start) as week_minutes,
                       (select max(t.last_studied_at) from study_topic t
@@ -1191,23 +1195,26 @@ async def _load_area_graph(session: AsyncSession, area_id: UUID) -> dict | None:
         out = _resource_row_out(row)
         resources.setdefault(out["topic_id"], []).append(out)
 
+    topic_context = func.coalesce(
+        select(LearningResource.topic_id).where(LearningResource.id == PomodoroSession.context_entity_id)
+        .correlate(PomodoroSession).scalar_subquery(), PomodoroSession.context_entity_id)
     focus: dict[UUID, tuple[int, int]] = {
         context_entity_id: (int(minutes), int(sessions))
         for context_entity_id, minutes, sessions in (
             await session.execute(
                 select(
-                    PomodoroSession.context_entity_id,
+                    topic_context,
                     func.coalesce(func.sum(PomodoroSession.actual_min), 0),
                     func.count(PomodoroSession.id),
                 )
                 .where(
                     PomodoroSession.kind == "focus",
                     PomodoroSession.ended_at.is_not(None),
-                    PomodoroSession.context_entity_id.in_(
+                    topic_context.in_(
                         select(StudyTopic.id).where(StudyTopic.area_id == area_id)
                     ),
                 )
-                .group_by(PomodoroSession.context_entity_id)
+                .group_by(topic_context)
             )
         ).all()
     }
@@ -1702,6 +1709,9 @@ async def study_stats(session: AsyncSession, *, value: str = "week") -> dict:
             stmt = stmt.where(Event.occurred_at >= start)
         return int((await session.execute(stmt)).scalar_one())
 
+    topic_context = func.coalesce(
+        select(LearningResource.topic_id).where(LearningResource.id == PomodoroSession.context_entity_id)
+        .correlate(PomodoroSession).scalar_subquery(), PomodoroSession.context_entity_id)
     by_area = [
         {"area_id": area_id, "title": title, "minutes": int(minutes)}
         for area_id, title, minutes in (
@@ -1711,7 +1721,8 @@ async def study_stats(session: AsyncSession, *, value: str = "week") -> dict:
                     Entity.title,
                     func.coalesce(func.sum(PomodoroSession.actual_min), 0),
                 )
-                .join(PomodoroSession, PomodoroSession.context_entity_id == StudyTopic.id)
+                .select_from(StudyTopic)
+                .join(PomodoroSession, topic_context == StudyTopic.id)
                 .join(Entity, Entity.id == StudyTopic.area_id)
                 .where(*focus_filter)
                 .group_by(StudyTopic.area_id, Entity.title)
@@ -1728,7 +1739,8 @@ async def study_stats(session: AsyncSession, *, value: str = "week") -> dict:
                     Entity.title,
                     func.coalesce(func.sum(PomodoroSession.actual_min), 0),
                 )
-                .join(PomodoroSession, PomodoroSession.context_entity_id == StudyTopic.id)
+                .select_from(StudyTopic)
+                .join(PomodoroSession, topic_context == StudyTopic.id)
                 .join(Entity, Entity.id == StudyTopic.id)
                 .where(*focus_filter)
                 .group_by(StudyTopic.id, Entity.title)

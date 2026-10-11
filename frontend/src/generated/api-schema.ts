@@ -622,7 +622,7 @@ export interface paths {
         };
         /**
          * Backup Status
-         * @description Son yedek, Drive yukleme durumu ve yedek kapsami -- tek bakisla.
+         * @description Son yerel yedek ve yedek kapsami -- tek bakisla.
          */
         get: operations["backup_status_api_backup_status_get"];
         put?: never;
@@ -2272,7 +2272,7 @@ export interface paths {
          * Capture Note
          * @description Hızlı yakalanan bilgi notunu doğrudan Vault'ta (`00 Inbox/`) oluşturur.
          *
-         *     Kimliği sunucu üretir; forkOS veritabanında not kaydı OLUŞMAZ. İlişki
+         *     Kimliği client_uuid veya sunucu üretir; forkOS veritabanında not kaydı OLUŞMAZ. İlişki
          *     hedefi (`relate_to`) sunucuda çözülür, istemcinin verdiği tip/başlık
          *     kullanılmaz.
          */
@@ -5861,13 +5861,24 @@ export interface components {
         };
         /**
          * CaptureNoteIn
-         * @description Hızlı yakalama: yeni bilgi notu (kimliği sunucu üretir).
+         * @description Hızlı yakalama: yeni bilgi notu; client_uuid varsa tekrar güvenli kimlik.
          */
         CaptureNoteIn: {
             /** Body */
             body: string;
+            /** Client Uuid */
+            client_uuid?: string | null;
+            /** Folder */
+            folder?: string | null;
+            /**
+             * Pinned
+             * @default false
+             */
+            pinned: boolean;
             /** Relate To */
             relate_to?: string | null;
+            /** Source Url */
+            source_url?: string | null;
             /** Tags */
             tags?: string[];
             /** Title */

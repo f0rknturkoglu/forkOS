@@ -265,7 +265,7 @@ export function StorageReportSection() {
               <span className="text-secondary">{formatMaintenancePruned(data.maintenance.results)}</span>
             </>
           ) : (
-            "Kaynak koşuları, bildirimler ve yetim medya görselleri günlük bakımla sınırlandırılır."
+            "Kaynak koşuları ve bildirimler günlük bakımla sınırlandırılır; emekli medya arşivi korunur."
           )}
         </p>
       </div>
@@ -372,9 +372,9 @@ export function DangerZoneSection({ onReset, busy }: { onReset: () => void; busy
       title: "Ayarlar varsayılana dönsün mü?",
       body:
         "Sıfırlananlar: modül tercihleri, Home düzeni, bildirim ve hava durumu ayarları, kariyer profili, " +
-        "medya API anahtarları ve hızlı bağlantılar, yedekleme klasörü ve proaktivite genel tercihleri " +
+        "yedekleme klasörü ve proaktivite genel tercihleri " +
         "(açık/kapalı, sessiz saatler, özet saati).\n\n" +
-        "Dokunulmayanlar: operasyonel kayıtların (görev, proje, fırsat, medya, RSS …), f0rknbrain Vault'u, " +
+        "Dokunulmayanlar: operasyonel kayıtların (görev, proje, fırsat, RSS ve tarihsel arşivler …), f0rknbrain Vault'u, " +
         "proaktivite kural/koşu geçmişi, karar ve yürütme geçmişi, bağlı hesaplar (Google/GitHub). " +
         "Hermes'in kendi yapılandırması forkOS'tan yönetilmez; bu işlemden etkilenmez.",
       confirmLabel: "Ayarları sıfırla",

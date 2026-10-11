@@ -50,7 +50,7 @@ class UriOut(BaseModel):
 
 
 class CaptureNoteIn(BaseModel):
-    """Hızlı yakalama: yeni bilgi notu (kimliği sunucu üretir)."""
+    """Hızlı yakalama: yeni bilgi notu; client_uuid varsa tekrar güvenli kimlik."""
 
     body: str = Field(min_length=1)
     title: str | None = None
@@ -58,6 +58,10 @@ class CaptureNoteIn(BaseModel):
     #: istemciden ALINMAZ; sunucu `entity` tablosundan çözer.
     relate_to: uuid.UUID | None = None
     tags: list[str] = Field(default_factory=list)
+    client_uuid: uuid.UUID | None = None
+    source_url: str | None = None
+    folder: str | None = None
+    pinned: bool = False
 
 
 class EnsureManagedNoteIn(BaseModel):

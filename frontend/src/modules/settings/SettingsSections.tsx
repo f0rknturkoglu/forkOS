@@ -28,7 +28,6 @@ import type { Theme } from "@/core/ui";
 export type SaveFn = (key: string, value: unknown) => void;
 
 export type IntegrationStatus = { connected: boolean; login?: string | null };
-type MediaLink = { name: string; url: string; icon?: string };
 
 /**
  * Sifre alani: API anahtarlari duz metin gorunmesin. Goz dugmesi yalnizca

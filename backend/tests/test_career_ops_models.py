@@ -1,4 +1,5 @@
 import pytest
+
 from app.integrations.career_ops.errors import (
     CareerOpsConfigurationError,
     CareerOpsError,

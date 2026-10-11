@@ -437,7 +437,7 @@ async def get_entity_context(session: AsyncSession, entity_id: str) -> EntityCon
             id=str(entity.id),
             type=entity.type,
             title=entity.title,
-            route="/notes",
+            route=resolve_route(entity.type, entity.id),
             details={
                 "status": "frozen legacy archive",
                 "note": "Legacy Note entities are frozen. Active knowledge lives in the f0rknbrain Vault.",

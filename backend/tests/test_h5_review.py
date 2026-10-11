@@ -11,10 +11,12 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.entity import create_entity
 from app.core.models import Entity, Event
 from app.db import SessionLocal
 from app.integrations.review_intelligence import models as ri
 from app.integrations.review_intelligence import service as ri_svc
+from app.modules.pomodoro.models import PomodoroSession
 from app.modules.review.models import Review
 from app.modules.todo.models import Todo
 from tests.agent_test_utils import forbid_outbound_network  # noqa: F401  (autouse)
@@ -77,6 +79,10 @@ async def test_daily_close_reuses_review_preview_and_reports_focus(
         entity=todo,
         payload={"minutes": 50, "topic": "ALES"},
     )
+    focus = await create_entity(db_session, type="pomodoro_session", title="ALES")
+    db_session.add(PomodoroSession(id=focus.id, started_at=datetime(2026, 9, 18, 11, 0, tzinfo=UTC),
+        ended_at=datetime(2026, 9, 18, 11, 50, tzinfo=UTC), actual_min=50, planned_min=50,
+        kind="focus", topic="ALES", context_entity_id=todo.id))
     await db_session.commit()
 
     response = await ri_svc.review_intelligence(
@@ -223,6 +229,10 @@ async def test_period_delta_reports_focus_and_scoped_activity(
         entity=todo,
         payload={"minutes": 40, "topic": "forkOS"},
     )
+    focus = await create_entity(db_session, type="pomodoro_session", title="forkOS")
+    db_session.add(PomodoroSession(id=focus.id, started_at=ANCHOR + timedelta(hours=3),
+        ended_at=ANCHOR + timedelta(hours=3, minutes=40), actual_min=40, planned_min=40,
+        kind="focus", topic="forkOS", context_entity_id=todo.id))
     await db_session.commit()
 
     response = await ri_svc.review_intelligence(

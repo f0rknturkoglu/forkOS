@@ -21,7 +21,7 @@ export interface SavedViewRow {
 interface SavedViewPickerProps {
   /**
    * Görünümlerin bağlı olduğu modül kimliği = FRONTEND registry kimliği
-   * ("bookmarks", "media", "todo", "opportunity"...). Sidebar aynı kimliği
+   * ("bookmarks", "todo", "opportunity"...). Sidebar aynı kimliği
    * modül rotasına çevirir; backend bu alanı opak taşır.
    */
   module: string;

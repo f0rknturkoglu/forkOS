@@ -22,6 +22,7 @@ CORE_EVENT_VERBS: tuple[str, ...] = (
     "source.failing",
     "source_sync.queued",
     "source_sync.started",
+    "source_sync.retired",
     "source_sync.sources_added",
     "source_sync.completed",
 )

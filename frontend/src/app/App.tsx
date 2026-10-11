@@ -1,5 +1,6 @@
 import "@/modules"; // registry yi doldurur -- ILK import olmali
 import { useSourceHealth } from "@/core/runtimeQueries";
+import { LegacyVaultLink } from "@/core/LegacyVaultLink";
 import { Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, WifiOff, X } from "lucide-react";
@@ -154,6 +155,7 @@ export default function App() {
 
   useEffect(() => {
     const root = path.split("/")[1];
+    if ((root === "notes" || root === "knowledge") && params.has("focus")) return;
     if (["media", "finance", "documents", "notes", "knowledge"].includes(root)) {
       navigate(
         root === "documents"
@@ -164,12 +166,14 @@ export default function App() {
         { replace: true },
       );
     }
-  }, [path]);
+  }, [path, params]);
 
   const routes = allRoutes();
   const globalSurfaces = allGlobalSurfaces();
   const route = routeForPath(routes, path);
-  const Page = route?.element ?? (path === "/" ? routes[0]?.element : NotFound) ?? NotFound;
+  const Page = ["/notes", "/knowledge"].includes(path)
+    ? LegacyVaultLink
+    : (route?.element ?? (path === "/" ? routes[0]?.element : NotFound) ?? NotFound);
 
   return (
     <ToastProvider>

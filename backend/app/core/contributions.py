@@ -22,7 +22,7 @@ from app.core.time import local_today, streak_stats
 KINDS: dict[str, list[str]] = {
     "read":  ["rss.item_read", "rss.item_saved", "bookmark.saved", "bookmark.read"],
     "task":  ["todo.completed"],
-    "focus": ["pomodoro.completed"],
+    "focus": ["pomodoro.completed"],  # Audit vocabulary; operational counts below use sessions.
     "routine": ["habit.checked"],
     "study": ["study.topic_completed", "review.completed",
               "book.finished", "course.completed",
@@ -37,7 +37,7 @@ KIND_LABELS: dict[str, str] = {
     "focus": "odak",
     "routine": "rutin",
     "study": "çalışma",
-    "media": "medya",
+    "media": "medya (arşiv)",
 }
 
 VERB_KIND: dict[str, str] = {
@@ -57,8 +57,24 @@ and (e.payload->>'amount')::numeric > 0
 
 #: Sayilan islerin ORTAK where parcasi. `:verbs` parametresi ve `e` alias'i sart.
 COUNTED_WHERE = (
-    "e.verb = any(:verbs) and (e.verb <> 'media.consumed' or (" + POSITIVE_MEDIA_SQL + "))"
+    "e.verb = any(:verbs) and e.verb <> 'pomodoro.completed' and (e.verb <> 'media.consumed' or (" + POSITIVE_MEDIA_SQL + "))"
 )
+
+
+async def focus_day_counts(session: AsyncSession, *, since: date | None = None, day: date | None = None) -> dict[date, int]:
+    """Recorded focus is attributed to the local start day, including interrupted work."""
+    where = "kind = 'focus' and ended_at is not null"
+    params = {"tz": settings.timezone}
+    if since is not None:
+        where += " and (started_at at time zone :tz)::date >= :since"
+        params["since"] = since
+    if day is not None:
+        where += " and (started_at at time zone :tz)::date = :day"
+        params["day"] = day
+    rows = (await session.execute(text(
+        "select (started_at at time zone :tz)::date as day, count(*) as n "
+        f"from pomodoro_session where {where} group by 1"), params)).all()
+    return dict(rows)
 
 
 def _kind_for(
@@ -67,6 +83,8 @@ def _kind_for(
     *,
     positive_media_consumption: bool = False,
 ) -> str | None:
+    if verb == "pomodoro.completed":
+        return None  # Audit action day must not duplicate session start-day work.
     if verb == "todo.completed" and routine:
         return "routine"
     if verb == "media.consumed":
@@ -121,6 +139,12 @@ async def heatmap(session: AsyncSession, *, days: int = 365) -> dict:
         entry["total"] += row["n"]
         entry["kinds"][kind] = entry["kinds"].get(kind, 0) + row["n"]
 
+    for focus_day, count in (await focus_day_counts(session, since=start)).items():
+        day = focus_day.isoformat()
+        entry = by_day.setdefault(day, {"day": day, "total": 0, "kinds": {}})
+        entry["kinds"]["focus"] = count
+        entry["total"] += count
+
     # Bos gunler de donsun: arayuz 365 kutuyu kendi uretmek zorunda kalmasin.
     series = []
     for offset in range(days):
@@ -165,7 +189,7 @@ async def active_days(session: AsyncSession, *, since: date | None = None) -> se
             params,
         )
     ).scalars().all()
-    return set(rows)
+    return set(rows) | set(await focus_day_counts(session, since=since))
 
 
 async def day_detail(session: AsyncSession, day: date) -> dict:
@@ -214,6 +238,10 @@ async def day_detail(session: AsyncSession, day: date) -> dict:
         if kind:
             kinds[kind] = kinds.get(kind, 0) + 1
 
+    other = len(events) - sum(kinds.values())
+    focus = (await focus_day_counts(session, day=day)).get(day, 0)
+    if focus:
+        kinds["focus"] = focus
     return {
         "day": day.isoformat(),
         "events": events,
@@ -221,5 +249,5 @@ async def day_detail(session: AsyncSession, day: date) -> dict:
         "labels": KIND_LABELS,
         "total": sum(kinds.values()),
         # Sayilmayanlar da gorunur ama ayri: worker gurultusu ile emek karismasin.
-        "other": len(events) - sum(kinds.values()),
+        "other": other,
     }

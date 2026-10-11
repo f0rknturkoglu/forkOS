@@ -242,6 +242,7 @@ ACTIVITY_FILTERS: dict[str, tuple[str, ...]] = {
         "source_sync.queued",
         "source_sync.sources_added",
         "source_sync.started",
+        "source_sync.retired",
         "system.automation_profile",
         "system.maintenance",
         "system.refresh.completed",

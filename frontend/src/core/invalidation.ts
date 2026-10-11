@@ -40,20 +40,6 @@ export const AFTER = {
     "study-topic",
   ],
   "rss.write": ["items", "rss-item", "feeds", "rss-stats", "today-agenda", "activity"],
-  // Medya yazmasi koleksiyon uyeligi, bagli kayitlar, graf ve son tarihleri de
-  // etkiler (release tarihleri deadline uretir); yalniz "media" tazelemek
-  // Today/graf/son tarih panellerini bayat birakir.
-  "media.write": [
-    "media",
-    "media-detail",
-    "media-stats",
-    "media-dashboard",
-    "today-agenda",
-    "activity",
-    "statistics",
-    "deadlines",
-    "related",
-  ],
   "opportunity.write": [
     "career-insights",
     "strategy-overview",
@@ -129,17 +115,6 @@ export const AFTER = {
     "tags",
   ],
   "plan.write": ["plan", "today-agenda", "calendar-events", "activity", "todos"],
-  "finance.write": [
-    "expenses",
-    "incomes",
-    "finance-overview",
-    "finance-summary",
-    "recurring",
-    "recurring-history",
-    "deadlines",
-    "today-agenda",
-    "activity",
-  ],
   // Kart tekrari/add: Today, Istatistik, Etkinlik ve Degerlendirme panelleri
   // de bu veriden beslenir -- yalnizca "flashcard" tazelemek onlari bayat birakir.
   "flashcard.write": ["flashcard", "activity", "statistics", "today-agenda", "review-preview"],
@@ -169,6 +144,9 @@ export const AFTER = {
     "deadlines",
   ],
   "pomodoro.write": [
+    "statistics",
+    "study-tree",
+    "study-areas",
     "pomodoro-active",
     "pomodoro-stats",
     "pomodoro-analytics",
@@ -227,10 +205,6 @@ export const AFTER = {
     "source-sync-history",
     "opportunities",
     "notifications",
-    "media-providers",
-    "media",
-    "media-dashboard",
-    "media-detail",
     "items",
     "feeds",
     "calendar-events",

@@ -49,7 +49,7 @@ export function useSystemStats() {
   });
 }
 
-/** Yedek durumu (son yedek, Drive gecmisi, degisiklik durumu). */
+/** Yerel yedek durumu (son yedek ve degisiklik durumu). */
 const BACKUP_STATUS_QUERY_KEY = ["backup-status"] as const;
 const BACKUP_STATUS_INTERVAL_MS = 60_000;
 

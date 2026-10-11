@@ -2,6 +2,9 @@
 
 Bu belge forkOS'un güncel teknik sözleşmesini anlatır. Tamamlanmış fazların değişiklik günlüğü değildir; yeni bir modül veya entegrasyon geliştirirken başvurulacak yaşayan kaynaktır. Bağlayıcı agent kuralları `AGENTS.md` dosyasındadır.
 
+Güncel ürün sınırları: [V1 ürün kapsamı](architecture/v1-product-scope.md).
+Kapanış kanıtları: [V1 kapanış raporu](architecture/v1-scope-closure-report.md).
+
 ## 1. Çalışma modeli
 
 forkOS tek makinede ve tek kullanıcı için çalışır:
@@ -147,7 +150,7 @@ Son tarih üreten modüller `ModuleSpec.deadline_provider` sağlar. `backend/app
 
 Today bir veri sahibi değil, orkestrasyon yüzeyidir. Modüller `todayWidgets` ile benzersiz ve kalıcı widget ID'leri kaydeder. Kullanıcının sıra/görünürlük tercihleri bu ID'lere bağlıdır.
 
-Agenda; görev, plan, takvim, fırsat, öğrenme ve medya kayıtlarını tek günlük read-model içinde birleştirir. Bir widget hatası diğer widget'ları engellememelidir.
+Agenda; görev, plan, takvim, fırsat ve öğrenme kayıtlarını tek günlük read-model içinde birleştirir. Bir widget hatası diğer widget'ları engellememelidir.
 
 ### Pomodoro
 
@@ -171,7 +174,7 @@ POST   /api/bookmarks/{id}/source-note             # kaynak notu köprüsü
 POST   /api/opportunities/{id}/research-note       # araştırma notu köprüsü
 ```
 
-Kapalı yüzeyler: `/api/notes*`, `/api/note-folders*`, `/api/graph` ve bağımsız `/notes` UI. Obsidian köprüsü ve ajan bağlamı Ayarlar → Agent & Bilgi ve retained modüllerde devam eder. [V1 kapsamı](architecture/v1-scope-consolidation.md).
+Kapalı yüzeyler: `/api/notes*`, `/api/note-folders*`, `/api/graph` ve bağımsız `/notes` UI. Obsidian köprüsü ve ajan bağlamı Ayarlar → Agent & Bilgi ve retained modüllerde devam eder. [V1 kapsamı](architecture/v1-product-scope.md).
 
 Legacy Notlar tabloları, blokları ve `note.*` olayları **dondurulmuş arşiv** olarak yerinde kalır (hiçbir migration tablo DROP etmez): hiçbir ürün akışı yazmaz, global aramada ve ilişki panellerinde görünmez, günlük bakımla budanmaz. Vault erişilemezse bilgi işlemleri **fail-closed**'dur (`503`/`403`) ve legacy Notlar'a düşen bir yedek yazma yolu yoktur. Domain grafiği (Entity/Link/Event, `RelatedPanel`, `BacklinksPanel`) yürütme omurgasıdır ve aynen korunur. Ayrıntı: `docs/obsidian-hybrid/phase3-cutover.md`.
 
@@ -213,8 +216,8 @@ Kurallar:
 
 Manuel yenileme kapsamları (`POST /api/system/refresh` gövdesi `{"scope": ...}`):
 
-- `critical` — yalnız resmî/hızlı kaynaklar (medya hariç)
-- `standard` (varsayılan) — opt-in kaynaklar hariç tümü + medya
+- `critical` — yalnız resmî/hızlı fırsat kaynakları
+- `standard` (varsayılan) — opt-in kaynaklar hariç fırsat kaynakları ve RSS
 - `full` — katalogun tamamı, opt-in dahil
 
 Aynı yenileme çift başlatılmaz; süreci ölmüş bir `running` kaydı bayat sayılır ve kilit açılır.
@@ -244,7 +247,7 @@ PostgreSQL'te Türkçe stemmer varsayılmaz. Arama:
 
 bileşimiyle çalışır. Yeni aranabilir domain kaydı entity başlığı ve arama metnini create/update sırasında güncel tutar.
 
-forkOS global araması **operasyoneldir** (görev, proje, fırsat, yer imi, medya, belge, öğrenme konusu…). Legacy notlar `searchable=False` olduğu için sonuç dönmez; bilgi araması Obsidian'ındır (`Vault'ta ara` → `obsidian://search`). Semantik arama/RAG bu fazda yoktur.
+forkOS global araması **operasyoneldir** (görev, proje, fırsat, yer imi, kariyer belgesi, öğrenme konusu…). Legacy notlar `searchable=False` olduğu için sonuç dönmez; bilgi araması Obsidian'ındır (`Vault'ta ara` → `obsidian://search`). Semantik arama/RAG bu fazda yoktur.
 
 ## 8. Tasarım sistemi
 
@@ -322,7 +325,7 @@ forkOS tek kullanıcılı, yerel öncelikli (local-first) bir sistemdir. Sistem 
 - **Görünürlük vs. Otomasyon:** Ayarlar → Modüller ekranında bir modülü gizlemek arayüz rotasını ve Home bileşenlerini kapatır; arka plan ağ trafiğini kesmez. Arka plan trafiği ayrı olarak `automation.<domain>.enabled` (veya `rss.interval_minutes = 0`) ile yönetilir.
 - **Çalışma profilleri:**
   - `Manual`: Dış ağ otomasyonu kapalıdır; yalnızca yerel hafif bakım ve açık manuel yenilemeler çalışır.
-  - `Balanced` (varsayılan): RSS 60 dk, fırsat 30 dk, takvim 60 dk, GitHub 3 sa, medya 24 sa.
+  - `Balanced` (varsayılan): RSS 60 dk, fırsat 30 dk, takvim 60 dk, GitHub 3 sa.
   - `Active`: Daha sık turlar (RSS 30 dk, fırsat 15 dk, takvim 30 dk).
 - **Öncelik kuralı:** Modül otomasyonu kapalıysa profil ne olursa olsun çalışmaz; profiller yalnızca açık modüllerin sıklığını belirler.
 - **Opt-in kaynaklar:** LinkedIn ve EURES gibi `slow_optin` kaynaklar otomatik profillerle asla kendiliğinden açılmaz; yalnızca açık manuel seçimle koşar.
@@ -370,3 +373,22 @@ Kanonik sahip mevcut `goal` modülüdür; plan/pillar/Goal/KR graph'ı, Decimal
 Review.stats immutable sürümlü snapshot taşır. Hermes tek salt okunan strategy
 aracıyla gerçekleri okur; H6 isteğe bağlı stratejik dikkat aynı teslim motorunu
 kullanır. Ayrıntılar: [Hedefler ve Strateji](goals-strategy.md).
+
+## Canlı odak ölçümleri ve tarihsel kanıt
+
+`pomodoro_session` bitmiş focus oturumlarının süresi, sayısı, bağlamı ve
+yerel başlangıç günü için tek operasyonel kaynaktır. Gece yarısını geçen oturum
+başladığı güne yazılır; kesilmiş oturumun kaydedilmiş `actual_min` değeri korunur.
+Review önizlemesi, Statistics, öğrenme ve emek haritası bu kayıtları okur.
+Olay akışı işlem zamanını gösterir; tamamlanma/düzenleme/silme olayları değiştirilmez.
+Kaydedilmiş Review `stats` bir anlık görüntüdür; sonraki seans düzenlemeleri
+yalnız canlı özetleri değiştirir.
+
+Vault capture `client_uuid` verildiğinde aynı kimlikle aynı içerik tekrar
+gönderilirse mevcut dosyayı döndürür. Transaction advisory lock API süreçlerini
+serileştirir; fingerprint uyuşmazlığı 409 verir. İndeks yeniden taranır, dosyaya
+yeni içerik yazılmaz. `folder` yalnız metadata'dır, yol olarak kullanılmaz.
+
+0079 migration yalnız medya batch'lerini terminal duruma taşır, çalışan medya
+koşularını `abandoned` yapar ve yeni kapanış olayı ekler. Tarihsel medya batch ve
+koşuları retention dışında tutulur; fırsat kuyruğunun işleyişi değişmez.

@@ -94,7 +94,7 @@ async def summary(session: AsyncSession) -> StatisticsSummary:
     today = now.date()
     week_start = now - timedelta(days=7)
 
-    families = list(VERB_COUNTERS.items())
+    families = [(name, verb) for name, verb in VERB_COUNTERS.items() if name != "pomodoros"]
     names = [name for name, _ in families]
     rows = [
         dict(row)
@@ -106,6 +106,12 @@ async def summary(session: AsyncSession) -> StatisticsSummary:
         ).mappings()
     ]
     counters = _buckets(rows, today, week_start, names)
+    focus_rows = [dict(row) for row in (await session.execute(text(
+        "select (started_at at time zone :tz)::date as day, count(*) as pomodoros "
+        "from pomodoro_session where kind = 'focus' and ended_at is not null "
+        f"and started_at >= now() - interval '{_MONTHS} months' group by 1"
+    ), {"tz": settings.timezone})).mappings()]
+    counters.update(_buckets(focus_rows, today, week_start, ["pomodoros"]))
 
     # Seri YALNIZCA insan eliyle yapilan islerden sayilir: haritanin filtre
     # Filtresiyle ayni kume (contributions.COUNTED_VERBS). Tum event'leri
@@ -159,7 +165,7 @@ async def monthly(session: AsyncSession, months: int) -> list[MonthlyPoint]:
             await session.execute(
                 text(
                     "select to_char(e.occurred_at at time zone :tz, 'YYYY-MM') as month\n"
-                    "    ,count(*) filter (where e.verb = 'pomodoro.completed') as pomodoros\n"
+                    "    ,0 as pomodoros\n"
                     "    ,count(*) filter (where e.verb = 'todo.completed') as todos\n"
                     "    ,count(*) filter (where e.verb = 'bookmark.saved') as bookmarks\n"
                     "    ,count(*) filter (where e.verb = 'note.created') as notes\n"
@@ -174,6 +180,18 @@ async def monthly(session: AsyncSession, months: int) -> list[MonthlyPoint]:
         ).mappings()
     ]
     by_month = {row["month"]: row for row in rows}
+
+    focus_rows = (await session.execute(text(
+        "select to_char(started_at at time zone :tz, 'YYYY-MM') as month, count(*) as n "
+        "from pomodoro_session where kind = 'focus' and ended_at is not null "
+        f"and started_at >= now() - interval '{months + 1} months' group by 1"
+    ), {"tz": settings.timezone})).all()
+    for row in by_month.values():
+        row["pomodoros"] = 0
+    for month, count in focus_rows:
+        row = by_month.setdefault(month, dict.fromkeys(
+            ["pomodoros", "todos", "bookmarks", "notes", "rss_read", "reviews"], 0))
+        row["pomodoros"] = count
 
     # Basvurular event'ten gelmez (kural 3 ek verisi: applied_at kolonu);
     # aylik kirilim o yuzden ayri sorgudan okunur.

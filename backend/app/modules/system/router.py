@@ -293,7 +293,7 @@ async def set_automation_profile(
 
 @router.get("/backup/status")
 async def backup_status(session: AsyncSession = Depends(get_session)):
-    """Son yedek, Drive yukleme durumu ve yedek kapsami -- tek bakisla."""
+    """Son yerel yedek ve yedek kapsami -- tek bakisla."""
     return await backup.backup_status(session)
 
 

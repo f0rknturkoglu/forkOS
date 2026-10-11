@@ -1,8 +1,9 @@
 """C5 Application Package test suite (Section 34 & 36)."""
 
+import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
-import uuid
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,18 +11,15 @@ from app.core.entity import create_entity
 from app.db import SessionLocal
 from app.modules.document.models import Document
 from app.modules.opportunity.evaluation_service import CareerEvaluationService
-from app.modules.opportunity.models import Application, CareerStory, Opportunity, OpportunitySourceObservation
+from app.modules.opportunity.models import (
+    Application,
+    Opportunity,
+    OpportunitySourceObservation,
+)
 from app.modules.opportunity.package_service import ApplicationPackageService
 from app.modules.opportunity.reasoner.base import (
     ApplicationAnswerDraft,
-    CareerReasoner,
-    CoverLetterDraft,
-    CvChangeItemDraft,
     CvFactVerificationDraft,
-    DeepEvaluationDraft,
-    KnockoutAnswerDraft,
-    RequirementAssessmentDraft,
-    TailoredCvDraft,
 )
 from app.modules.opportunity.reasoner.mock import DeterministicMockCareerReasoner
 

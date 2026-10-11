@@ -313,10 +313,10 @@ function attentionItems(input: {
       key: "vault-unknown",
       text: "Bilgi kasası durumu alınamadı — durum bilinmiyor.",
       tone: "neutral",
-      href: "#/notes",
+      href: "#/settings?tab=brain",
     });
   } else if (input.vaultDegraded) {
-    items.push({ key: "vault", text: `Bilgi kasası: ${input.vaultChip}`, tone: "warn", href: "#/notes" });
+    items.push({ key: "vault", text: `Bilgi kasası: ${input.vaultChip}`, tone: "warn", href: "#/settings?tab=brain" });
   }
 
   if (input.agentState === "error") {
@@ -772,7 +772,7 @@ export function SystemStatusOverview({ summary }: { summary: HealthSummary }) {
             value={vaultValue}
             tone={vaultState === "error" ? "neutral" : VAULT_TONE[summary.vault.kind]}
             hint={vaultState === "error" ? unknownHint("Bilgi kasası durumu") : summary.vault.hint}
-            href="#/notes"
+            href="#/settings?tab=brain"
           />
           <SummaryRow
             label="Yerel model"

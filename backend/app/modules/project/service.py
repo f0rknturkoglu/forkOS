@@ -327,8 +327,11 @@ async def timeline(session: AsyncSession, project_id: uuid.UUID, limit: int = 60
         .where(Link.to_id == project_id, Link.relation == "belongs_to")
     )
     conditions.append(
-        Event.verb.in_(("pomodoro.completed", "pomodoro.interrupted"))
-        & Event.payload["context_entity_id"].astext.in_(todo_ids_text)
+        Event.verb.in_(("pomodoro.completed", "pomodoro.interrupted", "pomodoro.updated", "pomodoro.deleted"))
+        & or_(Event.payload["context_entity_id"].astext.in_(todo_ids_text),
+               Event.payload["context_entity_id"].astext == str(project_id),
+               Event.payload["before"]["context_entity_id"].astext.in_(todo_ids_text),
+               Event.payload["before"]["context_entity_id"].astext == str(project_id))
     )
     if project.github_repo:
         conditions.append(

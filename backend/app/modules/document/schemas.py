@@ -1,8 +1,6 @@
-"""Documents modülü çıktı şemaları.
+"""Emekli Documents kullanım özetinin tarihsel şemaları; aktif usages ucu yoktur.
 
-GET /documents/usages: belge başına, belgenin kullanıldığı fırsat özetleri.
-Eskiden DocumentsPage /opportunities listesini istemcide filtreliyordu
-(limit:2000 hack'i); artık bu uç bağları tek sorguda sunar.
+Kariyer dosyalarının yerel upload/list/download sözleşmesi router'da korunur.
 """
 from __future__ import annotations
 

@@ -374,6 +374,9 @@ async def update(session: AsyncSession, pomo_id: uuid.UUID, data: PomodoroManual
     context = await session.get(Entity, data.context_entity_id) if data.context_entity_id else None
     if data.context_entity_id and context is None:
         raise ValueError("Bağlam kaydı bulunamadı")
+    before = {"started_at": pomo.started_at.isoformat(), "minutes": pomo.actual_min,
+              "kind": pomo.kind, "topic": pomo.topic,
+              "context_entity_id": str(pomo.context_entity_id) if pomo.context_entity_id else None}
     pomo.started_at = data.started_at
     pomo.ended_at = ended
     pomo.actual_min = data.minutes
@@ -386,7 +389,9 @@ async def update(session: AsyncSession, pomo_id: uuid.UUID, data: PomodoroManual
     await touch_entity(session, pomo.id, title=f"Pomodoro: {label}", search_text=label)
     await log_event(session, verb="pomodoro.updated", entity_id=pomo.id,
                     entity_type=PomodoroSession.ENTITY_TYPE,
-                    payload={"minutes": data.minutes, "source": pomo.source})
+                    payload={"minutes": data.minutes, "source": pomo.source, "before": before,
+                             "started_at": pomo.started_at.isoformat(), "kind": pomo.kind, "topic": pomo.topic,
+                             "context_entity_id": str(pomo.context_entity_id) if pomo.context_entity_id else None})
     await session.commit()
     return await _out(session, pomo)
 
@@ -398,7 +403,9 @@ async def delete(session: AsyncSession, pomo_id: uuid.UUID) -> bool:
     if pomo.ended_at is None:
         raise ValueError("Aktif seansı önce durdurun")
     await log_event(session, verb="pomodoro.deleted", entity_type=PomodoroSession.ENTITY_TYPE,
-                    payload={"session_id": str(pomo.id), "minutes": pomo.actual_min})
+                    payload={"session_id": str(pomo.id), "minutes": pomo.actual_min, "source": pomo.source,
+                             "started_at": pomo.started_at.isoformat(), "kind": pomo.kind, "topic": pomo.topic,
+                             "context_entity_id": str(pomo.context_entity_id) if pomo.context_entity_id else None})
     await delete_entity(session, pomo.id)
     await session.commit()
     return True

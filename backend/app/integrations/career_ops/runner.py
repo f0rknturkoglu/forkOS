@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import shutil
 import signal
@@ -11,7 +12,6 @@ from pathlib import Path
 from typing import Protocol
 
 from app.integrations.career_ops.errors import (
-    CareerOpsExecutionError,
     CareerOpsInvalidOutputError,
     CareerOpsSecurityError,
     CareerOpsTimeoutError,
@@ -169,10 +169,8 @@ class SubprocessCareerOpsRunner:
         async def _kill_process() -> None:
             if proc.returncode is None:
                 pgid: int | None = None
-                try:
+                with contextlib.suppress(Exception):
                     pgid = os.getpgid(proc.pid)
-                except Exception:
-                    pass
 
                 # 1. Send SIGTERM to entire process group or direct process
                 if pgid is not None:
@@ -209,18 +207,16 @@ class SubprocessCareerOpsRunner:
                             pass
                         except Exception:
                             pass
-                    try:
+                    with contextlib.suppress(Exception):
                         await asyncio.shield(asyncio.wait_for(proc.wait(), timeout=1.0))
-                    except Exception:
-                        pass
 
         try:
             await asyncio.wait_for(_drain_proc(), timeout=timeout)
-        except _BufferExceededError:
+        except _BufferExceededError as exc:
             await _kill_process()
             raise CareerOpsInvalidOutputError(
                 f"Script '{script_name}' exceeded maximum output buffer ({self.max_buffer_bytes} bytes)."
-            )
+            ) from exc
         except TimeoutError as exc:
             await _kill_process()
             raise CareerOpsTimeoutError(

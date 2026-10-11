@@ -206,7 +206,7 @@ test("enqueues and flushes todos to /todos endpoint", { concurrency: false }, as
   assert.equal(state.outbox.length, 0);
 });
 
-test("enqueues and flushes notes to /notes endpoint", { concurrency: false }, async () => {
+test("enqueues and flushes notes to /obsidian/capture endpoint", { concurrency: false }, async () => {
   const state = installChrome();
   let requestedUrl = null;
   let sentBody = null;
@@ -228,14 +228,19 @@ test("enqueues and flushes notes to /notes endpoint", { concurrency: false }, as
     title: "Architecture Decisions",
     body_text: "Single bookmark table for inbox and library.",
     folder: "system",
+    tags: ["architecture"],
+    relate_to: "d4050e09-428b-43ea-b76d-4fe872975b47",
   });
 
   assert.equal(result.sent, 1);
   assert.equal(result.pending, 0);
-  assert.match(requestedUrl, /\/notes$/);
+  assert.match(requestedUrl, /\/obsidian\/capture$/);
   assert.equal(sentBody.title, "Architecture Decisions");
-  assert.equal(sentBody.body_text, "Single bookmark table for inbox and library.");
+  assert.equal(sentBody.body, "Single bookmark table for inbox and library.");
   assert.equal(sentBody.folder, "system");
+  assert.deepEqual(sentBody.tags, ["architecture"]);
+  assert.ok(sentBody.client_uuid);
+  assert.equal(sentBody.relate_to, "d4050e09-428b-43ea-b76d-4fe872975b47");
   assert.equal(state.outbox.length, 0);
 });
 
@@ -279,3 +284,27 @@ test("enqueues and flushes bookmarks with pocket metadata to /capture endpoint",
   assert.equal(state.outbox.length, 0);
 });
 
+
+test("Vault failures preserve note content and stable retry identity", { concurrency: false }, async () => {
+  const state = installChrome();
+  globalThis.fetch = async () => ({ ok: false, status: 503 });
+  const { enqueueNote, flush, retryFailed } = await loadOutbox();
+  const note = { title: "Keep", body_text: "Do not lose", tags: ["important"] };
+  await enqueueNote(note);
+  assert.equal(state.outbox.length, 1);
+  const identity = state.outbox[0].client_uuid;
+  globalThis.fetch = async () => ({ ok: false, status: 422, async text() { return "invalid relationship"; } });
+  await flush();
+  assert.equal(state.outbox.length, 0);
+  assert.equal(state.failedCaptures[0].body_text, note.body_text);
+  assert.equal(state.failedCaptures[0].client_uuid, identity);
+  globalThis.fetch = async (url, options) => {
+    assert.match(url, /\/obsidian\/capture$/);
+    assert.equal(JSON.parse(options.body).client_uuid, identity);
+    return { ok: true, status: 201, async json() { return {}; } };
+  };
+  await retryFailed();
+  await flush();
+  assert.equal(state.outbox.length, 0);
+  assert.equal(state.failedCaptures.length, 0);
+});

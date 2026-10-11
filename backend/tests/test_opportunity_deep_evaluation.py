@@ -1,38 +1,30 @@
 """C4 Deep Evaluation test suite (Section 33 & 35)."""
 
 from collections.abc import AsyncIterator
-import uuid
 from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import SessionLocal
 from app.core.entity import create_entity
-
-@pytest.fixture
-async def db_session() -> AsyncIterator[AsyncSession]:
-    async with SessionLocal() as session:
-        yield session
-
-from app.modules.opportunity.candidate_context import (
-    CandidateCareerContext,
-    CandidateFact,
-    build_candidate_career_context,
-)
+from app.db import SessionLocal
 from app.modules.opportunity.evaluation_service import (
     CareerEvaluationService,
     DeepEvaluation,
 )
 from app.modules.opportunity.intelligence import evaluate_opportunity as evaluate_candidate
-from app.modules.opportunity.listing_context import build_career_listing_context
 from app.modules.opportunity.models import CareerStory, Opportunity, OpportunitySourceObservation
 from app.modules.opportunity.reasoner.base import (
-    CareerReasonerError,
-    CareerReasonerMalformedOutputError,
     CareerReasonerUnavailableError,
 )
 from app.modules.opportunity.reasoner.mock import DeterministicMockCareerReasoner
 from app.modules.opportunity.reasoner.none import NoneCareerReasoner
+
+
+@pytest.fixture
+async def db_session() -> AsyncIterator[AsyncSession]:
+    async with SessionLocal() as session:
+        yield session
 
 
 async def _seed_test_opportunity(
@@ -97,7 +89,6 @@ async def test_deep_evaluation_evidence_matching_and_no_invention(db_session: As
     assert not evaluation.is_stale
 
     # Must have matches
-    must_have_reqs = {r.requirement: r for r in evaluation.must_have}
     # Python & FastAPI are in candidate facts (from config.yaml) -> strong
     python_req = [r for r in evaluation.must_have if "python" in r.requirement.casefold()]
     assert python_req and python_req[0].classification == "strong"
@@ -194,7 +185,7 @@ async def test_deep_evaluation_cache_reuse(db_session: AsyncSession):
     assert eval2.listing_fingerprint == eval1.listing_fingerprint
 
     # Call 3: force=True -> runs fresh
-    eval3 = await service.evaluate_opportunity(db_session, opp.id, force=True)
+    await service.evaluate_opportunity(db_session, opp.id, force=True)
     assert call_count == 2
 
 

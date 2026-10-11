@@ -67,7 +67,7 @@ const GROUP_LABELS: Record<SettingsGroup, string> = {
  * yalnız etiket ve gruplama değişir.
  *
  * SİSTEM grubundaki ayrım bilinçlidir: "Entegrasyonlar" DIŞ sağlayıcıları
- * (Google, GitHub, medya) barındırır; "Agent & Bilgi" ise ajan sınırlarını
+ * (Google Calendar, GitHub) barındırır; "Agent & Bilgi" ise ajan sınırlarını
  * (agent bağlantısı, f0rknbrain, yerel model, proaktivite, bekleyen kararlar,
  * Hermes tarifi) -- Obsidian Vault'u bu yüzden Entegrasyonlar altında değil
  * orada yaşar. "Durum & Kaynaklar" teşhis girişidir; ayrıntılı kartlar kanonik

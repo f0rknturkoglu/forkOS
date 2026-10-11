@@ -27,6 +27,8 @@ def test_retired_runtime_and_preserved_archive():
     assert {"/api/documents", "/api/documents/upload", "/api/documents/{id}/file"} <= paths
     assert {"/api/rss/feeds", "/api/bookmarks", "/api/calendar/events", "/api/pomodoro/active"} <= paths
     assert {"media_item", "expense", "income", "document", "note", "pomodoro_session"} <= set(Base.metadata.tables)
+    assert {"/api/flashcard/decks", "/api/obsidian/capture", "/api/auth/google/status", "/api/system/stats"} <= paths
+    assert not any("drive" in path for path in paths)
     assert "drive" not in SCOPES
     assert "calendar.events" in SCOPES
     assert "media" not in automation.DOMAINS

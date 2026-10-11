@@ -177,14 +177,13 @@ def assess_extracted_job_identity(
     is_workday_req = "myworkdayjobs.com" in req_host
     if is_workday_req:
         req_slug = _extract_job_slug(req_path) or (req_path.split("/")[-1] if req_path else None)
-        if req_slug and req_slug not in ("en-us", "jobs", "careers"):
-            if req_slug.lower() not in fin_path.lower():
-                return ExtractedJobIdentityAssessment(
-                    identity_status="invalid_non_job",
-                    reason="redirected_to_board_root",
-                    is_valid_for_promotion=False,
-                    warnings=["Workday job requisition lost in destination."],
-                )
+        if req_slug and req_slug not in ("en-us", "jobs", "careers") and req_slug.lower() not in fin_path.lower():
+            return ExtractedJobIdentityAssessment(
+                identity_status="invalid_non_job",
+                reason="redirected_to_board_root",
+                is_valid_for_promotion=False,
+                warnings=["Workday job requisition lost in destination."],
+            )
 
     # 5. General specific job path -> board root loss
     req_slug = _extract_job_slug(req_path)

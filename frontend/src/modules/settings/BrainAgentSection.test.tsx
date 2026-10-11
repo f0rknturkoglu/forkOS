@@ -506,8 +506,7 @@ describe("f0rknbrain kartı", () => {
     renderSection();
     await ready();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Bilgi alanını aç/ }));
-    expect(navigateSpy).toHaveBeenCalledWith("/notes");
+    expect(screen.queryByRole("button", { name: /Bilgi alanını aç/ })).toBeNull();
   });
 
   it("Vault isteği düştüğünde yalnız o kartı bozar", async () => {

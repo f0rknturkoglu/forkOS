@@ -15,9 +15,10 @@ from app.modules import MODULES
 # Frontend registerModule route'lari (src/modules/*/index.ts). Yeni modul
 # ekleyen buraya frontend rotasini da ekler -- kayit defteri ile senkron kalir.
 FRONTEND_ROUTES = {
+    "/notes",  # Lightweight Obsidian compatibility resolver, no module.
     "/bookmarks", "/inbox", "/rss", "/todos", "/planner", "/today", "/",
     "/pomodoro", "/review/daily", "/review/weekly", "/opportunities", "/sources",
-    "/study", "/learning", "/documents", "/notes", "/calendar", "/media",
+    "/study", "/learning", "/documents", "/calendar", "/media",
     "/media/collections", "/media/{id}",
     "/projects", "/finance", "/health", "/settings", "/activity", "/day",
     "/flashcard", "/statistics", "/goals",

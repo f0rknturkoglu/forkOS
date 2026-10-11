@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import uuid
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
-from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,7 +58,6 @@ async def test_manual_job_patch_refreshes_score_on_ranking_relevant_fields(db_se
         remote="onsite",
     )
     created = await service.create(db_session, job_in)
-    initial_score = created.score
     initial_computed_at = created.score_computed_at
 
     # 1. Title change refreshes fast score

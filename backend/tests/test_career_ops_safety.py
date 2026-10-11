@@ -1,7 +1,8 @@
-from collections.abc import AsyncIterator
 import json
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +18,6 @@ from app.integrations.career_ops.errors import CareerOpsSecurityError
 from app.integrations.career_ops.guard import CareerOpsRuntimeGuard
 from app.integrations.career_ops.models import (
     CareerOpsIdentity,
-    CareerOpsStatusEnum,
 )
 from app.integrations.career_ops.runner import (
     CareerOpsRunner,
@@ -58,7 +58,7 @@ async def test_workspace_isolation_does_not_write_upstream_tracker(tmp_path: Pat
 async def test_doctor_causes_zero_canonical_db_mutations(db_session: AsyncSession, tmp_path: Path):
     """Verify doctor and capability probes cause ZERO mutations in canonical PostgreSQL tables."""
     # Seed baseline entity so database is non-trivial
-    entity = await create_entity(db_session, type="opportunity", title="Baseline Career Opportunity")
+    await create_entity(db_session, type="opportunity", title="Baseline Career Opportunity")
     await db_session.commit()
 
     fp_before = await capture_db_content_fingerprint(db_session)
@@ -82,7 +82,7 @@ async def test_doctor_ready_path_causes_zero_canonical_db_mutations(
     db_session: AsyncSession, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     """Verify that doctor and capability probes reaching the READY path cause ZERO DB mutations."""
-    entity = await create_entity(
+    await create_entity(
         db_session, type="opportunity", title="Baseline Career Opportunity for Ready Probe"
     )
     await db_session.commit()

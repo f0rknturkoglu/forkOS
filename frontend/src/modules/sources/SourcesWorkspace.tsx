@@ -343,8 +343,9 @@ export function SourcesWorkspace({
               </Chip>
               <span>
                 {careerOps.data?.provider_count ?? 0} sağlayıcı yüklendi (
-                {(careerOps.data as { providers_publicly_enumerable?: number })?.providers_publicly_enumerable ?? 22} genel pano ·{" "}
-                {(careerOps.data as { providers_target_based?: number })?.providers_target_based ?? 62} ATS/şirket hedefli)
+                {(careerOps.data as { providers_publicly_enumerable?: number })?.providers_publicly_enumerable ?? 22}{" "}
+                genel pano · {(careerOps.data as { providers_target_based?: number })?.providers_target_based ?? 62}{" "}
+                ATS/şirket hedefli)
               </span>
               <span>{careerOps.data?.configured_boards ?? 0} pano hedefi</span>
               <span>{careerOps.data?.configured_companies ?? 0} şirket hedefi</span>
@@ -387,7 +388,10 @@ export function SourcesWorkspace({
                         key={row.id}
                         className="flex items-center justify-between gap-2 rounded-control border border-line px-2 py-1.5 text-meta"
                       >
-                        <span className="min-w-0 truncate" title={`${row.id}${row.category_label ? ` · ${row.category_label}` : ""}`}>
+                        <span
+                          className="min-w-0 truncate"
+                          title={`${row.id}${row.category_label ? ` · ${row.category_label}` : ""}`}
+                        >
                           {row.id}
                         </span>
                         <Chip

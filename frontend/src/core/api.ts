@@ -41,7 +41,7 @@ const isOnline = () => typeof navigator === "undefined" || navigator.onLine;
  */
 const EXTERNAL_WRITE_PATHS: readonly RegExp[] = [
   /^\/auth\//, // GitHub OAuth akışı (dış servis)
-  /^\/system\/refresh$/, // arka plan senkronu: kaynak + RSS + medya
+  /^\/system\/refresh$/, // arka plan senkronu: kaynak + RSS
   /^\/sources\/refresh$/, // toplu kaynak çekimi (source_ids ile tek kaynak dahil)
   /^\/sources\/[^/]+\/refresh$/, // tek kaynak çekimi
   /^\/sources\/sync$/, // kaynak senkron batch'i (dış siteleri çeker)

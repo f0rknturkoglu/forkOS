@@ -20,11 +20,14 @@ Sözleşme özeti:
 from __future__ import annotations
 
 import contextlib
+import hashlib
+import json
 import os
 import uuid
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Entity
@@ -286,10 +289,14 @@ async def capture_knowledge_note(
     title: str | None = None,
     relate_to: uuid.UUID | None = None,
     tags: list[str] | None = None,
+    client_uuid: uuid.UUID | None = None,
+    source_url: str | None = None,
+    folder: str | None = None,
+    pinned: bool = False,
 ) -> VaultItem:
     """Hızlı yakalama: `00 Inbox/` altında yeni bilgi notu.
 
-    Kimliği sunucu üretir; `Entity`/`Note`/`Link` satırı OLUŞTURULMAZ. İlişki
+    Kimliği client_uuid veya sunucu üretir; `Entity`/`Note`/`Link` satırı OLUŞTURULMAZ. İlişki
     bilgisi yalnızca frontmatter'a yazılır.
     """
     resolved_root, v_name = require_writable_vault()
@@ -297,7 +304,25 @@ async def capture_knowledge_note(
     if not clean_body:
         raise ValueError("Not gövdesi boş olamaz")
 
-    forkos_id = str(uuid.uuid4())
+    forkos_id = str(client_uuid or uuid.uuid4())
+    fingerprint = hashlib.sha256(json.dumps(
+        {"body": clean_body, "title": title, "relate_to": str(relate_to) if relate_to else None,
+         "tags": tags or [], "source_url": source_url, "folder": folder, "pinned": pinned},
+        sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    if client_uuid is not None:
+        # Transaction lock works across API processes; scan again after acquiring it.
+        await session.execute(text("select pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+                              {"key": "obsidian.capture:" + forkos_id})
+        refresh_vault_index()
+        existing = resolve_managed_item(forkos_id)
+        if existing is not None:
+            existing_metadata, _ = parse_frontmatter(resolve_safe_vault_path(
+                resolved_root, existing.relative_path).read_text(encoding="utf-8"))
+            if (existing_metadata or {}).get("forkos_capture_fingerprint") != fingerprint:
+                raise VaultStaleWriteError("Bu yakalama kimliği farklı bir not için kullanılmış")
+            return existing
+        if await session.get(Entity, client_uuid) is not None:
+            raise VaultStaleWriteError("Bu yakalama kimliği mevcut bir kayda ait")
     note_title = sanitize_filename(title) if title and title.strip() else derive_title(clean_body)
 
     metadata = _created_frontmatter(
@@ -306,12 +331,19 @@ async def capture_knowledge_note(
         forkos_note_kind=NOTE_KIND_PERSONAL,
         title=note_title,
         forkos_captured_from="forkOS",
+        forkos_capture_fingerprint=fingerprint,
     )
     if relate_to is not None:
         target = await session.get(Entity, relate_to)
         if target is None:
             raise ValueError("İlişkilendirilecek kayıt bulunamadı")
         metadata["forkos_relations"] = [_relation_entry(target)]
+    if source_url:
+        metadata["source_url"] = source_url
+    if folder:
+        metadata["capture_folder"] = folder  # Metadata only, never a filesystem path.
+    if pinned:
+        metadata["pinned"] = True
     if tags:
         metadata["tags"] = [tag.strip() for tag in tags if tag and tag.strip()]
 

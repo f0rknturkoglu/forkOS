@@ -675,7 +675,6 @@ async def test_today_agenda_hides_suggestions_when_auto_mode_is_disabled(client:
         assert agenda["suggestions"] == {
             "todos": [],
             "rss": [],
-            "media": [],
             "flashcards": [],
             "study": [],
             "career": [],

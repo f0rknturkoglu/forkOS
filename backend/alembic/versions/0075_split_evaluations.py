@@ -1,7 +1,8 @@
 """Separate candidate and deep evaluations while preserving legacy payloads."""
 
-from alembic import op
 from sqlalchemy import text
+
+from alembic import op
 
 revision = "0075_split_evaluations"
 down_revision = "0074_forkjob_identity"

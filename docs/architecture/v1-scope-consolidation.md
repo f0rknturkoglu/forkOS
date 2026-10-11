@@ -1,3 +1,7 @@
+> Bu belge 2c55ff5 konsolidasyonunun tarihsel uygulama raporudur.
+> Güncel kararlar [V1 ürün kapsamı](v1-product-scope.md), kalan düzeltmeler
+> [V1 kapanış raporu](v1-scope-closure-report.md) içindedir.
+
 # V1 kapsam birleştirmesi — Academic & Career LifeOS
 
 ## Kararlar

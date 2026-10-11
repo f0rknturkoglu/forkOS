@@ -104,9 +104,11 @@ async def test_legacy_steps_do_not_become_results_and_alignment_counts_once():
         todo = await create_entity(s, type="todo", title="Synthetic execution")
         s.add(Link(from_id=todo.id, to_id=g.id, relation="advances_goal"))
         s.add(Link(from_id=todo.id, to_id=m.id, relation="advances_goal_milestone"))
-        await log_event(s, verb="todo.completed", entity_id=todo.id, entity_type="todo", payload={})
+        completed = await log_event(s, verb="todo.completed", entity_id=todo.id, entity_type="todo", payload={})
         await s.commit()
-        read = await strategy.overview(s)
+        # The upper bound must be after the DB-generated event time; host and VM
+        # clocks need not agree to the millisecond. Keep the assertion deterministic.
+        read = await strategy.overview(s, now=completed.occurred_at + timedelta(seconds=1))
         assert read.objectives[0].strategic_progress_percent == 10
         assert read.objectives[0].milestone_progress_percent == 100
         assert read.alignment.linked_count == 1

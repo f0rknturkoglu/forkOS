@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timedelta
+
 import pytest
+
 from app.modules.opportunity.intelligence import quick_signals
 from app.modules.opportunity.models import Opportunity
 from app.modules.opportunity.schemas import OpportunityIntelligenceOut

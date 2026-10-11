@@ -131,3 +131,23 @@ async def test_pending_states_are_bounded_and_expire(oauth, monkeypatch: pytest.
     # En eski bekleyen deger dusurulur: bellek sinirli kalir, son deneme gecerli.
     assert (await client.get(CALLBACK, params={"code": "c1", "state": issued[0]})).status_code == 400
     assert (await client.get(CALLBACK, params={"code": "c2", "state": issued[-1]})).status_code in (302, 307)
+
+
+async def test_calendar_scopes_and_local_disconnect_preserve_unrelated_tokens(oauth):
+    client, _ = oauth
+    response = await client.get("/api/auth/google/start")
+    params = parse_qs(urlparse(response.headers["location"]).query)
+    assert params["scope"] == ["https://www.googleapis.com/auth/calendar.events"]
+    assert params["include_granted_scopes"] == ["false"]
+    async with SessionLocal() as session:
+        session.add(OAuthToken(provider="google", access_token="fixture", refresh_token="fixture-refresh",
+                               scopes="https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.readonly"))
+        session.add(OAuthToken(provider="github", access_token="github-fixture"))
+        await session.commit()
+    status = (await client.get("/api/auth/google/status")).json()
+    assert status["connected"] and "drive.readonly" in status["scopes"]  # Actual historical grant, not a feature.
+    assert (await client.delete("/api/auth/google")).status_code == 204
+    assert (await client.delete("/api/auth/google")).status_code == 204
+    assert (await client.get("/api/auth/google/status")).json()["connected"] is False
+    async with SessionLocal() as session:
+        assert await session.get(OAuthToken, "github") is not None

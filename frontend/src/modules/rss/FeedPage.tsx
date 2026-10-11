@@ -20,10 +20,7 @@ export function FeedPage() {
   return (
     <PageFrame>
       <Workspace>
-        <WorkspacePaneHeader
-          eyebrow="Kütüphane"
-          title="RSS & Akış"
-        >
+        <WorkspacePaneHeader eyebrow="Kütüphane" title="RSS & Akış">
           <Tabs
             value={filter}
             onChange={(next) => setFilter(next as FeedFilter)}

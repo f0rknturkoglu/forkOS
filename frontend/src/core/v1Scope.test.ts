@@ -1,6 +1,7 @@
 import "@/modules";
 import { describe, expect, it, vi } from "vitest";
 import { allModules, allRoutes, allCommands, allTodayWidgets, hydrateSettings } from "./registry";
+import { AFTER } from "./invalidation";
 import { areasAt } from "./navigation";
 
 describe("V1 scope", () => {
@@ -15,6 +16,13 @@ describe("V1 scope", () => {
     }
     expect(allRoutes().some((r) => /^\/(media|finance|documents|notes)(\/|$)/.test(r.path))).toBe(false);
     expect(areasAt("primary").flatMap((a) => a.moduleIds)).not.toEqual(expect.arrayContaining(retired));
+  });
+  it("does not retain retired mutation invalidations", () => {
+    expect(Object.keys(AFTER)).not.toContain("media.write");
+    expect(Object.keys(AFTER)).not.toContain("finance.write");
+    expect(AFTER["pomodoro.write"]).toEqual(
+      expect.arrayContaining(["activity", "review-preview", "study-tree", "study-areas"]),
+    );
   });
   it("keeps first-class core modules and diagnostics", () => {
     const ids = allModules().map((m) => m.id);

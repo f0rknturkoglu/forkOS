@@ -1,6 +1,7 @@
 """Tests for deterministic job description identity validation (C3.2 Finding A)."""
 
 import pytest
+
 from app.integrations.career_ops.job_identity import (
     assess_extracted_job_identity,
 )

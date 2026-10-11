@@ -314,26 +314,26 @@ async def test_concurrent_batch_creation_serializes_per_scope_and_unions_sources
     async def queue(source_id: str):
         async with SessionLocal() as session:
             batch, _ = await create_or_extend_batch(
-                session, [source_id], scope="media"
+                session, [source_id], scope="opportunity"
             )
             await session.commit()
             return batch.id
 
-    first, second = await asyncio.gather(queue("media:tmdb"), queue("media:anilist"))
+    first, second = await asyncio.gather(queue("alpha"), queue("beta"))
     assert first == second
     async with SessionLocal() as session:
         batches = list(
             (
                 await session.execute(
                     select(SourceSyncBatch).where(
-                        SourceSyncBatch.scope == "media",
+                        SourceSyncBatch.scope == "opportunity",
                         SourceSyncBatch.status.in_(ACTIVE_STATUSES),
                     )
                 )
             ).scalars()
         )
     assert len(batches) == 1
-    assert set(batches[0].source_ids) == {"media:tmdb", "media:anilist"}
+    assert set(batches[0].source_ids) == {"alpha", "beta"}
 
 
 async def test_system_status_exposes_worker_heartbeat(

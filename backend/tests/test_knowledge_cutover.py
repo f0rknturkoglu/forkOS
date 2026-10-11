@@ -91,7 +91,7 @@ def test_legacy_note_entity_types_are_not_live_knowledge() -> None:
         assert spec is not None, f"{entity_type} tarihsel yönlendirme için kayıtlı kalmalı"
         assert spec.searchable is False
         assert spec.linkable is False
-        assert spec.route.startswith("/activity")
+        assert spec.route == ("/notes?focus={id}" if entity_type == "note" else "/activity")
 
     assert set(search_svc.searchable_types()).isdisjoint({"note", "note_folder"})
 

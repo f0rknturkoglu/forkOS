@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 from app.integrations.career_ops.config import (
     CAREER_OPS_PINNED_COMMIT,

@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
+
 import pytest
+
 from app.integrations.career_ops.config import (
     CAREER_OPS_PINNED_COMMIT,
     CAREER_OPS_PINNED_VERSION,
@@ -18,9 +20,9 @@ def test_career_ops_pinned_constants_match_lock_manifest():
     assert lock_data["commit"] == "6326eb5d3804e8cb20d28acd5701a4e603a301f9"
 
     # Python constants must derive directly from the lockfile
-    assert CAREER_OPS_UPSTREAM_REPO == lock_data["repository"]
-    assert CAREER_OPS_PINNED_VERSION == lock_data["version"]
-    assert CAREER_OPS_PINNED_COMMIT == lock_data["commit"]
+    assert lock_data["repository"] == CAREER_OPS_UPSTREAM_REPO
+    assert lock_data["version"] == CAREER_OPS_PINNED_VERSION
+    assert lock_data["commit"] == CAREER_OPS_PINNED_COMMIT
 
 
 @pytest.mark.no_database

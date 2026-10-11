@@ -27,7 +27,7 @@ const COUNTER_LABELS: Record<string, string> = {
   studies: "Konu",
   books: "Kitap",
   courses: "Kurs",
-  media: "Medya",
+  media: "Medya (arşiv)",
   notes: "Not",
   flashcards: "Kart",
 };

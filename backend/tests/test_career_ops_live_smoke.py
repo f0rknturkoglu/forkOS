@@ -1,5 +1,7 @@
 from pathlib import Path
+
 import pytest
+
 from app.integrations.career_ops.adapter import CareerOpsAdapter
 from app.integrations.career_ops.models import CareerOpsStatusEnum
 

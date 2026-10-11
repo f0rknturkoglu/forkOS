@@ -242,12 +242,13 @@ function FilterPanelModal({
           <Button size="sm" variant="ghost" onClick={onClear}>
             <RotateCcw size={12} /> Temizle
           </Button>
-          <Button size="sm" onClick={onClose}>Sonuçları göster</Button>
+          <Button size="sm" onClick={onClose}>
+            Sonuçları göster
+          </Button>
         </div>
       }
     >
       <div className="space-y-4">
-
         {jobs && (
           <Section title="Profil / beceri uyumu">
             <div className="flex flex-wrap gap-1.5">

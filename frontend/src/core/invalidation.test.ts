@@ -57,11 +57,9 @@ describe("merkezi invalidation (kural 14)", () => {
       "todo.write",
       "plan.write",
       "rss.write",
-      "media.write",
       "opportunity.write",
       "project.write",
       "calendar.write",
-      "finance.write",
     ]) {
       expect(AFTER[event as keyof typeof AFTER], `${event} bugun-agenda icermeli`).toContain("today-agenda");
     }

@@ -2475,12 +2475,40 @@
         "type": "object"
       },
       "CaptureNoteIn": {
-        "description": "Hızlı yakalama: yeni bilgi notu (kimliği sunucu üretir).",
+        "description": "Hızlı yakalama: yeni bilgi notu; client_uuid varsa tekrar güvenli kimlik.",
         "properties": {
           "body": {
             "minLength": 1,
             "title": "Body",
             "type": "string"
+          },
+          "client_uuid": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Uuid"
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
+          "pinned": {
+            "default": false,
+            "title": "Pinned",
+            "type": "boolean"
           },
           "relate_to": {
             "anyOf": [
@@ -2493,6 +2521,17 @@
               }
             ],
             "title": "Relate To"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
           },
           "tags": {
             "items": {
@@ -19717,7 +19756,7 @@
     },
     "/api/backup/status": {
       "get": {
-        "description": "Son yedek, Drive yukleme durumu ve yedek kapsami -- tek bakisla.",
+        "description": "Son yerel yedek ve yedek kapsami -- tek bakisla.",
         "operationId": "backup_status_api_backup_status_get",
         "responses": {
           "200": {
@@ -24487,7 +24526,7 @@
     },
     "/api/obsidian/capture": {
       "post": {
-        "description": "Hızlı yakalanan bilgi notunu doğrudan Vault'ta (`00 Inbox/`) oluşturur.\n\nKimliği sunucu üretir; forkOS veritabanında not kaydı OLUŞMAZ. İlişki\nhedefi (`relate_to`) sunucuda çözülür, istemcinin verdiği tip/başlık\nkullanılmaz.",
+        "description": "Hızlı yakalanan bilgi notunu doğrudan Vault'ta (`00 Inbox/`) oluşturur.\n\nKimliği client_uuid veya sunucu üretir; forkOS veritabanında not kaydı OLUŞMAZ. İlişki\nhedefi (`relate_to`) sunucuda çözülür, istemcinin verdiği tip/başlık\nkullanılmaz.",
         "operationId": "capture_note_api_obsidian_capture_post",
         "requestBody": {
           "content": {

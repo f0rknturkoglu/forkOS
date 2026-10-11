@@ -1,8 +1,8 @@
-from collections.abc import AsyncIterator
 import uuid
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
+
 import pytest
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity

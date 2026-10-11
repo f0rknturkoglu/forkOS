@@ -2,13 +2,13 @@
 
 Kişisel verilerini kendi bilgisayarında tutan, tek kullanıcılı ve **local-only** bir kişisel işletim sistemi.
 
-forkOS; yakalama, planlama, odaklanma, öğrenme, medya takibi, iş fırsatları ve operasyonel takibi birbirine bağlı tek bir çalışma alanında toplar. Hosted backend, kullanıcı hesabı veya telemetri yoktur; uygulama varsayılan olarak yalnızca `127.0.0.1` üzerinde çalışır.
+forkOS; yakalama, planlama, odaklanma, öğrenme, akademik gelişim, iş fırsatları ve operasyonel takibi birbirine bağlı tek bir çalışma alanında toplar. Hosted backend, kullanıcı hesabı veya telemetri yoktur; uygulama varsayılan olarak yalnızca `127.0.0.1` üzerinde çalışır.
 
 **İki sahipli çalışma modeli.** forkOS **yürütmenin** sahibidir: görevler, plan, takvim, Pomodoro, öğrenme ilerlemesi/SRS, fırsatlar, RSS ve olay geçmişi. Bilgi ise ayrı ve private `f0rknbrain` Obsidian Vault'unda yaşar: notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notları, kaynak notları. Aynalı Not sistemi yoktur. Ayrıntı: [PHASE 3 — bilgi sahipliği devri](docs/obsidian-hybrid/phase3-cutover.md).
 
 ## V1 ürün kapsamı
 
-Akademik ve kariyer gelişimi; günlük yürütme, hedefler/strateji, projeler, öğrenme ve kartlar, Takvim, Pomodoro, RSS/Feed, Yer İmleri ve tanılama korunur. Medya, Finans, bağımsız Belgeler/Bilgi arayüzleri ve Google Drive emekli edilmiştir. Yerel CV/dosya işleme ve Obsidian altyapısı devam eder; geçmiş veriler silinmez. [Mimari ve doğrulama](docs/architecture/v1-scope-consolidation.md).
+Akademik ve kariyer gelişimi; günlük yürütme, hedefler/strateji, projeler, öğrenme ve kartlar, Takvim, Pomodoro, RSS/Feed, Yer İmleri ve tanılama korunur. Medya, Finans, bağımsız Belgeler/Bilgi arayüzleri ve Google Drive emekli edilmiştir. Yerel CV/dosya işleme ve Obsidian altyapısı devam eder; geçmiş veriler silinmez. [Kanonik V1 ürün kapsamı](docs/architecture/v1-product-scope.md) · [Kapanış ve doğrulama](docs/architecture/v1-scope-closure-report.md).
 
 Pomodoro geçmişinde tamamlanan seanslar elle eklenebilir, düzenlenebilir ve onayla silinebilir. Sayaç ve elle kayıt aynı kalıcı modeli kullanır.
 
@@ -23,8 +23,8 @@ Navigasyon ürün alanlarına göre kurulur (tek kaynak: `docs/product-navigatio
 | **Projeler** | Proje aşamaları, ilerleme, GitHub etkinliği, proje günlüğü |
 | **Kariyer** | İş ilanı keşfi, CV uyumu, başvuru CRM'i, mülakat hafızası, YLSY/ÖSYM ve kamu duyuruları |
 | **Öğrenme** | Öğrenme ağacı ve SRS, flashcard'lar |
-| **Kütüphane** | Yer imleri, evrensel gelen kutusu, tam metin RSS okuyucu, yerel belgeler, medya kütüphanesi, bilgi köprüsü |
-| **Sistem** | Aktivite/ritim, finans, değerlendirme, kaynak sağlığı, yedekleme, ayarlar |
+| **Kütüphane** | Yer imleri, evrensel gelen kutusu, tam metin RSS/Feed okuyucu; bilgi için Obsidian köprüsü |
+| **Sistem** | Aktivite/ritim, değerlendirme ve tanılama, kaynak sağlığı, yedekleme, ayarlar |
 
 ### Fırsatlardaki üç skor
 
@@ -38,7 +38,7 @@ Fırsatlar ekranında aynı ilan için üç ayrı ölçü vardır ve karıştır
 
 "Skor hesaplanmadı" ile "0 puan" aynı şey değildir: hesaplanmamış kayıtlar ayrı filtrelenebilir. İlan metni veya profil değiştiğinde kayıtlı değerlendirme **bayat** işaretlenir ve yeniden hesaplanana kadar güncel gibi sunulmaz. Ayrıntılar: [Career Acquisition & Ranking v2.1](docs/career/career-acquisition-ranking-v2.1-closure.md).
 
-Sistemdeki aranabilir kayıtlar ortak `entity` omurgasını kullanır. Görev, proje, fırsat, belge ve medya kayıtları `link` ilişkileriyle birbirine bağlanır; anlamlı değişiklikler append-only `event` günlüğüne yazılır. Legacy Notlar bu omurgada arşivdir: `searchable=False` / `linkable=False` olduğu için arama ve ilişki panellerinde görünmez.
+Sistemdeki aranabilir kayıtlar ortak `entity` omurgasını kullanır. Görev, proje, fırsat ve kariyer belgeleri `link` ilişkileriyle birbirine bağlanır; anlamlı değişiklikler append-only `event` günlüğüne yazılır. Legacy Notlar bu omurgada arşivdir: `searchable=False` / `linkable=False` olduğu için arama ve ilişki panellerinde görünmez.
 
 ## Mimari
 
@@ -49,7 +49,7 @@ flowchart LR
     API --> DB[(PostgreSQL 16)]
     API --> Queue[Kalıcı kaynak kuyruğu]
     Worker[İsteğe bağlı worker] --> Queue
-    Queue --> Sources[RSS · ilan · medya · takvim · GitHub]
+    Queue --> Sources[RSS · ilan · takvim · GitHub]
     API --> Vault[(f0rknbrain Obsidian Vault · bilgi)]
 ```
 
@@ -72,7 +72,7 @@ Notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notla
 
 ### Ajan Entegrasyonu ve Hermes
 
-forkOS canlı operasyonel durumunu ve f0rknbrain bilgi kasasını yerel yapay zeka ajanlarına (Hermes vb.) açmak için Model Context Protocol (MCP) tabanlı `/mcp` Streamable HTTP arayüzü sunar. Yüzey toplam **34 sınırlı araçtır**:
+forkOS canlı operasyonel durumunu ve f0rknbrain bilgi kasasını yerel yapay zeka ajanlarına (Hermes vb.) açmak için Model Context Protocol (MCP) tabanlı `/mcp` Streamable HTTP arayüzü sunar. Yüzey toplam **37 sınırlı araçtır**:
 
 | Katman | Araç | Kapsam |
 | --- | --- | --- |
@@ -84,6 +84,8 @@ forkOS canlı operasyonel durumunu ve f0rknbrain bilgi kasasını yerel yapay ze
 | **H5** | 3 | **gözden geçirme zekâsı** ve anlamsal hafıza adayları (`forkos_review_intelligence`, `semantic_memory_candidates`, `semantic_memory_promote`) |
 | **H6** | 1 | **proaktif dikkat kontrolü**: kapalı kural kümesi, koşu durumu, konfigürasyon ve kullanıcı override'ı (`forkos_proactivity`) |
 | **H7** | 1 | **kalıcı karar ve sınırlı yürütme**: kanıta dayanan plan revizyonu, sunucu tarafı onay, adım başına durable makbuz ve kesintiye dayanıklı, H1 üzerinden yürütme (`forkos_execution`) |
+| **Career** | 2 | yerel görüşme zekâsı ve sonuç analitiği (`forkos_career_interview`, `forkos_career_insights`) |
+| **Strategy** | 1 | hedef ve strateji gözlemi (`forkos_strategy`) |
 | **A5** | 3 | H3 kanıt sıralaması, A4 aday incelemesi ve açık iddia kanıt desteği yargısı; hepsi varsayılan kapalı (`forkos_context_judge`, `forkos_memory_judge`, `forkos_answer_judge`) |
 
 Yazma araçları `readOnlyHint=false` taşır; önerilen istemci güveni `untrusted`dır ve kullanıcı onayı istemci/harness tarafından yönetilir.
@@ -282,7 +284,7 @@ Hazır çalışma profilleri teknik scheduler değerleri yerine tek seçim sunar
 | Profil | Ne yapar |
 | --- | --- |
 | **Elle** | Arka plan güncellemesi tamamen kapalı; yalnız manuel yenileme + yerel bakım |
-| **Dengeli** (önerilen) | RSS 60 dk, fırsatlar 30 dk, takvim 60 dk, GitHub 3 sa, medya kendi 24 saati |
+| **Dengeli** (önerilen) | RSS 60 dk, fırsatlar 30 dk, takvim 60 dk, GitHub 3 sa |
 | **Aktif** | Daha sık turlar (RSS 30 dk, fırsatlar 15 dk, takvim 30 dk) |
 
 Profil değişikliği worker'ı yeniden başlatmayı gerektirmez: işler aralıklarını
@@ -298,10 +300,10 @@ başına ağ patlaması yaratmaz**: açılış görevleri tazelik kapılıdır.
 - Kritik kaynaklar: son 2 saat içinde koşmuşsa kuyruğa tekrar alınmaz.
 - Yedek: taze ya da değişiklik yoksa atlanır.
 
-Worker normal kullanımda kapalı kalabilir. Header'daki yenileme düğmesi RSS, fırsat/duyuru, medya, takvim, GitHub ve son tarih kaynaklarını tek turda günceller; yanındaki menüden kapsam seçilir:
+Worker normal kullanımda kapalı kalabilir. Header'daki yenileme düğmesi RSS, fırsat/duyuru, takvim, GitHub ve son tarih kaynaklarını tek turda günceller; yanındaki menüden kapsam seçilir:
 
 - **Kritik kaynaklar** — yalnız resmî/hızlı kaynaklar (ÖSYM, YLSY, YÖK, ATS panoları)
-- **Standart yenileme** (varsayılan) — opt-in kaynaklar hariç tümü + medya
+- **Standart yenileme** (varsayılan) — opt-in kaynaklar hariç fırsat kaynakları ve RSS
 - **Tam yenileme** — katalogun tamamı; EURES ve LinkedIn gibi yavaş/opt-in kaynaklar dahil
 
 Worker kapalıyken de aynı kalıcı kaynak kuyruğu API arka planında işlenir; menüde çalışan yenilemenin kuyruk kimliği, ilerlemesi ve son sonucu görünür.
@@ -330,7 +332,6 @@ EXTENSION_ID=
 
 - Google OAuth: yalnız Calendar aynası; Drive emekli
 - GitHub: proje commit/contribution bilgileri
-- TMDB, AniList, OpenLibrary, MusicBrainz ve benzeri sağlayıcılar: medya kataloğu
 - Kaynak adaptörleri: iş ilanları, YLSY, ÖSYM ve kamu duyuruları
 
 Secret değerler export ve uygulama yedeklerine bilinçli olarak alınmaz.
@@ -406,7 +407,7 @@ olay yazar. Şunlar "değişiklik" **sayılmaz**:
 - kaynak sağlığı bildirimleri,
 - cache bakımı (RSS budama, görsel önbelleği temizliği).
 
-Ayar değişiklikleri, görev/proje/medya/finans/fırsat düzenlemeleri ve bunun gibi
+Ayar değişiklikleri, görev/proje/fırsat düzenlemeleri ve bunun gibi
 tüm kullanıcı aksiyonları bir sonraki turda yedeği **tetikler**. Vault'a yazılan
 bilgi forkOS yedeğine girmediği için bu kapıyı tetiklemez.
 
@@ -446,7 +447,7 @@ ağ çağrısı yapmaz.
   alınır; API ve worker aynı anda denese bile yalnızca biri koşar.
 - Adımlar birbirinden bağımsızdır: biri hata verirse diğerleri devam eder ve
   hata kayda geçer (`maintenance.last_run`, `system.maintenance` event'i).
-- Kapsam: operasyonel saklama, RSS öğeleri ve medya görsel önbelleği. Ayrıntı:
+- Kapsam: operasyonel saklama ve RSS öğeleri; emekli medya dosyaları korunur. Ayrıntı:
   `backend/app/modules/system/maintenance.py`.
 
 ## Not ekleri (dondurulmuş arşiv)

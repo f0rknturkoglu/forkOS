@@ -480,26 +480,28 @@ export function ForkjobCoreSettings({ onClose }: { onClose?: () => void }) {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted">FORKJOB_LINKEDIN_PROXIES_FILE</span>
-              <Chip tone={env?.proxies_file ? "ok" : "neutral"}>
-                {env?.proxies_file ? "tanımlı" : "tanımsız"}
-              </Chip>
+              <Chip tone={env?.proxies_file ? "ok" : "neutral"}>{env?.proxies_file ? "tanımlı" : "tanımsız"}</Chip>
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-subtle">
               <span className="text-muted">LinkedIn erişim durumu</span>
-              <Chip tone={(env?.proxies_file || (env?.linkedin_allow_direct ?? env?.linkein_allow_direct)) ? "ok" : "warn"}>
-                {(env?.proxies_file || (env?.linkedin_allow_direct ?? env?.linkein_allow_direct))
+              <Chip
+                tone={env?.proxies_file || (env?.linkedin_allow_direct ?? env?.linkein_allow_direct) ? "ok" : "warn"}
+              >
+                {env?.proxies_file || (env?.linkedin_allow_direct ?? env?.linkein_allow_direct)
                   ? "Erişim yapılandırıldı"
                   : "Yapılandırılmamış (proxy veya doğrudan erişim gerekli)"}
               </Chip>
             </div>
             {(env?.linkedin_allow_direct ?? env?.linkein_allow_direct) && (
               <p role="alert" className="mt-2 text-meta text-warn">
-                Uyarı: Doğrudan scraping (LINKEDIN_ALLOW_DIRECT) etkindir. Proxy olmaksızın LinkedIn istekleri IP veya hesap kısıtlamasına yol açabilir.
+                Uyarı: Doğrudan scraping (LINKEDIN_ALLOW_DIRECT) etkindir. Proxy olmaksızın LinkedIn istekleri IP veya
+                hesap kısıtlamasına yol açabilir.
               </p>
             )}
             {!(env?.proxies_file || (env?.linkedin_allow_direct ?? env?.linkein_allow_direct)) && (
               <p className="mt-2 text-meta text-secondary">
-                LinkedIn kaynağı proxy dosyası veya doğrudan erişim izni olmadan çalıştırılamaz (fail-closed koruması devrededir).
+                LinkedIn kaynağı proxy dosyası veya doğrudan erişim izni olmadan çalıştırılamaz (fail-closed koruması
+                devrededir).
               </p>
             )}
           </div>

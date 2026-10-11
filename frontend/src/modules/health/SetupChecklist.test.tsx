@@ -92,7 +92,7 @@ describe("SetupChecklist", () => {
     renderChecklist();
 
     const vault = await screen.findByRole("link", { name: "Bilgi kasası (Vault)" });
-    expect(vault.getAttribute("href")).toBe("#/notes");
+    expect(vault.getAttribute("href")).toBe("#/settings?tab=brain");
     // İsteğe bağlı entegrasyonlar katlanmış notta durur: "eksik" gibi görünmez.
     expect(screen.queryByRole("link", { name: "GitHub" })).toBeNull();
 

@@ -15,7 +15,7 @@ import type { AppSettings } from "@/core/types";
  *
  *   Çekirdek  — yerel çalışma alanı (API + veritabanı) ve bilgi kasası.
  *               Bunlardan biri eksikse liste görünür.
- *   İsteğe bağlı — GitHub, Google (Drive), kariyer profili, proaktivite.
+ *   İsteğe bağlı — GitHub, Google Calendar, kariyer profili, proaktivite.
  *               Bunların eksik olması "kurulum tamamlanmadı" DEĞİLDİR; bu
  *               yüzden listeyi açmazlar, yalnız katlanmış bir notta anılırlar.
  *
@@ -101,7 +101,7 @@ export function SetupChecklist() {
         : vault.data?.configured && vault.data.available && vault.data.readable
           ? "ready"
           : "missing",
-      href: "#/notes",
+      href: "#/settings?tab=brain",
     },
   ];
 
@@ -114,7 +114,7 @@ export function SetupChecklist() {
     },
     {
       id: "google",
-      label: "Google (Drive)",
+      label: "Google Calendar",
       state: google.isError ? "unknown" : google.data?.connected ? "ready" : "missing",
       href: "#/settings?tab=integrations",
     },

@@ -415,6 +415,7 @@ export interface LearningResource {
   course_id: string | null;
 }
 
+/** Kariyer dosyaları; Drive adları tarihsel API/DB alanlarıdır, senkronizasyon değildir. */
 export interface Document {
   id: string;
   title: string;

@@ -58,7 +58,8 @@ export function SourceHealthAccordion({
                     {source.error && <p className="truncate text-meta text-danger">{source.error}</p>}
                     {source.telemetry && (
                       <p className="truncate text-meta text-muted" data-testid="source-telemetry">
-                        {source.telemetry.pages_fetched != null && `sayfa: ${String(source.telemetry.pages_fetched)}${source.telemetry.page_limit ? `/${String(source.telemetry.page_limit)}` : ""}`}
+                        {source.telemetry.pages_fetched != null &&
+                          `sayfa: ${String(source.telemetry.pages_fetched)}${source.telemetry.page_limit ? `/${String(source.telemetry.page_limit)}` : ""}`}
                         {source.telemetry.pages_fetched != null && source.telemetry.items_seen != null ? " · " : ""}
                         {source.telemetry.items_seen != null && `görülen: ${String(source.telemetry.items_seen)}`}
                         {Boolean(source.telemetry.cap_hit) && " · limit doldu"}

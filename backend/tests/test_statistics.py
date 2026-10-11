@@ -47,6 +47,13 @@ async def _seed(verbs: list[str], *, payload: dict | None = None) -> uuid.UUID:
             await log_event(
                 session, verb=verb, entity_type="todo", entity_id=entity.id, payload=payload
             )
+        # A completion event alone is audit evidence, not a current session.
+        from app.modules.pomodoro.models import PomodoroSession
+        for verb in verbs:
+            if verb == "pomodoro.completed":
+                focus = await create_entity(session, type="pomodoro_session", title="Recorded focus")
+                session.add(PomodoroSession(id=focus.id, started_at=datetime.now(UTC) - timedelta(hours=1),
+                    ended_at=datetime.now(UTC), kind="focus", planned_min=25, actual_min=25))
         await session.commit()
         return entity.id
 

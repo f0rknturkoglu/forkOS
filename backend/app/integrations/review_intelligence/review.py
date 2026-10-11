@@ -18,9 +18,10 @@ import uuid
 from datetime import UTC, date, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.models import Link
 from app.integrations.review_intelligence import consolidation as consolidation_svc
 from app.integrations.review_intelligence import policy as policy_svc
 from app.integrations.review_intelligence import sources as source_svc
@@ -45,6 +46,7 @@ from app.integrations.review_intelligence.models import (
     WeeklyReviewBundle,
 )
 from app.modules.opportunity.models import ApplicationHistory
+from app.modules.pomodoro.models import PomodoroSession
 
 
 def _insight(
@@ -713,17 +715,20 @@ async def build_period_delta(
         {verb for verb in {event["verb"] for event in events} if verb.endswith((".updated", ".transitioned"))}
     )
 
-    focus_minutes = 0
+    # Action delta stays on Event; current effort uses recorded sessions.
+    focus_query = select(PomodoroSession.topic, func.coalesce(func.sum(PomodoroSession.actual_min), 0)).where(
+        PomodoroSession.kind == "focus", PomodoroSession.ended_at.is_not(None),
+        PomodoroSession.started_at >= period.start, PomodoroSession.started_at < period.end)
+    if focus_entity_id is not None:
+        linked = select(Link.from_id).where(Link.to_id == focus_entity_id)
+        focus_query = focus_query.where(or_(PomodoroSession.context_entity_id == focus_entity_id,
+                                            PomodoroSession.context_entity_id.in_(linked)))
+    focus_rows = (await session.execute(focus_query.group_by(PomodoroSession.topic))).all()
+    focus_minutes = sum(int(minutes) for _, minutes in focus_rows)
     topics: dict[str, int] = {}
-    for event in events:
-        if event["verb"] != "pomodoro.completed":
-            continue
-        payload = event.get("payload") or {}
-        minutes = payload.get("minutes")
-        if isinstance(minutes, (int, float)):
-            focus_minutes += int(minutes)
-        topic = str(payload.get("topic") or "Genel")
-        topics[topic] = topics.get(topic, 0) + (int(minutes) if isinstance(minutes, (int, float)) else 0)
+    for topic, minutes in focus_rows:
+        label = topic or "Genel"
+        topics[label] = topics.get(label, 0) + int(minutes)
 
     applications: list[ReviewInsight] = []
     if focus_entity_id is None:

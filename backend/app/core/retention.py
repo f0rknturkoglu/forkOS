@@ -22,7 +22,8 @@ Politika:
                                      daha uzun gecmis ister)
     her kaynak icin       : en az son 20 kosu HER DURUMDA kalir
   source_sync_batch
-    terminal (completed / completed_with_errors) : 60 gun
+    opportunity terminal (completed / completed_with_errors) : 60 gun
+    media historical batches and runs            : ASLA silinmez
     aktif (queued / running)                     : ASLA silinmez
   notification
     okunmus/kapatilmis, importance < 3           : 90 gun
@@ -96,7 +97,14 @@ async def prune_source_runs(session: AsyncSession, *, now: datetime | None = Non
         )
         .subquery()
     )
+    archived_sources = select(SourceSyncBatch.source_ids).where(SourceSyncBatch.scope == "media")
+    # Preserve both attached and detached historical Media runs.
+    media_sources = {source for ids in (await session.execute(archived_sources)).scalars() for source in ids}
     doomed = select(ranked.c.id).where(
+        ranked.c.id.not_in(select(SourceRun.id).where(SourceRun.batch_id.in_(
+            select(SourceSyncBatch.id).where(SourceSyncBatch.scope == "media")))),
+        ranked.c.id.not_in(select(SourceRun.id).where(SourceRun.source.in_(media_sources))),
+        ranked.c.id.not_in(select(SourceRun.id).where(SourceRun.source.like("media:%"))),
         ranked.c.rank > SOURCE_RUN_KEEP_PER_SOURCE,
         or_(
             and_(
@@ -116,11 +124,12 @@ async def prune_source_runs(session: AsyncSession, *, now: datetime | None = Non
 async def prune_source_sync_batches(
     session: AsyncSession, *, now: datetime | None = None
 ) -> int:
-    """Terminal batch'leri sil. Aktif (queued/running) batch ASLA silinmez."""
+    """Opportunity terminal batches only; active and historical Media records remain."""
     moment = now or datetime.now(UTC)
     cutoff = moment - timedelta(days=SOURCE_SYNC_BATCH_DAYS)
     result = await session.execute(
         delete(SourceSyncBatch).where(
+            SourceSyncBatch.scope == "opportunity",
             SourceSyncBatch.status.in_(SOURCE_SYNC_BATCH_TERMINAL_STATUSES),
             func.coalesce(SourceSyncBatch.finished_at, SourceSyncBatch.created_at) < cutoff,
         )

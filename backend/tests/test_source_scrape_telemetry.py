@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
 from unittest.mock import AsyncMock
 
 import httpx
@@ -14,7 +13,6 @@ from app.db import SessionLocal
 from app.main import app
 from app.modules.opportunity.worker import poll_source
 from app.sources.base import FetchOutcome, RawItem, ScrapeTelemetry
-from app.sources.forkjob_core.scrapers.arbeitnow import ArbeitnowScraper
 from app.sources.forkjob_core.scrapers.base import ScraperPermanentError
 from app.sources.forkjob_core.scrapers.fourdayweek import FourDayWeekScraper
 from app.sources.forkjob_core.scrapers.manfred import ManfredScraper

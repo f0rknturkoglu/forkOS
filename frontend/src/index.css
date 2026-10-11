@@ -400,21 +400,62 @@
 }
 
 /* Technology identity palette; independent of feed source colors. */
-.technology-chip { color: var(--technology-ink, white); background-color: var(--technology-fill); border-color: var(--technology-border, var(--technology-fill)); }
-.technology-chip-typescript { --technology-fill: #3178c6; }
-.technology-chip-javascript { --technology-fill: #f1e05a; --technology-ink: #242424; }
-.technology-chip-python { --technology-fill: #3776ab; --technology-border: #ffd343; }
-.technology-chip-swift { --technology-fill: #b94316; }
-.technology-chip-rust { --technology-fill: #a84316; }
-.technology-chip-go { --technology-fill: #007d9c; }
-.technology-chip-java { --technology-fill: #a65c00; }
-.technology-chip-kotlin { --technology-fill: #7650ad; }
-.technology-chip-c { --technology-fill: #555555; }
-.technology-chip-cpp { --technology-fill: #b33d62; }
-.technology-chip-csharp { --technology-fill: #347500; }
-.technology-chip-ruby { --technology-fill: #a61919; }
-.technology-chip-php { --technology-fill: #656d9c; }
-.technology-chip-dart { --technology-fill: #007f9f; }
-.technology-chip-html { --technology-fill: #bb4323; }
-.technology-chip-css { --technology-fill: #663399; }
-.technology-chip-shell { --technology-fill: #89b543; --technology-ink: #17200f; }
+.technology-chip {
+  color: var(--technology-ink, white);
+  background-color: var(--technology-fill);
+  border-color: var(--technology-border, var(--technology-fill));
+}
+.technology-chip-typescript {
+  --technology-fill: #3178c6;
+}
+.technology-chip-javascript {
+  --technology-fill: #f1e05a;
+  --technology-ink: #242424;
+}
+.technology-chip-python {
+  --technology-fill: #3776ab;
+  --technology-border: #ffd343;
+}
+.technology-chip-swift {
+  --technology-fill: #b94316;
+}
+.technology-chip-rust {
+  --technology-fill: #a84316;
+}
+.technology-chip-go {
+  --technology-fill: #007d9c;
+}
+.technology-chip-java {
+  --technology-fill: #a65c00;
+}
+.technology-chip-kotlin {
+  --technology-fill: #7650ad;
+}
+.technology-chip-c {
+  --technology-fill: #555555;
+}
+.technology-chip-cpp {
+  --technology-fill: #b33d62;
+}
+.technology-chip-csharp {
+  --technology-fill: #347500;
+}
+.technology-chip-ruby {
+  --technology-fill: #a61919;
+}
+.technology-chip-php {
+  --technology-fill: #656d9c;
+}
+.technology-chip-dart {
+  --technology-fill: #007f9f;
+}
+.technology-chip-html {
+  --technology-fill: #bb4323;
+}
+.technology-chip-css {
+  --technology-fill: #663399;
+}
+.technology-chip-shell {
+  --technology-fill: #89b543;
+  --technology-ink: #17200f;
+}

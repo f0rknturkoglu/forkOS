@@ -76,8 +76,11 @@ async def search_uri_for(q: str = Query(min_length=1, max_length=200)) -> UriOut
 async def get_item(forkos_id: uuid.UUID) -> VaultItem:
     """Belirtilen forkOS ID'sine karşılık gelen Vault dosyasını ve açılış URI'sini döner."""
     try:
+        status = service.get_vault_status()
+        if not status.available or not status.readable:
+            raise RuntimeError("Obsidian Vault erişilemiyor; ayarları kontrol et")
         item = service.resolve_managed_item(str(forkos_id))
-    except service.VaultConflictError as exc:
+    except (service.VaultConflictError, RuntimeError, PermissionError) as exc:
         raise vault_http_error(exc) from exc
     if not item:
         raise HTTPException(
@@ -93,7 +96,7 @@ async def capture_note(
 ) -> VaultItem:
     """Hızlı yakalanan bilgi notunu doğrudan Vault'ta (`00 Inbox/`) oluşturur.
 
-    Kimliği sunucu üretir; forkOS veritabanında not kaydı OLUŞMAZ. İlişki
+    Kimliği client_uuid veya sunucu üretir; forkOS veritabanında not kaydı OLUŞMAZ. İlişki
     hedefi (`relate_to`) sunucuda çözülür, istemcinin verdiği tip/başlık
     kullanılmaz.
     """
@@ -104,6 +107,10 @@ async def capture_note(
             title=body.title,
             relate_to=body.relate_to,
             tags=body.tags,
+            client_uuid=body.client_uuid,
+            source_url=body.source_url,
+            folder=body.folder,
+            pinned=body.pinned,
         )
     except (
         service.VaultConflictError,
