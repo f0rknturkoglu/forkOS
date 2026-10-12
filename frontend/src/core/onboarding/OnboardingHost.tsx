@@ -546,11 +546,16 @@ export function OnboardingHost() {
             )}
           </aside>
         ) : (
-          <div className="fixed bottom-3 right-3 z-popover">
-            <Button onClick={() => setTourOpen(true)}>
-              <BookOpen size={15} />
-              Rehbere devam et
-            </Button>
+          <div className="fixed bottom-20 right-5 z-popover">
+            <button
+              type="button"
+              aria-label="Rehbere devam et"
+              title="Rehbere devam et"
+              onClick={() => setTourOpen(true)}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-strong bg-surface text-primary shadow-overlay transition hover:bg-surface-hover"
+            >
+              <BookOpen size={18} />
+            </button>
           </div>
         ))}
     </>

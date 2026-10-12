@@ -41,7 +41,7 @@ async def public_address(host, port):
     return ips[0]
 
 
-async def get_public(client, url, *, headers=None):
+async def get_public(client, url, *, headers=None, max_bytes=MAX_BYTES):
     original = url
     for _ in range(4):
         parsed = validate_public_url(url)
@@ -71,7 +71,7 @@ async def get_public(client, url, *, headers=None):
             data = bytearray()
             async for chunk in response.aiter_bytes():
                 data.extend(chunk)
-                if len(data) > MAX_BYTES:
+                if len(data) > max_bytes:
                     raise ValueError("RSS yanıtı boyut sınırını aştı")
             # aiter_bytes() already decoded the transfer. Reusing Content-Encoding
             # would make httpx decode the plain XML a second time.

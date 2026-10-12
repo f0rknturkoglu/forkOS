@@ -1749,6 +1749,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/flashcard/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Shared Decks */
+        get: operations["shared_decks_api_flashcard_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/flashcard/catalog/{shared_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Shared Deck */
+        get: operations["preview_shared_deck_api_flashcard_catalog__shared_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/flashcard/catalog/{shared_id}/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Shared Deck */
+        post: operations["import_shared_deck_api_flashcard_catalog__shared_id__import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/flashcard/cram/missed": {
         parameters: {
             query?: never;
@@ -3710,6 +3761,24 @@ export interface paths {
         put?: never;
         /** Add Milestone */
         post: operations["add_milestone_api_projects__project_id__milestones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{project_id}/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Project Resources */
+        get: operations["project_resources_api_projects__project_id__resources_get"];
+        put?: never;
+        /** Add Project Resource */
+        post: operations["add_project_resource_api_projects__project_id__resources_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10047,6 +10116,30 @@ export interface components {
             /** Url */
             url?: string | null;
         };
+        /** ProjectResourceIn */
+        ProjectResourceIn: {
+            /**
+             * Client Uuid
+             * Format: uuid
+             */
+            client_uuid: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /** ProjectResourceOut */
+        ProjectResourceOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
         /** ProposalOut */
         ProposalOut: {
             /**
@@ -10984,6 +11077,38 @@ export interface components {
         SettingIn: {
             /** Value */
             value: unknown;
+        };
+        /** SharedDeckOut */
+        SharedDeckOut: {
+            /** Has Media */
+            has_media: boolean;
+            /** Id */
+            id: number;
+            /** Likes */
+            likes: number;
+            /** Notes */
+            notes: number;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
+        /** SharedDeckPreview */
+        SharedDeckPreview: {
+            /** Has Media */
+            has_media: boolean;
+            /** Id */
+            id: number;
+            /** Notes */
+            notes: number;
+            /** Samples */
+            samples: string[][];
+            /** Size Bytes */
+            size_bytes: number;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
         };
         /** SilentApplicationOut */
         SilentApplicationOut: {
@@ -15992,6 +16117,99 @@ export interface operations {
             };
         };
     };
+    shared_decks_api_flashcard_catalog_get: {
+        parameters: {
+            query?: {
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedDeckOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_shared_deck_api_flashcard_catalog__shared_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shared_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedDeckPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_shared_deck_api_flashcard_catalog__shared_id__import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shared_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cram_missed_api_flashcard_cram_missed_get: {
         parameters: {
             query?: {
@@ -20087,6 +20305,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    project_resources_api_projects__project_id__resources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectResourceOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_project_resource_api_projects__project_id__resources_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectResourceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectResourceOut"];
                 };
             };
             /** @description Validation Error */

@@ -9,6 +9,7 @@ import { invalidateAfter } from "@/core/invalidation";
 import {
   Button,
   Checkbox,
+  Disclosure,
   Empty,
   Input as BaseInput,
   Field,
@@ -142,7 +143,7 @@ export function GoalsPage() {
                   setStudioOpen(true);
                 }}
               >
-                Hermes ile Hedef Hazırla
+                Hermes ile hedef ve plan hazırla
               </Button>
             )}
             {selected && (
@@ -302,7 +303,7 @@ export function GoalsPage() {
                           setSelected(null);
                         }}
                       >
-                        Yeni hedef
+                        Kendim oluştur
                       </Button>
                     </span>
                     {data.objectives.map((o) => (
@@ -748,8 +749,9 @@ function PlanEditor({ data, requested }: { data: Overview; requested: string | n
   const plan = data.plans.find((p) => p.id === id);
   return (
     <div className="stack-y-3">
+      <p className="text-meta text-secondary">Beş yıllık yol haritanı yukarıda Hermes ile hazırlayabilirsin.</p>
       <Select value={id} onChange={setId} ariaLabel="Düzenlenecek plan">
-        <option value="">Yeni stratejik plan</option>
+        <option value="">Uzun vadeli planlar</option>
         {data.plans.map((p) => (
           <option key={p.id} value={p.id}>
             {p.title} · r{p.revision}
@@ -760,8 +762,12 @@ function PlanEditor({ data, requested }: { data: Overview; requested: string | n
         <p role="status" className="text-meta text-muted">
           Plan yükleniyor…
         </p>
+      ) : plan ? (
+        <PlanForm key={id} plan={plan} onSaved={setId} />
       ) : (
-        <PlanForm key={id || "new"} plan={plan} onSaved={setId} />
+        <Disclosure summary="Planı kendim oluştur">
+          <PlanForm key="new" onSaved={setId} />
+        </Disclosure>
       )}
       {plan && <Pillars plan={plan} data={data} />}
     </div>

@@ -13641,6 +13641,58 @@
         "title": "ProjectPatch",
         "type": "object"
       },
+      "ProjectResourceIn": {
+        "properties": {
+          "client_uuid": {
+            "format": "uuid",
+            "title": "Client Uuid",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "client_uuid",
+          "title",
+          "url"
+        ],
+        "title": "ProjectResourceIn",
+        "type": "object"
+      },
+      "ProjectResourceOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "url"
+        ],
+        "title": "ProjectResourceOut",
+        "type": "object"
+      },
       "ProposalOut": {
         "properties": {
           "created_at": {
@@ -16090,6 +16142,93 @@
           "value"
         ],
         "title": "SettingIn",
+        "type": "object"
+      },
+      "SharedDeckOut": {
+        "properties": {
+          "has_media": {
+            "title": "Has Media",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "likes": {
+            "title": "Likes",
+            "type": "integer"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "url",
+          "notes",
+          "likes",
+          "has_media"
+        ],
+        "title": "SharedDeckOut",
+        "type": "object"
+      },
+      "SharedDeckPreview": {
+        "properties": {
+          "has_media": {
+            "title": "Has Media",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "notes": {
+            "title": "Notes",
+            "type": "integer"
+          },
+          "samples": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Samples",
+            "type": "array"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "url",
+          "notes",
+          "has_media",
+          "size_bytes",
+          "samples"
+        ],
+        "title": "SharedDeckPreview",
         "type": "object"
       },
       "SilentApplicationOut": {
@@ -25656,6 +25795,138 @@
         ]
       }
     },
+    "/api/flashcard/catalog": {
+      "get": {
+        "operationId": "shared_decks_api_flashcard_catalog_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "default": "english",
+              "maxLength": 100,
+              "title": "Search",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SharedDeckOut"
+                  },
+                  "title": "Response Shared Decks Api Flashcard Catalog Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Shared Decks",
+        "tags": [
+          "flashcard"
+        ]
+      }
+    },
+    "/api/flashcard/catalog/{shared_id}": {
+      "get": {
+        "operationId": "preview_shared_deck_api_flashcard_catalog__shared_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shared_id",
+            "required": true,
+            "schema": {
+              "title": "Shared Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedDeckPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Shared Deck",
+        "tags": [
+          "flashcard"
+        ]
+      }
+    },
+    "/api/flashcard/catalog/{shared_id}/import": {
+      "post": {
+        "operationId": "import_shared_deck_api_flashcard_catalog__shared_id__import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shared_id",
+            "required": true,
+            "schema": {
+              "title": "Shared Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Shared Deck",
+        "tags": [
+          "flashcard"
+        ]
+      }
+    },
     "/api/flashcard/cram/missed": {
       "get": {
         "description": "Desteler genelinde en cok unutulan kartlar (varsayilan 30) -- cram kuyrugu.",
@@ -31897,6 +32168,104 @@
           }
         },
         "summary": "Add Milestone",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/projects/{project_id}/resources": {
+      "get": {
+        "operationId": "project_resources_api_projects__project_id__resources_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectResourceOut"
+                  },
+                  "title": "Response Project Resources Api Projects  Project Id  Resources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Project Resources",
+        "tags": [
+          "projects"
+        ]
+      },
+      "post": {
+        "operationId": "add_project_resource_api_projects__project_id__resources_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectResourceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResourceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Project Resource",
         "tags": [
           "projects"
         ]

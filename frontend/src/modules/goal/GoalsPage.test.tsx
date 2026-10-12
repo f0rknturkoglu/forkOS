@@ -87,7 +87,7 @@ it("keeps plan revision history inspectable with comparison explanation", async 
 it("tutorial target toggles the new goal editor and preserves an unfinished title", async () => {
   location.hash = "#/goals?view=objectives";
   show();
-  const toggle = await screen.findByRole("button", { name: "Yeni hedef" });
+  const toggle = await screen.findByRole("button", { name: "Kendim oluştur" });
   const title = screen.getByLabelText("Hedef başlığı") as HTMLInputElement;
   expect(title.closest("[hidden]")).not.toBeNull();
   fireEvent.click(toggle);
@@ -111,7 +111,7 @@ it("hydrates the new goal editor when its first detail response arrives later", 
   vi.mocked(api.get).mockImplementation((path) => (path === "/goals/late-goal" ? pending : Promise.resolve(empty)));
   vi.mocked(api.post).mockResolvedValue({ id: "late-goal" });
   show();
-  fireEvent.click(await screen.findByRole("button", { name: "Yeni hedef" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Kendim oluştur" }));
   fireEvent.change(screen.getByLabelText("Hedef başlığı"), { target: { value: "Kalıcı hedef" } });
   fireEvent.change(screen.getByLabelText("Hedef açıklaması"), { target: { value: "Korunacak açıklama" } });
   fireEvent.click(screen.getByRole("button", { name: "Hedef oluştur" }));
@@ -154,6 +154,7 @@ it("waits for the created plan before mounting its editor", async () => {
     return plan;
   });
   show();
+  fireEvent.click(await screen.findByRole("button", { name: "Planı kendim oluştur" }));
   fireEvent.change(await screen.findByLabelText("Plan başlığı"), { target: { value: plan.title } });
   fireEvent.change(screen.getByLabelText("Plan özeti"), { target: { value: plan.summary } });
   fireEvent.change(screen.getByLabelText("Plan başlangıcı"), { target: { value: "2026-10-01" } });

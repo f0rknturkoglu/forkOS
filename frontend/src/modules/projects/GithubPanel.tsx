@@ -13,10 +13,11 @@ import {
   RefreshCw,
   Star,
 } from "lucide-react";
+import { TechnologyBadge } from "@/core/TechnologyBadge";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import type { GithubIssue, GithubRepoPanel, Project } from "@/core/types";
-import { Button, Chip, Empty, Metric, MetricStrip, RowList, Section, cx, relativeTime, useToast } from "@/core/ui";
+import { Button, Chip, Empty, RowList, Section, cx, relativeTime, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 
 type GithubActivityFilter = "all" | "issue" | "pull" | "commit";
@@ -162,8 +163,7 @@ export function GithubPanel({ project }: { project: Project }) {
     return (
       <Section title="GitHub">
         <Empty>
-          Bu projeye depo bağlı değil. Yukarıdaki “GitHub deposu” alanına
-          <span className="text-primary"> sahip/depo</span> yaz.
+          Depoyu proje ayarlarındaki “GitHub deposu” alanından bağlayabilirsin.
         </Empty>
       </Section>
     );
@@ -231,10 +231,13 @@ export function GithubPanel({ project }: { project: Project }) {
                   <Star size={11} className="text-feed-gh" aria-hidden />
                   <span className="tabular-nums">{data.stars}</span>
                 </span>
-                <span>
-                  <span className="tabular-nums">{data.open_issues}</span> açık issue
+                <span className="inline-flex items-center gap-1">
+                  <CircleDot size={12} /> {data.open_issues} issue
                 </span>
-                {data.language && <span>{data.language}</span>}
+                <span className="inline-flex items-center gap-1">
+                  <GitPullRequest size={12} /> {data.pulls.length} PR
+                </span>
+                {data.language && <TechnologyBadge language={data.language} />}
                 <span>son push {data.pushed_at ? relativeTime(data.pushed_at) : "—"}</span>
                 <span className="inline-flex items-center gap-1">
                   <GitCommitHorizontal size={11} aria-hidden />
@@ -275,15 +278,11 @@ export function GithubPanel({ project }: { project: Project }) {
           )}
 
           <div className="p-3.5">
-            <MetricStrip className="grid-cols-2 sm:grid-cols-4">
-              <Metric label="açık issue" value={data.issues.length} />
-              <Metric label="açık PR" value={data.pulls.length} />
-              <Metric label="son push" value={data.pushed_at ? relativeTime(data.pushed_at) : "—"} />
-              <Metric label="ana dil" value={data.language ?? "—"} />
-            </MetricStrip>
-
             {data.description && (
-              <p className="border-b border-subtle py-3 text-meta text-secondary">{data.description}</p>
+              <div className="border-b border-subtle pb-3 text-meta text-secondary">
+                <p className="mb-1 text-micro text-muted">Depo açıklaması</p>
+                <p>{data.description}</p>
+              </div>
             )}
 
             <div className="flex flex-wrap items-center gap-1.5 border-b border-subtle py-2.5">

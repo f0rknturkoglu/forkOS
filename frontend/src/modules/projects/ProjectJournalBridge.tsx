@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { BookOpen } from "lucide-react";
+import { ObsidianLogo } from "@/core/BrandIcons";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import { getVaultStatus, openObsidianUri, VAULT_STATUS_KEY, type VaultItem } from "@/core/obsidian";
@@ -54,14 +54,14 @@ export function ProjectJournalBridge({ projectId }: { projectId: string }) {
   const vaultReady = Boolean(status?.configured && status?.available);
 
   return (
-    <Section title="Günlük" hint="günlük notu Obsidian'da yaşar" bodyClassName="stack-y-3">
+    <Section title="Günlük" bodyClassName="stack-y-3">
       {statusLoading ? (
         <Skeleton className="h-10 w-full" />
       ) : !vaultReady ? (
         <p className="text-meta text-muted">
           Vault kullanılamıyor —{" "}
           {!status?.configured
-            ? "Obsidian Vault yapılandırılmamış (isteğe bağlı .env dosyasından açılabilir)."
+            ? "Obsidian Vault yapılandırılmamış."
             : "Obsidian Vault dizini mevcut değil veya erişilemiyor."}{" "}
           Günlük notu bu yüzden açılamaz.
         </p>
@@ -85,13 +85,10 @@ export function ProjectJournalBridge({ projectId }: { projectId: string }) {
               disabled={!online || openJournal.isPending}
               onClick={() => openJournal.mutate(day)}
             >
-              <BookOpen size={14} />
-              {day === today ? "Bugünün proje günlüğünü Obsidian'da aç" : "Seçili günün günlüğünü Obsidian'da aç"}
+              <ObsidianLogo />
+              {day === today ? "Bugünü Obsidian’da aç" : "Bu günü Obsidian’da aç"}
             </Button>
           </div>
-          <p className="text-meta text-muted">
-            Gelecek bir gün seçilemez. Günlük metni Obsidian'da yazılır; forkOS notu açar, içeriğin kopyasını tutmaz.
-          </p>
         </>
       )}
     </Section>

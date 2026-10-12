@@ -108,6 +108,7 @@ export const AFTER = {
     "activity",
     "related",
   ],
+  "project-resource.write": ["project-resources", "bookmarks", "bookmark-stats", "related", "projects", "activity"],
   "project.write": [
     "onboarding-evidence",
     "strategy-overview",
@@ -232,7 +233,7 @@ export const AFTER = {
     "source-coverage",
     "source-cache",
   ],
-  "link.write": ["strategy-overview", "related", "backlinks", "activity"],
+  "link.write": ["strategy-overview", "related", "backlinks", "activity", "project-resources"],
   // Bilgi artık Vault'ta yaşar: Vault yazması forkOS veritabanını
   // DEĞİŞTİRMEZ, bu yüzden yalnız Vault sorguları tazelenir.
   "obsidian.write": ["vault-status", "vault-item"],

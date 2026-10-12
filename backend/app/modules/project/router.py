@@ -23,6 +23,8 @@ from app.modules.project.schemas import (
     MilestonePatch,
     ProjectIn,
     ProjectPatch,
+    ProjectResourceIn,
+    ProjectResourceOut,
     TodoLinkIn,
 )
 
@@ -247,3 +249,21 @@ async def issue_to_todo(
         raise HTTPException(502, _github_error(exc)) from exc
 
     return await service.todo_from_issue(session, project, detail)
+
+
+@router.get("/projects/{project_id}/resources", response_model=list[ProjectResourceOut])
+async def project_resources(project_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    result = await service.resources(session, project_id)
+    if result is None:
+        raise HTTPException(404)
+    return result
+
+
+@router.post("/projects/{project_id}/resources", response_model=ProjectResourceOut, status_code=201)
+async def add_project_resource(
+    project_id: uuid.UUID, body: ProjectResourceIn, session: AsyncSession = Depends(get_session)
+):
+    result = await service.add_resource(session, project_id, body)
+    if result is None:
+        raise HTTPException(404)
+    return result

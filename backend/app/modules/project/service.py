@@ -13,7 +13,13 @@ from app.core.models import Entity, Event, Link
 from app.core.time import local_zone
 from app.modules import DeadlineRow
 from app.modules.project.models import Milestone, Project
-from app.modules.project.schemas import MilestoneIn, MilestonePatch, ProjectIn, ProjectPatch
+from app.modules.project.schemas import (
+    MilestoneIn,
+    MilestonePatch,
+    ProjectIn,
+    ProjectPatch,
+    ProjectResourceIn,
+)
 from app.modules.todo import service as todo_service
 from app.modules.todo.models import Todo
 from app.modules.todo.schemas import TodoIn
@@ -414,3 +420,41 @@ async def deadline_provider(session: AsyncSession) -> list[DeadlineRow]:
     return await rows_with_titles(
         session, type_="milestone", module="project", ids=ids, due_at=due,
     )
+
+
+async def resources(session: AsyncSession, project_id: uuid.UUID) -> list[dict] | None:
+    from app.modules.bookmark.models import Bookmark
+
+    if await session.get(Project, project_id) is None:
+        return None
+    rows = (await session.execute(
+        select(Bookmark.id, Entity.title, Bookmark.url)
+        .join(Entity, Entity.id == Bookmark.id)
+        .join(Link, Link.to_id == Bookmark.id)
+        .where(Link.from_id == project_id, Link.relation == "references", Entity.archived_at.is_(None))
+        .order_by(Entity.created_at)
+    )).all()
+    return [{"id": row.id, "title": row.title, "url": row.url} for row in rows]
+
+
+async def add_resource(session: AsyncSession, project_id: uuid.UUID, data: ProjectResourceIn) -> dict | None:
+    from app.core.links import link
+    from app.modules.bookmark.receipts import capture_once
+    from app.modules.bookmark.schemas import CaptureIn
+    from app.modules.bookmark.service import capture
+
+    if await session.get(Project, project_id) is None:
+        return None
+
+    async def write():
+        bookmark, _, _ = await capture(session, CaptureIn(
+            url=data.url, title=data.title.strip(), collection="projects", source="project",
+        ), commit=False)
+        await link(session, project_id, bookmark.id, "references")
+        await touch_entity(session, project_id)
+        await log_event(session, verb="link.created", entity_id=project_id, entity_type="project",
+                        payload={"to_id": str(bookmark.id), "relation": "references"})
+        return {"id": str(bookmark.id), "title": data.title.strip(), "url": data.url}
+
+    result, _ = await capture_once(session, data, f"project-resource:{project_id}", write)
+    return result

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.modules.flashcard import service
+from app.modules.flashcard import catalog, service
 from app.modules.flashcard.schemas import (
     CardIn,
     CardOut,
@@ -18,6 +18,8 @@ from app.modules.flashcard.schemas import (
     ImportOut,
     ReviewIn,
     ReviewOut,
+    SharedDeckOut,
+    SharedDeckPreview,
 )
 
 router = APIRouter(tags=["flashcard"])
@@ -129,3 +131,25 @@ async def import_cards(
         return await service.import_cards(session, content, file.filename or "", deck)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/flashcard/catalog", response_model=list[SharedDeckOut])
+async def shared_decks(
+    search: str = Query(default="english", max_length=100),
+    session: AsyncSession = Depends(get_session),
+):
+    return await catalog.list_catalog(session, search)
+
+
+@router.get("/flashcard/catalog/{shared_id}", response_model=SharedDeckPreview)
+async def preview_shared_deck(shared_id: int):
+    if not 0 < shared_id <= 4_294_967_295:
+        raise HTTPException(422, "Geçersiz deste kimliği")
+    return await catalog.preview(shared_id)
+
+
+@router.post("/flashcard/catalog/{shared_id}/import", response_model=ImportOut, status_code=201)
+async def import_shared_deck(shared_id: int, session: AsyncSession = Depends(get_session)):
+    if not 0 < shared_id <= 4_294_967_295:
+        raise HTTPException(422, "Geçersiz deste kimliği")
+    return await catalog.import_shared(session, shared_id)

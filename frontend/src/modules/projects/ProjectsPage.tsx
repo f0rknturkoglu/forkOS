@@ -3,30 +3,28 @@ import { ContextualHelp } from "@/core/ContextualHelp";
 import { useEffect, useState } from "react";
 import { navigate, useHashRoute } from "@/app/router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLink, PanelRight, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, Github, Settings, Plus, Trash2 } from "lucide-react";
 import { api } from "@/core/api";
 import {
   Button,
   Chip,
   Empty,
-  Drawer,
   Field,
+  Disclosure,
+  Select,
   IconButton,
   Input,
   PageFrame,
   Modal,
   Section,
-  Select,
-  Tabs,
   cx,
-  relativeTime,
   useToast,
   SkeletonRows,
 } from "@/core/ui";
 import { confirmDialog } from "@/core/dialog";
 import { useOnline } from "@/lib/hooks";
-import type { Project } from "@/core/types";
-import { RelatedPanel } from "@/core/RelatedPanel";
+import type { GithubRepoPanel, Project } from "@/core/types";
+import { ProjectResources, ProjectConnections } from "./ProjectResources";
 import { GithubPanel } from "./GithubPanel";
 import { ProjectTodos } from "./ProjectTodos";
 import { Milestones } from "./Milestones";
@@ -34,16 +32,7 @@ import { MilestoneTimeline } from "./MilestoneTimeline";
 import { ProjectActivityTimeline } from "./ProjectActivityTimeline";
 import { ProjectJournalBridge } from "./ProjectJournalBridge";
 import { ProjectKnowledgeNote } from "./ProjectKnowledgeNote";
-import {
-  Workspace,
-  WorkspacePaneHeader,
-  WorkspaceInspectorContent,
-  WorkspaceRailButton,
-  WorkspaceRailContent,
-  WorkspaceRailGroup,
-  WorkspaceScrollArea,
-  WorkspaceToolbar,
-} from "@/core/workspace/Workspace";
+import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea, WorkspaceToolbar } from "@/core/workspace/Workspace";
 
 const STATUSES = [
   { value: "active", label: "aktif", tone: "ok", dot: "bg-ok" },
@@ -53,25 +42,21 @@ const STATUSES = [
 ] as const;
 
 const statusOf = (value: string) => STATUSES.find((item) => item.value === value) ?? STATUSES[0];
-type ProjectView = "overview" | "work" | "activity";
-const PROJECT_VIEWS = [
-  { id: "overview", label: "Genel" },
-  { id: "work", label: "İşler" },
-  { id: "activity", label: "Geçmiş" },
-];
-
 /** Proje seçimi, aktif iş ve ikincil bağlam aynı çalışma alanında kalır. */
 export function ProjectsPage() {
   const route = useHashRoute();
   const focusId = route.params.get("focus") ?? "";
   const [selected, setSelected] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [view, setView] = useState<ProjectView>("overview");
-  const [inspectorOpen, setInspectorOpen] = useState(true);
-  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const online = useOnline();
 
-  const { data: projects = [], isLoading } = useQuery({
+  const {
+    data: projects = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["projects"],
     queryFn: () => api.get<Project[]>("/projects"),
   });
@@ -88,7 +73,6 @@ export function ProjectsPage() {
       focusId && projects.find((project) => project.milestones.some((item) => item.id === focusId));
     if (milestoneOwner) {
       setSelected(milestoneOwner.id);
-      setView("work");
       return;
     }
     if (focusId) {
@@ -102,8 +86,7 @@ export function ProjectsPage() {
   const current = projects.find((project) => project.id === selected) ?? null;
   const selectProject = (id: string) => {
     setSelected(id);
-    setView("overview");
-    setMobileInspectorOpen(false);
+    setSettingsOpen(false);
     navigate(`/projects?focus=${encodeURIComponent(id)}`, { replace: true });
   };
 
@@ -111,6 +94,11 @@ export function ProjectsPage() {
     <PageFrame className="py-3">
       {isLoading ? (
         <SkeletonRows rows={6} />
+      ) : isError ? (
+        <div role="alert" className="stack-y-3">
+          <p className="text-body text-danger">Projeler alınamadı.</p>
+          <Button onClick={() => void refetch()}>Yeniden dene</Button>
+        </div>
       ) : projects.length === 0 ? (
         <div data-onboarding="project-create" className="stack-y-4">
           <Empty
@@ -134,96 +122,47 @@ export function ProjectsPage() {
           </Modal>
         </div>
       ) : current ? (
-        <Workspace
-          railAt="lg"
-          className="grid-rows-[auto_minmax(0,1fr)] lg:grid-rows-1"
-          inspectorAt="xl"
-          inspector={inspectorOpen ? <ProjectInspector key={current.id} project={current} /> : undefined}
-          rail={
-            <WorkspaceRailContent className="max-h-64 lg:max-h-workspace-body">
-              <WorkspaceRailGroup label="Projeler" hint={projects.length}>
-                {projects.map((project) => {
-                  const status = statusOf(project.status);
-                  const active = project.id === selected;
-                  return (
-                    <WorkspaceRailButton
-                      key={project.id}
-                      label={project.title}
-                      active={active}
-                      selection
-                      onClick={() => selectProject(project.id)}
-                      onKeyDown={(event) => {
-                        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-                        event.preventDefault();
-                        const direction = event.key === "ArrowDown" ? 1 : -1;
-                        const next =
-                          (projects.findIndex((item) => item.id === project.id) + direction + projects.length) %
-                          projects.length;
-                        selectProject(projects[next].id);
-                        const buttons = event.currentTarget
-                          .closest("section")
-                          ?.querySelectorAll<HTMLButtonElement>("button[aria-pressed]");
-                        buttons?.[next]?.focus();
-                      }}
-                      icon={<span className={cx("h-2 w-2 rounded-full", status.dot)} />}
-                      count={
-                        project.last_activity_at
-                          ? `${relativeTime(project.last_activity_at)} · ${status.label}`
-                          : (project.github_repo ?? status.label)
-                      }
-                    />
-                  );
-                })}
-              </WorkspaceRailGroup>
-            </WorkspaceRailContent>
-          }
-        >
+        <Workspace>
           <WorkspacePaneHeader
-            title={current.title}
-            hint={<Chip tone={statusOf(current.status).tone}>{statusOf(current.status).label}</Chip>}
+            title={<ProjectTitle key={current.id} project={current} />}
+            hint={<ProjectStatus key={current.id} project={current} />}
           />
           <WorkspaceToolbar
             left={
-              <Tabs
-                value={view}
-                onChange={setView}
-                items={PROJECT_VIEWS}
-                ariaLabel="Proje görünümü"
-                panelId={() => "project-view"}
-              />
+              <Select ariaLabel="Proje seç" value={current.id} onChange={selectProject} className="max-w-full sm:w-64">
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.title}
+                  </option>
+                ))}
+              </Select>
             }
             right={
               <>
-                <Button size="sm" className="xl:hidden" onClick={() => setMobileInspectorOpen(true)}>
-                  <PanelRight size={14} /> Detaylar
+                <ProjectLinks project={current} />
+                <Button size="sm" ariaLabel="Proje ayarları" onClick={() => setSettingsOpen(true)}>
+                  <Settings size={14} /> <span className="hidden sm:inline">Ayarlar</span>
                 </Button>
                 <Button
+                  variant="primary"
                   size="sm"
-                  className="hidden xl:inline-flex"
-                  ariaLabel={inspectorOpen ? "Detayları gizle" : "Detayları göster"}
-                  onClick={() => setInspectorOpen((value) => !value)}
+                  ariaLabel="Yeni proje"
+                  onClick={() => setAdding(true)}
+                  disabled={!online}
                 >
-                  <PanelRight size={14} /> Detaylar
-                </Button>
-                <Button variant="primary" size="sm" onClick={() => setAdding(true)} disabled={!online}>
-                  <Plus size={14} /> Yeni proje
+                  <Plus size={14} /> <span className="hidden sm:inline">Yeni proje</span>
                 </Button>
               </>
             }
           />
           <WorkspaceScrollArea className="p-4">
-            <div
-              data-onboarding="project-create"
-              id="project-view"
-              role="tabpanel"
-              className="mx-auto max-w-4xl stack-y-4"
-            >
+            <div data-onboarding="project-create" id="project-view" className="mx-auto max-w-4xl stack-y-4">
               <ContextualHelp
                 key={current.id}
                 context={{ kind: "project", entity_id: current.id }}
-                label="Nerede kalmıştım?"
+                label="Proje özeti"
               />
-              <ProjectViewContent key={`${current.id}:${view}`} project={current} view={view} onView={setView} />
+              <ProjectViewContent key={current.id} project={current} />
             </div>
           </WorkspaceScrollArea>
           <Modal open={adding} onClose={() => setAdding(false)} title="Yeni proje">
@@ -234,76 +173,209 @@ export function ProjectsPage() {
               }}
             />
           </Modal>
-          <Drawer
-            open={mobileInspectorOpen}
-            onClose={() => setMobileInspectorOpen(false)}
-            title={current.title}
-            hint="Proje detayları"
-          >
-            <ProjectInspector key={current.id} project={current} />
-          </Drawer>
+          <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Proje ayarları">
+            <ProjectSettings key={current.id} project={current} />
+          </Modal>
         </Workspace>
       ) : null}
     </PageFrame>
   );
 }
 
-function ProjectViewContent({
-  project,
-  view,
-  onView,
-}: {
-  project: Project;
-  view: ProjectView;
-  onView: (view: ProjectView) => void;
-}) {
-  if (view === "work") {
-    return (
-      <>
-        <ProjectTodos project={project} />
-        <Milestones project={project} />
-        <GithubPanel project={project} />
-      </>
-    );
-  }
-  if (view === "activity") {
-    return (
-      <>
-        <ProjectActivityTimeline projectId={project.id} />
-        <ProjectJournalBridge projectId={project.id} />
-      </>
-    );
-  }
+function ProjectViewContent({ project }: { project: Project }) {
   const nextMilestone = project.milestones.find((item) => !item.completed_at);
-  const completed = project.milestones.filter((item) => item.completed_at).length;
   return (
     <>
       <Section title="Sıradaki adım">
         <p className="text-body text-primary">
           {project.next_action || nextMilestone?.title || "Henüz bir sonraki adım belirlenmedi."}
         </p>
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-subtle pt-3">
-          <span className="text-meta text-secondary">
-            Kilometre taşları: {completed}/{project.milestones.length}
-          </span>
-          <Button size="sm" onClick={() => onView("work")}>
-            İşlere git
-          </Button>
-        </div>
       </Section>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ProjectTodos project={project} />
+        <Milestones project={project} />
+      </div>
       <MilestoneTimeline project={project} />
-      <ProjectKnowledgeNote project={project} />
+      <GithubPanel project={project} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ProjectKnowledgeNote project={project} />
+        <ProjectJournalBridge projectId={project.id} />
+      </div>
+      <ProjectConnections project={project} />
+      <Disclosure summary="Geçmiş" className="rounded-card border border-subtle p-3">
+        <ProjectActivityTimeline projectId={project.id} />
+      </Disclosure>
     </>
   );
 }
 
-function ProjectInspector({ project }: { project: Project }) {
+function useProjectPatch(project: Project, onSaved?: () => void) {
+  const toast = useToast();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) => api.patch(`/projects/${project.id}`, body),
+    onSuccess: () => {
+      invalidateAfter("project.write");
+      onSaved?.();
+    },
+    onError: () => toast.push("Kaydedilemedi.", { tone: "danger" }),
+  });
+}
+
+function ProjectTitle({ project }: { project: Project }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(project.title);
+  const patch = useProjectPatch(project, () => setEditing(false));
+  const online = useOnline();
+  return editing ? (
+    <form
+      className="flex items-center gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!online || patch.isPending || !title.trim()) return;
+        if (title.trim() !== project.title) patch.mutate({ title: title.trim() });
+        else setEditing(false);
+      }}
+    >
+      <Input
+        autoFocus
+        ariaLabel="Proje adı"
+        value={title}
+        onChange={setTitle}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") setEditing(false);
+        }}
+        className="min-w-0 flex-1"
+      />
+      <Button size="sm" ariaLabel="Proje adını kaydet" type="submit" disabled={!title.trim() || patch.isPending}>
+        <Check size={14} />
+      </Button>
+    </form>
+  ) : (
+    <button
+      type="button"
+      disabled={!online}
+      aria-label="Proje adını düzenle"
+      onClick={() => {
+        setTitle(project.title);
+        setEditing(true);
+      }}
+      className="max-w-full truncate text-left hover:text-accent"
+    >
+      {project.title}
+    </button>
+  );
+}
+
+function ProjectStatus({ project }: { project: Project }) {
+  const [open, setOpen] = useState(false);
+  const patch = useProjectPatch(project);
+  const online = useOnline();
+  return (
+    <>
+      <button type="button" aria-label="Proje durumunu değiştir" disabled={!online} onClick={() => setOpen(true)}>
+        <Chip tone={statusOf(project.status).tone}>
+          {statusOf(project.status).label} <ChevronDown size={12} />
+        </Chip>
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Proje durumu">
+        <div className="grid gap-2">
+          {STATUSES.map((status) => (
+            <Button
+              key={status.value}
+              disabled={patch.isPending || !online}
+              onClick={() => {
+                patch.mutate({ status: status.value });
+                setOpen(false);
+              }}
+            >
+              <span className={cx("h-2 w-2 rounded-full", status.dot)} />
+              {status.label}
+              {project.status === status.value && <Check size={14} />}
+            </Button>
+          ))}
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+function GithubConnection({ project }: { project: Project }) {
+  const query = useQuery({
+    queryKey: ["project-github", project.id],
+    queryFn: () => api.get<GithubRepoPanel>(`/projects/${project.id}/github`),
+    enabled: Boolean(project.github_repo),
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  if (!project.github_repo) return null;
+  const fetched = query.data ? Date.parse(query.data.fetched_at) : NaN;
+  const stale = !Number.isFinite(fetched) || Date.now() - fetched >= 3 * 86_400_000;
+  const label = query.isError
+    ? "Bağlantı hatası"
+    : !query.data
+      ? "Kontrol ediliyor"
+      : stale
+        ? "Yenileme bekliyor"
+        : "Bağlı";
+  return (
+    <Chip tone={query.isError ? "danger" : stale || !query.data ? "warn" : "ok"} icon={<Github size={12} />}>
+      {label}
+    </Chip>
+  );
+}
+
+function ProjectLinks({ project }: { project: Project }) {
+  const [open, setOpen] = useState(false);
+  const website = project.url && (/^https?:\/\//i.test(project.url) ? project.url : `https://${project.url}`);
+  const repo = project.github_repo ? `https://github.com/${project.github_repo}` : null;
+  if (!website && !repo) return null;
+  const links = [
+    { label: "Proje bağlantısı", url: website },
+    { label: "GitHub deposu", url: repo },
+  ].filter((link) => link.url);
+  const linkClass =
+    "inline-flex h-8 items-center justify-center gap-1.5 rounded-control border border-subtle px-3 text-meta text-secondary transition hover:bg-surface-hover hover:text-primary";
+  return (
+    <>
+      {links.length === 1 ? (
+        <a className={linkClass} href={links[0].url!} target="_blank" rel="noreferrer">
+          <ExternalLink size={12} /> Aç
+        </a>
+      ) : (
+        <Button size="sm" onClick={() => setOpen(true)}>
+          <ExternalLink size={12} /> Aç
+        </Button>
+      )}
+      <Modal open={open} onClose={() => setOpen(false)} title="Nereye gitmek istersin?">
+        <div className="grid gap-2">
+          {links.map((link) => (
+            <a
+              key={link.label}
+              className={linkClass}
+              href={link.url!}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setOpen(false)}
+            >
+              {link.label === "GitHub deposu" ? <Github size={14} /> : <ExternalLink size={14} />}
+              {link.label}
+            </a>
+          ))}
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+function ProjectSettings({ project }: { project: Project }) {
   const online = useOnline();
   const toast = useToast();
 
   const patch = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.patch(`/projects/${project.id}`, body),
-    onSuccess: () => invalidateAfter("project.write"),
+    onSuccess: () => {
+      invalidateAfter("project.write");
+    },
     onError: () => toast.push("Kaydedilemedi.", { tone: "danger" }),
   });
   const remove = useMutation({
@@ -315,58 +387,11 @@ function ProjectInspector({ project }: { project: Project }) {
   });
 
   return (
-    <WorkspaceInspectorContent title="Proje detayları">
+    <div>
       <div className="min-w-0 stack-y-4">
-        <Section
-          title="Proje bilgisi"
-          action={
-            <span className="flex items-center gap-2">
-              {project.url && (
-                <a
-                  href={project.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1 text-meta text-accent hover:underline"
-                >
-                  <ExternalLink size={12} /> aç
-                </a>
-              )}
-              <IconButton
-                title="Projeyi sil"
-                tone="danger"
-                disabled={!online || remove.isPending}
-                onClick={async () => {
-                  const ok = await confirmDialog({
-                    title: `"${project.title}" silinsin mi?`,
-                    body: "Kilometre taşları da gider. Projeye bağlı görevler kalır.",
-                    confirmLabel: "Sil",
-                    tone: "danger",
-                  });
-                  if (ok) remove.mutate();
-                }}
-              >
-                <Trash2 size={14} />
-              </IconButton>
-            </span>
-          }
-        >
+        <Section title="Proje bilgisi">
           <div className="grid gap-3">
-            <Field label="Durum">
-              <Select
-                value={project.status}
-                onChange={(value) => patch.mutate({ status: value })}
-                disabled={!online}
-                className="w-full"
-                ariaLabel="Proje durumu"
-              >
-                {STATUSES.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="GitHub deposu" hint="sahip/depo">
+            <Field label="GitHub deposu" hint={<GithubConnection project={project} />}>
               <SavedInput
                 value={project.github_repo ?? ""}
                 disabled={!online}
@@ -384,15 +409,35 @@ function ProjectInspector({ project }: { project: Project }) {
                 disabled={!online}
                 ariaLabel="Proje bağlantısı"
                 placeholder="https://…"
-                onSave={(value) => patch.mutate({ url: value || null })}
+                onSave={(value) =>
+                  patch.mutate({ url: value ? (/^https?:\/\//i.test(value) ? value : `https://${value}`) : null })
+                }
               />
             </Field>
           </div>
         </Section>
 
-        <RelatedPanel entityId={project.id} title="Bağlı kayıtlar" />
+        <ProjectResources project={project} editing />
+        <div className="flex justify-end border-t border-subtle pt-3">
+          <IconButton
+            title="Projeyi sil"
+            tone="danger"
+            disabled={!online || remove.isPending}
+            onClick={async () => {
+              const ok = await confirmDialog({
+                title: `"${project.title}" silinsin mi?`,
+                body: "Kilometre taşları da gider. Projeye bağlı görevler kalır.",
+                confirmLabel: "Sil",
+                tone: "danger",
+              });
+              if (ok) remove.mutate();
+            }}
+          >
+            <Trash2 size={14} />
+          </IconButton>
+        </div>
       </div>
-    </WorkspaceInspectorContent>
+    </div>
   );
 }
 

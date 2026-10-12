@@ -62,7 +62,7 @@ const SURFACES: Record<string, string | string[]> = {
   strategic_pillar: "src/modules/goal/GoalsPage.tsx",
   key_result: "src/modules/goal/GoalsPage.tsx",
 
-  project: "src/modules/projects/ProjectsPage.tsx",
+  project: "src/modules/projects/ProjectResources.tsx",
   opportunity: ["src/modules/opportunity/JobDetail.tsx", "src/modules/opportunity/AnnouncementDetail.tsx"],
   // Ogrenme yuzeyi artik konu detayi ("Baglantilar" sekmesi); sayfa yalniz kabuk.
   study_topic: "src/modules/learning/TopicDetail.tsx",

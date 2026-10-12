@@ -158,7 +158,6 @@ export function TodoComposer({
               <CalendarClock size={12} /> Bugün
             </span>
             <Checkbox checked={planToday} onChange={togglePlan} label="bugüne al" />
-            <span className="text-meta text-muted">planlanır — son tarih verilmez</span>
           </div>
 
           <label className="block text-meta text-muted">

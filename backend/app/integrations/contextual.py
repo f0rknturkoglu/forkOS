@@ -208,7 +208,7 @@ async def project_summary(db, context, out):
     h5 = await review_intelligence(
         db, mode="continuity", focus_entity_id=str(entity.id), include_knowledge=False
     )
-    out.title = entity.title[:300] + " · Nerede kalmıştım?"
+    out.title = "Proje özeti"
     add_entity(out, entity)
     out.coverage = h5.coverage
     out.truncated |= h5.truncated
@@ -252,7 +252,7 @@ async def project_summary(db, context, out):
         ContextFact(
             text=f"Son kayıtlı anlamlı hareket: {last.isoformat()}"
             if last
-            else "Kayıtlı anlamlı çalışma zamanı bulunamadı.",
+            else "Henüz çalışma kaydı yok.",
             status="fact" if last else "missing",
             support_refs=["entity:" + str(entity.id)] if last else [],
             timestamp=last.isoformat() if last else None,

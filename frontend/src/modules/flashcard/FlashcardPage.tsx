@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Flame, Layers, Play } from "lucide-react";
+import { ArrowLeft, Flame, Layers, Play } from "lucide-react";
 import { navigate, useHashRoute } from "@/app/router";
 import { Button, Chip, Empty, PageFrame, SkeletonRows } from "@/core/ui";
 import {
@@ -126,7 +126,15 @@ export function FlashcardPage() {
           hint={selected ? `${selected.card_count} kart` : `${decks.length} deste`}
         />
         <WorkspaceToolbar
-          left={selected?.due_count ? <Chip tone="danger">{selected.due_count} tekrar</Chip> : null}
+          left={
+            reviewMode ? (
+              <Button size="sm" onClick={closeDeck}>
+                <ArrowLeft size={14} /> Kartlar
+              </Button>
+            ) : selected?.due_count ? (
+              <Chip tone="danger">{selected.due_count} tekrar</Chip>
+            ) : null
+          }
           right={
             <div className="flex items-center gap-2">
               {returnTo !== "/flashcard" && (

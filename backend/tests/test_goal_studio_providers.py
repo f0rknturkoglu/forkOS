@@ -397,3 +397,96 @@ async def test_invalid_port_never_echoes_pasted_secret(profile, api, monkeypatch
     with pytest.raises(ValueError) as invalid:
         transport.loopback(settings.hermes_goal_base_url, profile=True)
     assert secret not in str(invalid.value)
+
+
+@pytest.mark.parametrize("lost_response", [False, True])
+async def test_invalid_draft_gets_one_durable_model_correction(
+    profile, api, monkeypatch, lost_response
+):
+    choose(profile, "custom")
+    original = transport.request
+    calls = []
+    invalid = {
+        "kind": "goal",
+        "title": "YDS 60+",
+        "description": "Günde 4 saat.",
+        "manual_value": 60,
+    }
+    valid = {key: value for key, value in invalid.items() if key != "manual_value"}
+
+    async def request(method, path, **kwargs):
+        if path == "/v1/runs":
+            calls.append(kwargs)
+            if len(calls) == 2 and lost_response:
+                raise HTTPException(503, "fixture lost response")
+            return {"run_id": "original" if len(calls) == 1 else "correction"}
+        if path in {"/v1/runs/original", "/v1/runs/correction"}:
+            return {
+                "status": "completed",
+                "runtime": {"provider": "custom", "model": "fixture-model"},
+                "output": json.dumps(
+                    {
+                        "discussion": "Taslağın hazır.",
+                        "proposal": invalid if path.endswith("original") else valid,
+                    }
+                ),
+            }
+        return await original(method, path, **kwargs)
+
+    monkeypatch.setattr(transport, "request", request)
+    async with SessionLocal() as db:
+        item = await studio.start(db, StudioSessionIn(client_uuid=uuid4()))
+        body = StudioTurnIn(client_uuid=uuid4(), message="YDS hedefi hazırla")
+        await studio.turn(db, await studio.get_session(db, item.id), body)
+        result = await studio.reconcile(db, await studio.get_session(db, item.id))
+        if lost_response:
+            assert result.state == "unknown_delivery"
+            result = await studio.turn(db, await studio.get_session(db, item.id), body)
+            assert calls[1] == calls[2] and calls[1]["identity"].endswith("-repair")
+        result = await studio.reconcile(db, await studio.get_session(db, item.id))
+        assert result.state == "approval_pending" and result.error is None
+        assert sum(message["role"] == "user" for message in result.messages) == 1
+        assert len(calls) == (3 if lost_response else 2)
+        from sqlalchemy import func, select
+
+        from app.modules.goal.models import Goal
+
+        assert await db.scalar(select(func.count()).select_from(Goal)) == 0
+
+
+async def test_correction_is_bounded_if_model_repeats_invalid_fields(profile, api, monkeypatch):
+    choose(profile, "custom")
+    original = transport.request
+    calls = []
+
+    async def request(method, path, **kwargs):
+        if path == "/v1/runs":
+            calls.append(kwargs)
+            return {"run_id": "run-fixture"}
+        if path == "/v1/runs/run-fixture":
+            return {
+                "status": "completed",
+                "runtime": {"provider": "custom", "model": "fixture-model"},
+                "output": json.dumps(
+                    {
+                        "discussion": "Draft",
+                        "proposal": {
+                            "kind": "goal",
+                            "title": "YDS",
+                            "description": "Study",
+                            "approved": True,
+                        },
+                    }
+                ),
+            }
+        return await original(method, path, **kwargs)
+
+    monkeypatch.setattr(transport, "request", request)
+    async with SessionLocal() as db:
+        item = await studio.start(db, StudioSessionIn(client_uuid=uuid4()))
+        body = StudioTurnIn(client_uuid=uuid4(), message="Hedef taslağı hazırla")
+        await studio.turn(db, await studio.get_session(db, item.id), body)
+        await studio.reconcile(db, await studio.get_session(db, item.id))
+        result = await studio.reconcile(db, await studio.get_session(db, item.id))
+        assert result.state == "drafting" and result.error and result.revision is None
+        assert len(calls) <= 2

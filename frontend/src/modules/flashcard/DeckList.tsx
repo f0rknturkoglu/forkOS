@@ -6,6 +6,7 @@ import { confirmDialog } from "@/core/dialog";
 import { useOnline } from "@/lib/hooks";
 import { createDeck, deleteDeck, importDeck, listDecks } from "./api";
 import { refreshFlashcards } from "./invalidate";
+import { DeckCatalog } from "./DeckCatalog";
 import { SrsBar } from "./SrsBar";
 import type { FlashcardDeck } from "./types";
 
@@ -131,54 +132,57 @@ export function DeckList({ onOpen, showDecks = true }: { onOpen: (deckId: string
         </Section>
       ) : null}
 
-      <Section title="Yeni deste" flat>
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            value={title}
-            onChange={setTitle}
-            placeholder="Deste adı (örn. Almanca)"
-            ariaLabel="Yeni deste adı"
-            className="min-w-56 flex-1"
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && title.trim() && online) create.mutate();
-            }}
-          />
-          <Button
-            variant="primary"
-            disabled={!online || !title.trim() || create.isPending}
-            onClick={() => create.mutate()}
-          >
-            <Plus size={14} /> Oluştur
-          </Button>
-        </div>
-      </Section>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Section title="Yeni deste" flat>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={title}
+              onChange={setTitle}
+              placeholder="Deste adı (örn. Almanca)"
+              ariaLabel="Yeni deste adı"
+              className="min-w-0 flex-1"
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && title.trim() && online) create.mutate();
+              }}
+            />
+            <Button
+              variant="primary"
+              disabled={!online || !title.trim() || create.isPending}
+              onClick={() => create.mutate()}
+            >
+              <Plus size={14} /> Oluştur
+            </Button>
+          </div>
+        </Section>
 
-      <Section title="İçe aktar" flat>
-        <p className="mb-2.5 text-meta text-muted">
-          Anki paketi (.apkg) ya da CSV/TXT (front,back veya sekme ayraçlı) dosyası. Aynı isimli deste varsa kartlar
-          oraya eklenir; medya dosyaları atlanır.
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            value={importDeckName}
-            onChange={setImportDeckName}
-            placeholder="Deste adı (opsiyonel)"
-            ariaLabel="İçe aktarılacak deste adı"
-            className="min-w-44 flex-1"
-          />
-          <FileInput
-            ref={fileRef}
-            accept=".apkg,.csv,.txt"
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-          />
-          <Button onClick={() => fileRef.current?.click()}>
-            <FileUp size={14} /> Dosya seç
-          </Button>
-          <Button variant="primary" disabled={!online || !file || doImport.isPending} onClick={() => doImport.mutate()}>
-            {file ? `Aktar: ${file.name}` : "Aktar"}
-          </Button>
-        </div>
-      </Section>
+        <Section title="İçe aktar" flat>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={importDeckName}
+              onChange={setImportDeckName}
+              placeholder="Deste adı (opsiyonel)"
+              ariaLabel="İçe aktarılacak deste adı"
+              className="min-w-0 flex-1"
+            />
+            <FileInput
+              ref={fileRef}
+              accept=".apkg,.csv,.txt"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            />
+            <Button onClick={() => fileRef.current?.click()}>
+              <FileUp size={14} /> Dosya seç
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!online || !file || doImport.isPending}
+              onClick={() => doImport.mutate()}
+            >
+              {file ? `Aktar: ${file.name}` : "Aktar"}
+            </Button>
+          </div>
+        </Section>
+      </div>
+      <DeckCatalog onOpen={onOpen} />
     </div>
   );
 }

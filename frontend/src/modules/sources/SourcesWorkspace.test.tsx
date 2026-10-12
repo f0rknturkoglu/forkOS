@@ -228,6 +228,15 @@ describe("kullanıcının kapattığı kaynak", () => {
 });
 
 describe("sorunlu satır", () => {
+  it("copies the attention section as one agent diagnostic bundle", async () => {
+    renderSurface();
+    fireEvent.click(await screen.findByRole("button", { name: "Agent için hata kopyala" }));
+    await waitFor(() => expect(harness.clipboard.writeText).toHaveBeenCalledTimes(1));
+    const bundle = harness.clipboard.writeText.mock.calls[0][0];
+    expect(bundle).toContain("Source: forkjob_core:linkedin");
+    expect(bundle).toContain("Error kind label: 429");
+    expect(bundle).toContain("Circuit open: true");
+  });
   it("hata sınıfını ve devre durumunu gösterir", async () => {
     renderSurface();
     await screen.findByText("kapalı");

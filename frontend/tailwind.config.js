@@ -76,6 +76,7 @@ export default {
         body: ["13.5px", { lineHeight: "20px" }],
         heading: ["15px", { lineHeight: "20px", fontWeight: "600" }],
         title: ["20px", { lineHeight: "26px", letterSpacing: "-0.01em" }],
+        score: ["48px", { lineHeight: "1", letterSpacing: "-0.04em" }],
         display: ["30px", { lineHeight: "34px", letterSpacing: "-0.02em" }],
         // Sayisal ozetler (Metric/Stat) ve buyuk hero/timer rakamlari.
         // Keyfi text-[Npx] yazmak yerine bu adimlar kullanilir.

@@ -71,3 +71,22 @@ class ImportOut(BaseModel):
     deck_title: str
     added: int
     skipped: int
+
+
+class SharedDeckOut(BaseModel):
+    id: int
+    title: str
+    url: str
+    notes: int
+    likes: int
+    has_media: bool
+
+
+class SharedDeckPreview(BaseModel):
+    id: int
+    title: str
+    url: str
+    notes: int
+    has_media: bool
+    size_bytes: int
+    samples: list[list[str]]

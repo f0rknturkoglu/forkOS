@@ -178,7 +178,7 @@ async def test_saved_review_never_recomputed_and_live_period_has_task_links(monk
         assert any("yeniden hesaplanmadı" in warning for warning in historical.warnings)
 
 
-async def test_typed_context_refuses_arbitrary_state_and_contextual_goal_mutation():
+async def test_typed_context_refuses_arbitrary_state_and_drafts_require_explicit_approval():
     with pytest.raises(ValidationError):
         TypeAdapter(AssistanceContext).validate_python(
             {"kind": "project", "entity_id": str(uuid4()), "tools": ["terminal"]}
@@ -199,9 +199,22 @@ async def test_typed_context_refuses_arbitrary_state_and_contextual_goal_mutatio
         )
         assert row.context.entity_id == project["id"]
         row = await studio.get_session(db, row.id)
-        with pytest.raises(HTTPException) as rejection:
-            await studio.revise(db, row, None)
-        assert rejection.value.status_code == 422
+        from sqlalchemy import func
+
+        from app.modules.goal.models import Goal
+        from app.modules.goal.studio_schemas import StudioDecisionIn, StudioProposal
+        draft = await studio.revise(db, row, StudioProposal.model_validate({
+            "rationale": "Kullanıcının istediği hedef taslağı",
+            "operations": [{"type": "goal.create", "key": "goal", "data": {"title": "YDS 60+"}}],
+        }))
+        assert draft.state == "approval_pending"
+        assert await db.scalar(select(func.count()).select_from(Goal)) == 0
+        approved = await studio.decide(db, await studio.get_session(db, row.id), StudioDecisionIn(
+            revision_id=draft.revision.id, fingerprint=draft.revision.fingerprint, decision="approve",
+        ))
+        assert approved.state == "applied"
+        assert await db.scalar(select(func.count()).select_from(Goal)) == 1
+
 
 
 async def test_context_memory_filters_stale_sensitive_and_unsupported_sources():
@@ -328,7 +341,7 @@ async def test_memory_promotion_rechecks_source_revision_before_persistence():
         assert row.status == "stale"
 
 
-async def test_contextual_model_turn_reuses_transport_and_cannot_create_proposal(monkeypatch):
+async def test_contextual_model_turn_reuses_transport_and_rejects_invalid_proposal(monkeypatch):
     import json
 
     from app.modules.goal import studio_transport
@@ -378,13 +391,16 @@ async def test_contextual_model_turn_reuses_transport_and_cannot_create_proposal
         message = StudioTurnIn(client_uuid=uuid4(), message="Sonraki adım ne?")
         await studio.turn(db, await studio.get_session(db, session.id), message)
         result = await studio.turn(db, await studio.get_session(db, session.id), message)
+        # One bounded correction is allowed; both malformed drafts remain inert.
+        assert result.state == "running" and result.revision is None
+        result = await studio.turn(db, await studio.get_session(db, session.id), message)
         assert result.state == "drafting" and result.revision is None
         assert await db.scalar(select(func.count()).select_from(Goal)) == 0
         posts = [call for call in calls if call[1] == "/v1/runs"]
-        assert len(posts) == 1
+        assert len(posts) == 2
         body = posts[0][2]["body"]
         assert body["provider"] == "custom"
-        assert "No tools" in body["instructions"]
+        assert "NO tools" in body["instructions"]
         assert "Kayıtlı adım" in body["input"]
         assert "memory_candidates" not in body["input"]
         assert result.context.entity_id == project["id"]

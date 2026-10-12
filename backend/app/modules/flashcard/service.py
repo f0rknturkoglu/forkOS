@@ -510,6 +510,10 @@ def _parse_apkg(content: bytes) -> tuple[str | None, list[tuple[str, str]], int]
                     break
             if not db_name:
                 raise ValueError("collection.anki2 bulunamadi (gecerli bir .apkg degil)")
+            if archive.getinfo(db_name).file_size > 128_000_000:
+                raise ValueError("Anki koleksiyonu 128 MB sınırını aşıyor")
+            if "collection.anki21b" in names:
+                raise ValueError("Bu paket yeni Anki biçiminde. Anki’den eski sürümlerle uyumlu .apkg olarak dışa aktar.")
             raw = archive.read(db_name)
     except zipfile.BadZipFile as exc:
         raise ValueError("Gecersiz .apkg dosyasi") from exc

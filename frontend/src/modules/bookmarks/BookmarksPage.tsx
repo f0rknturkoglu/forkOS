@@ -42,7 +42,6 @@ import {
 } from "@/core/workspace/Workspace";
 import { useDebounced, useOnline } from "@/lib/hooks";
 import { useHashRoute } from "@/app/router";
-import { SavedViewPicker } from "@/core/SavedViewPicker";
 import { useAppliedSavedView } from "@/core/savedViews";
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { COLLECTION_LABELS, COLLECTIONS } from "@/core/types";
@@ -430,11 +429,6 @@ export function BookmarksPage() {
                 active={Boolean(filter.favorite)}
                 onClick={() => setFilter({ ...filter, favorite: filter.favorite ? undefined : true })}
               />
-              <FilterChip
-                label="RSS"
-                active={filter.source === "rss"}
-                onClick={() => setFilter({ ...filter, source: filter.source === "rss" ? undefined : "rss" })}
-              />
               {filter.tag && (
                 <FilterChip
                   label={`#${filter.tag} ×`}
@@ -442,23 +436,22 @@ export function BookmarksPage() {
                   onClick={() => setFilter({ ...filter, tag: undefined })}
                 />
               )}
-              <SavedViewPicker module="bookmarks" filters={{ ...filter, q }} onApply={applySavedFilters} />
             </>
           }
           right={
             <>
-              <div className="flex items-center rounded-control border border-subtle bg-surface-sunken p-0.5">
+              <div className="flex items-center gap-1">
                 <IconButton
                   title="Kart Izgarasi (Grid)"
                   onClick={() => setViewMode("grid")}
-                  className={cx(viewMode === "grid" ? "bg-surface text-primary shadow-xs" : "text-muted")}
+                  className={cx(viewMode === "grid" ? "text-accent ring-1 ring-accent-border" : "text-muted")}
                 >
                   <LayoutGrid size={15} />
                 </IconButton>
                 <IconButton
                   title="Kompakt Liste (List)"
                   onClick={() => setViewMode("list")}
-                  className={cx(viewMode === "list" ? "bg-surface text-primary shadow-xs" : "text-muted")}
+                  className={cx(viewMode === "list" ? "text-accent ring-1 ring-accent-border" : "text-muted")}
                 >
                   <List size={15} />
                 </IconButton>

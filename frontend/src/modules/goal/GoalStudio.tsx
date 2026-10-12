@@ -2,9 +2,10 @@ import { ArrowUp, RefreshCw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, streamGoalStudio } from "@/core/api";
-import { Button, IconButton, Field, Input, Textarea, Select, Checkbox } from "@/core/ui";
+import { Button, Disclosure, IconButton, Field, Input, Textarea, Select, Checkbox } from "@/core/ui";
 import { invalidateAfter } from "@/core/invalidation";
 import { entityRoute, typeLabel } from "@/core/entityRegistry";
+import { appLocalToUtc, localDateKey } from "@/lib/date";
 import { readStored, writeStored } from "@/core/storage";
 import type { components } from "@/generated/api-schema";
 
@@ -178,13 +179,26 @@ export function GoalStudio({
           }
         : null,
     );
+  const changeField = (index: number, field: string, value: string | number | null) =>
+    setProposal((old) =>
+      old
+        ? {
+            ...old,
+            operations: old.operations.map((op, i) =>
+              i === index ? ({ ...op, data: { ...op.data, [field]: value } } as Proposal["operations"][number]) : op,
+            ),
+          }
+        : null,
+    );
   return (
     <section
       aria-label={assistanceContext ? "Bağlam hakkında görüşme" : "Hermes Goal Studio"}
       className="min-w-0 rounded-card border border-subtle bg-surface p-3 stack-y-2"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="flex-1 text-body font-medium">{assistanceContext ? "Hermes" : "Hermes ile hedef hazırla"}</h2>
+        <h2 className="flex-1 text-body font-medium">
+          {assistanceContext ? "Hermes" : "Hermes ile hedef ve plan hazırla"}
+        </h2>
         {!session && !assistanceContext && goals.length > 0 && (
           <Select ariaLabel="Görüşme bağlamı" value={context} onChange={setContext}>
             <option value="">Yeni hedef</option>
@@ -209,26 +223,28 @@ export function GoalStudio({
           <X size={14} />
         </IconButton>
       </div>
-      <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
-        {status.data?.provider_label && (
-          <span>
-            {status.data.provider_label} · {status.data.local ? "Yerel" : "Bulut"} · {status.data.configured_model}
-          </span>
+      <Disclosure summary="Bağlantı ayrıntıları" className="text-meta text-muted">
+        <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
+          {status.data?.provider_label && (
+            <span>
+              {status.data.provider_label} · {status.data.local ? "Yerel" : "Bulut"} · {status.data.configured_model}
+            </span>
+          )}
+          {status.data?.state === "ready" && <span role="status">Bağlı</span>}
+          <IconButton
+            title="Bağlantıyı yeniden kontrol et"
+            disabled={status.isFetching}
+            onClick={() => void status.refetch()}
+          >
+            <RefreshCw size={14} />
+          </IconButton>
+        </div>
+        {session?.runtime && (
+          <p className="text-meta text-secondary">
+            Son yanıt: {session.runtime.provider} · {session.runtime.model}
+          </p>
         )}
-        {status.data?.state === "ready" && <span role="status">Bağlı · etkin araç yok</span>}
-        <IconButton
-          title="Bağlantıyı yeniden kontrol et"
-          disabled={status.isFetching}
-          onClick={() => void status.refetch()}
-        >
-          <RefreshCw size={14} />
-        </IconButton>
-      </div>
-      {session?.runtime && (
-        <p className="text-meta text-secondary">
-          Son yanıt: {session.runtime.provider} · {session.runtime.model}
-        </p>
-      )}
+      </Disclosure>
       {status.data?.local === false && status.data.consent && (
         <div className="rounded-control border border-subtle p-2 stack-y-2">
           <p className="text-meta">
@@ -291,7 +307,7 @@ export function GoalStudio({
         >
           <Input
             ariaLabel="Hermes mesajı"
-            placeholder="Hedefini yaz…"
+            placeholder="Ne başarmak istiyorsun? Örn. YDS 60+ ya da beş yıllık plan…"
             value={message}
             onChange={setMessage}
             className="min-w-0 flex-1"
@@ -301,6 +317,12 @@ export function GoalStudio({
             ariaLabel="Hermes’e gönder"
             disabled={mutation.isPending || status.data?.state !== "ready" || !message.trim()}
           >
+            <img
+              src="/brands/nous.png"
+              alt=""
+              aria-hidden="true"
+              className="h-5 w-5 shrink-0 rounded-full object-contain"
+            />
             <ArrowUp size={16} aria-hidden />
           </Button>
         </form>
@@ -406,12 +428,18 @@ export function GoalStudio({
               ariaLabel="Hermes’e gönder"
               disabled={busy || status.data?.state !== "ready" || !message.trim()}
             >
+              <img
+                src="/brands/nous.png"
+                alt=""
+                aria-hidden="true"
+                className="h-5 w-5 shrink-0 rounded-full object-contain"
+              />
               <ArrowUp size={16} aria-hidden />
             </Button>
           </form>
-          {!assistanceContext && proposal && session.revision && (
+          {proposal && session.revision && (
             <div className="border-t border-subtle pt-4 stack-y-3">
-              <h3 className="text-heading">Taslak · {session.revision.id.slice(0, 8)}</h3>
+              <h3 className="text-heading">Taslak</h3>
               <p className="text-body">{proposal.rationale}</p>
               {[
                 ...(proposal.assumptions ?? []).map((x) => "Varsayım: " + x),
@@ -424,9 +452,7 @@ export function GoalStudio({
               ))}
               {proposal.operations.map((op, index) => (
                 <div key={op.key} className="rounded-card border border-subtle p-3 stack-y-2">
-                  <p className="text-meta">
-                    {operationNames[op.type]} · {op.key}
-                  </p>
+                  <p className="text-meta">{operationNames[op.type]}</p>
                   <Field label="Önerilen başlık">
                     <Input
                       ariaLabel={`Taslak başlık ${index + 1}`}
@@ -435,8 +461,65 @@ export function GoalStudio({
                       onChange={(value) => changeTitle(index, value)}
                     />
                   </Field>
-                  <details className="text-meta">
-                    <summary>Önce / Sonra ve tüm alanlar</summary>
+                  {(op.type === "goal.create" || op.type === "goal.update" || op.type === "plan.create") && (
+                    <Field label={op.type === "plan.create" ? "Plan özeti" : "Çalışma programı ve açıklama"}>
+                      <Textarea
+                        ariaLabel={`Taslak açıklama ${index + 1}`}
+                        value={(op.type === "plan.create" ? op.data.summary : op.data.description) ?? ""}
+                        rows={3}
+                        disabled={busy || session.state === "applied"}
+                        onChange={(value) =>
+                          changeField(index, op.type === "plan.create" ? "summary" : "description", value || null)
+                        }
+                      />
+                    </Field>
+                  )}
+                  {(op.type === "goal.create" ||
+                    op.type === "goal.update" ||
+                    op.type === "milestone.create" ||
+                    op.type === "milestone.update") && (
+                    <Field label="Hedef tarihi">
+                      <Input
+                        type="date"
+                        ariaLabel={`Taslak tarih ${index + 1}`}
+                        value={(() => {
+                          const value =
+                            "target_at" in op.data ? op.data.target_at : "due_at" in op.data ? op.data.due_at : null;
+                          return value ? localDateKey(new Date(value)) : "";
+                        })()}
+                        disabled={busy || session.state === "applied"}
+                        onChange={(value) =>
+                          changeField(
+                            index,
+                            op.type.startsWith("milestone.") ? "due_at" : "target_at",
+                            value ? appLocalToUtc(value, 0, 0) : null,
+                          )
+                        }
+                      />
+                    </Field>
+                  )}
+                  {op.type === "key_result.save" && (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Field label="Hedef değer">
+                        <Input
+                          type="number"
+                          ariaLabel={`Taslak hedef değer ${index + 1}`}
+                          value={String(op.data.target_value)}
+                          disabled={busy || session.state === "applied"}
+                          onChange={(value) => changeField(index, "target_value", value)}
+                        />
+                      </Field>
+                      <Field label="Birim">
+                        <Input
+                          ariaLabel={`Taslak birim ${index + 1}`}
+                          value={op.data.unit ?? "adet"}
+                          disabled={busy || session.state === "applied"}
+                          onChange={(value) => changeField(index, "unit", value)}
+                        />
+                      </Field>
+                    </div>
+                  )}
+                  <Disclosure className="text-meta" summary="Ayrıntılar">
                     <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all">
                       {JSON.stringify(
                         {
@@ -448,18 +531,17 @@ export function GoalStudio({
                         2,
                       )}
                     </pre>
-                  </details>
+                  </Disclosure>
                 </div>
               ))}
-              <details>
-                <summary className="text-meta">Gelişmiş taslak düzenleme (JSON)</summary>
+              <Disclosure summary="Gelişmiş taslak düzenleme (JSON)">
                 <ProposalEditor
                   proposal={proposal}
                   onChange={setProposal}
                   onDirty={setEditorDirty}
                   disabled={busy || session.state === "applied"}
                 />
-              </details>
+              </Disclosure>
               {session.revision.error && (
                 <p role="alert" className="text-danger text-meta">
                   {session.revision.error}
@@ -473,7 +555,7 @@ export function GoalStudio({
                       run(() => api.put<Session>(`/goals/studio/sessions/${session.id}/proposal`, proposal))
                     }
                   >
-                    Değişiklikleri doğrula · yeni revizyon
+                    Değişiklikleri kaydet
                   </Button>
                   <Button
                     disabled={busy || dirty || session.revision.state !== "ready_for_review"}
@@ -487,7 +569,7 @@ export function GoalStudio({
                       )
                     }
                   >
-                    Bu revizyonu onayla ve uygula
+                    Taslağı onayla ve uygula
                   </Button>
                   <Button
                     disabled={busy || dirty || session.revision.state !== "ready_for_review"}

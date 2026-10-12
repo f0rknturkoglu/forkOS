@@ -32,6 +32,7 @@ export function RelatedPanel({
   title = "İlgili kayıtlar",
   relation,
   exclude,
+  excludeEntityIds = [],
   incoming = false,
 }: {
   entityId: string;
@@ -43,6 +44,7 @@ export function RelatedPanel({
   /** Sayfada kendi ozel paneli olan iliskiler (ornek: learning'de kaynaklar
    *  ve notlar) burada tekrar edilmesin diye disarida birakilir. */
   exclude?: string[];
+  excludeEntityIds?: string[];
 }) {
   const online = useOnline();
   const [picking, setPicking] = useState(false);
@@ -54,7 +56,7 @@ export function RelatedPanel({
     queryFn: () => api.get<RelatedRow[]>(`/entities/${entityId}/related`),
     select: (all) => {
       const hidden = new Set([...DERIVED_RELATIONS, ...(exclude ?? [])]);
-      const visible = all.filter((row) => !hidden.has(row.relation));
+      const visible = all.filter((row) => !hidden.has(row.relation) && !excludeEntityIds.includes(row.entity.id));
       return relation ? visible.filter((row) => row.relation === relation) : visible;
     },
     enabled: Boolean(entityId),

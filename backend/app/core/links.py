@@ -19,7 +19,7 @@ from app.core.models import Entity, Link
 RELATIONS: dict[str, tuple[str, str]] = {
     "related": ("İlgili", "İlgili"),
     "saved_from": ("Kaynağı", "Buradan kaydedildi"),
-    "belongs_to": ("Ait olduğu", "Alt kaydı"),
+    "belongs_to": ("Ait olduğu", "Bağlı kayıtlar"),
     "application_step": ("Başvuru adımı", "Adımı olduğu başvuru"),
     "paid_as": ("Ödemesi", "Ödendiği harcama"),
     "media.collection_item": ("Koleksiyon", "Koleksiyon öğesi"),

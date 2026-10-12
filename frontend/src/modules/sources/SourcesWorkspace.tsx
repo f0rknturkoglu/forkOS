@@ -35,7 +35,6 @@ import {
   runStateView,
   sourceClassLabel,
   sourceKindLabel,
-  SILENT_EMPTY_THRESHOLD,
   type HealthCounts,
 } from "@/core/sourceStatus";
 import { SyncProgress, useSourceSync, type SourceSyncScope } from "@/core/SyncProgress";
@@ -436,7 +435,17 @@ export function SourcesWorkspace({
       ) : (
         <Section
           title="İlgi isteyen kaynaklar"
-          hint={`Eşik backend'den gelir: devre açık, son koşu hata ya da üst üste ${SILENT_EMPTY_THRESHOLD} boş koşu`}
+          action={
+            <CopyButton
+              label="Agent için hata kopyala"
+              text={formatSourceDiagnostics({
+                generated_at: new Date().toISOString(),
+                scope: "sources",
+                source_count: total,
+                problems: problemRows.map(problemDiagnostic),
+              })}
+            />
+          }
         >
           <ul className="stack-y-1.5">
             {problemRows.map((row) => {

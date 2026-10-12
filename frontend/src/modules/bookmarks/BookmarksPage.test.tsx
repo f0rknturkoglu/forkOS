@@ -148,7 +148,7 @@ describe("bookmarks flow", () => {
     expect(harness.invalidate).toHaveBeenCalledWith("bookmark.write");
   });
 
-  it("kayitli gorunum secicisini toolbarda sunar ve gorunumleri okur", async () => {
+  it("keeps the toolbar free of saved views and RSS shortcuts", async () => {
     harness.queryData = {
       bookmarks,
       views: [
@@ -164,7 +164,9 @@ describe("bookmarks flow", () => {
       ],
     };
     const markup = renderToStaticMarkup(<BookmarksPage />);
-    expect(markup).toContain("Görünümler");
+    expect(markup).not.toContain("Görünümler");
+    expect(markup).not.toContain(">RSS<");
+    // Existing saved-view deep links remain consumable without a toolbar button.
     expect(harness.queries.some((query) => query.queryKey[0] === "views")).toBe(true);
   });
 

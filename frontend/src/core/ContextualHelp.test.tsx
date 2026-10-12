@@ -44,7 +44,7 @@ it("local summary is directly visible; Hermes starts only after submitting a mes
   expect(await screen.findByText("Bilinmiyor: Sonuç bilinmiyor")).toBeTruthy();
   expect(api.post).toHaveBeenCalledExactlyOnceWith("/goals/studio/context", { kind: "project", entity_id: "p1" });
   expect(screen.queryByText("Hermes görüşmesi")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Kapat" }));
+  fireEvent.click(screen.getByRole("button", { name: "Nerede kalmıştım?" }));
   expect(screen.getByRole("button", { name: "Nerede kalmıştım?" })).toBeTruthy();
   fireEvent.change(screen.getByLabelText("Hermes'e sor"), { target: { value: "Sıradaki iş ne?" } });
   fireEvent.click(screen.getByRole("button", { name: "Gönder" }));
@@ -60,7 +60,7 @@ it("summary failure stays dismissible with deliberate retry", async () => {
   );
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Yeniden dene" })).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Kapat" }));
+  fireEvent.click(screen.getByRole("button", { name: "Haftayı birlikte değerlendirelim" }));
   expect(screen.queryByRole("alert")).toBeNull();
 });
 it("plan preparation is explicit; lost response retry reuses UUID and does not approve", async () => {

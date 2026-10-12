@@ -80,7 +80,7 @@ describe("ProjectJournalBridge", () => {
     harness.apiPost.mockResolvedValue(journalItem(todayKey()));
     renderBridge();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Bugünün proje günlüğünü Obsidian'da aç/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /Bugünü Obsidian’da aç/i }));
 
     await waitFor(() =>
       expect(harness.apiPost).toHaveBeenCalledWith(`/projects/project-1/journal/${todayKey()}/obsidian`, {}),
@@ -97,7 +97,7 @@ describe("ProjectJournalBridge", () => {
     const day = (await screen.findByLabelText("Günlük günü")) as HTMLInputElement;
     expect(day.value).toBe(todayKey());
     fireEvent.change(day, { target: { value: past } });
-    fireEvent.click(screen.getByRole("button", { name: /Seçili günün günlüğünü Obsidian'da aç/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Bu günü Obsidian’da aç/i }));
 
     await waitFor(() =>
       expect(harness.apiPost).toHaveBeenCalledWith(`/projects/project-1/journal/${past}/obsidian`, {}),
@@ -113,7 +113,7 @@ describe("ProjectJournalBridge", () => {
     fireEvent.change(day, { target: { value: future } });
 
     expect(day.value).toBe(todayKey());
-    fireEvent.click(screen.getByRole("button", { name: /Obsidian'da aç/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Obsidian’da aç/i }));
     await waitFor(() => expect(harness.apiPost).toHaveBeenCalledTimes(0));
   });
 
@@ -122,7 +122,7 @@ describe("ProjectJournalBridge", () => {
     renderBridge();
 
     expect(await screen.findByText(/Vault kullanılamıyor/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Obsidian'da aç/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Obsidian’da aç/i })).toBeNull();
     expect(screen.queryByLabelText("Günlük günü")).toBeNull();
   });
 
@@ -130,7 +130,7 @@ describe("ProjectJournalBridge", () => {
     harness.apiPost.mockRejectedValue(new ApiError(400, "Gelecek bir gun icin gunluk notu yazilamaz", null));
     renderBridge();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Bugünün proje günlüğünü Obsidian'da aç/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /Bugünü Obsidian’da aç/i }));
 
     expect(await screen.findByText(/Proje günlüğü açılamadı/)).toBeTruthy();
     expect(harness.open).not.toHaveBeenCalled();

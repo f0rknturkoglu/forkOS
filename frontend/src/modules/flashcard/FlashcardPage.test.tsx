@@ -301,3 +301,12 @@ describe("TodayFlashcardWidget", () => {
     vi.doUnmock("@/app/router");
   });
 });
+
+it("returns from an empty missed queue to the card workspace", async () => {
+  window.location.hash = "#/flashcard?review=missed";
+  apiGet.mockImplementation(async (path) => (path === "/flashcard/decks" ? [deck] : []));
+  renderPage();
+  fireEvent.click(await screen.findByRole("button", { name: "Kartlar" }));
+  await waitFor(() => expect(window.location.hash).toBe("#/flashcard"));
+  expect(await screen.findByRole("heading", { name: "Yeni deste" })).toBeTruthy();
+});

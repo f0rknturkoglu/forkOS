@@ -317,7 +317,7 @@ export function OpportunityCard({
         </div>
       ) : (
         <div
-          className={cx("text-center", layout === "grid" && "flex items-baseline justify-center gap-2")}
+          className={cx(layout === "grid" ? "flex items-baseline justify-start gap-2 text-left" : "text-center")}
           title="Hızlı aday uyumu: kaynaktan bağımsız kural tabanlı skor (−1 = elendi)"
           aria-label={
             item.score === null ? "Hızlı uygunluk hesaplanmadı" : `Hızlı uygunluk ${displayScore(item.score)} / 100`
@@ -325,8 +325,8 @@ export function OpportunityCard({
         >
           <div
             className={cx(
-              "numeral leading-none",
-              "text-title",
+              "leading-none",
+              layout === "grid" ? "font-sans text-score font-extrabold tracking-tight" : "numeral text-title",
               band === "strong"
                 ? "text-ok"
                 : band === "fair"

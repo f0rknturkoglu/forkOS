@@ -72,7 +72,7 @@ export function ProjectKnowledgeNote({ project }: { project: Project }) {
             <BookOpen size={14} className="text-muted" />
             <span>
               {!status?.configured
-                ? "Obsidian Vault yapılandırılmamış (isteğe bağlı .env dosyasından açılabilir)."
+                ? "Obsidian Vault yapılandırılmamış."
                 : "Obsidian Vault dizini mevcut değil veya erişilemiyor."}
             </span>
           </div>

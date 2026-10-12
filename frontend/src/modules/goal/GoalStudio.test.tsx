@@ -94,7 +94,7 @@ it("edited preview cannot approve and a rejection binds the new revision", async
   show();
   await sendMessage();
   const title = await screen.findByLabelText("Taslak başlık 1");
-  const approve = screen.getByRole("button", { name: "Bu revizyonu onayla ve uygula" });
+  const approve = screen.getByRole("button", { name: "Taslağı onayla ve uygula" });
   expect(approve.hasAttribute("disabled")).toBe(false);
   fireEvent.change(title, { target: { value: "Yeni başlık" } });
   expect(approve.hasAttribute("disabled")).toBe(true);
@@ -116,7 +116,7 @@ it("edited preview cannot approve and a rejection binds the new revision", async
     },
   };
   vi.mocked(api.put).mockResolvedValue(revised);
-  fireEvent.click(screen.getByRole("button", { name: "Değişiklikleri doğrula · yeni revizyon" }));
+  fireEvent.click(screen.getByRole("button", { name: "Değişiklikleri kaydet" }));
   await waitFor(() => expect(approve.hasAttribute("disabled")).toBe(false));
   vi.mocked(api.post).mockResolvedValue({
     ...revised,
@@ -149,7 +149,7 @@ it("raw JSON editing blocks approval until the changed draft is validated", asyn
   fireEvent.click(screen.getByText("Gelişmiş taslak düzenleme (JSON)"));
   const text = screen.getByLabelText("Taslak JSON");
   fireEvent.change(text, { target: { value: "{broken" } });
-  expect(screen.getByRole("button", { name: "Bu revizyonu onayla ve uygula" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Taslağı onayla ve uygula" }).hasAttribute("disabled")).toBe(true);
 });
 
 it("cloud consent is explicit, bound to server policy, revocable and shows actual model origin", async () => {
@@ -172,9 +172,47 @@ it("cloud consent is explicit, bound to server policy, revocable and shows actua
   vi.mocked(api.post).mockResolvedValue({ ...draft, runtime: { provider: "nous", model: "actual-model" } });
   fireEvent.click(grant);
   await waitFor(() => expect(api.put).toHaveBeenCalledWith("/goals/studio/consent", { ...permission, allowed: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Bağlantı ayrıntıları" }));
   expect(await screen.findByText("Son yanıt: nous · actual-model")).toBeTruthy();
   fireEvent.click(await screen.findByRole("button", { name: "Bulut iznini geri al" }));
   await waitFor(() =>
     expect(api.put).toHaveBeenLastCalledWith("/goals/studio/consent", { ...permission, allowed: false }),
   );
+});
+it("edits a contextual draft's content and date before explicit approval", async () => {
+  vi.mocked(api.get).mockResolvedValue({ state: "ready" });
+  vi.mocked(api.post).mockResolvedValue({ ...draft, context: { kind: "project", entity_id: "selected-project" } });
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <GoalStudio
+        goalId={null}
+        goals={[]}
+        onClose={vi.fn()}
+        assistanceContext={{ kind: "project", entity_id: "selected-project" }}
+      />
+    </QueryClientProvider>,
+  );
+  await sendMessage();
+  await screen.findByLabelText("Taslak açıklama 1");
+  fireEvent.change(screen.getByLabelText("Taslak açıklama 1"), { target: { value: "Günde dört saat çalışma." } });
+  fireEvent.change(screen.getByLabelText("Taslak tarih 1"), { target: { value: "2026-11-26" } });
+  expect(screen.getByRole("button", { name: "Taslağı onayla ve uygula" }).hasAttribute("disabled")).toBe(true);
+  vi.mocked(api.put).mockResolvedValue({ ...draft, context: { kind: "project", entity_id: "selected-project" } });
+  fireEvent.click(screen.getByRole("button", { name: "Değişiklikleri kaydet" }));
+  await waitFor(() =>
+    expect(api.put).toHaveBeenCalledWith(
+      "/goals/studio/sessions/session/proposal",
+      expect.objectContaining({
+        operations: [
+          expect.objectContaining({
+            data: expect.objectContaining({
+              description: "Günde dört saat çalışma.",
+              target_at: "2026-11-25T21:00:00.000Z",
+            }),
+          }),
+        ],
+      }),
+    ),
+  );
+  expect(vi.mocked(api.post).mock.calls.every(([path]) => !path.includes("decision"))).toBe(true);
 });

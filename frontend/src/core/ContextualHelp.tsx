@@ -1,5 +1,6 @@
 import { Suspense, lazy, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { typeLabel } from "@/core/entityRegistry";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import { readStored, writeStored, removeStored } from "@/core/storage";
@@ -15,7 +16,7 @@ const PlanReviewModal = lazy(() =>
   import("@/modules/today/PendingDecisions").then((module) => ({ default: module.PlanReviewModal })),
 );
 import type { ExecutionPlanView } from "@/core/execution";
-import { Button, Checkbox, Field, Input, Modal, Section, SkeletonRows, useToast } from "@/core/ui";
+import { Button, Checkbox, Disclosure, Field, Input, Modal, SkeletonRows, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { localDateKey } from "@/lib/date";
 import type { components } from "@/generated/api-schema";
@@ -41,17 +42,12 @@ export function ContextualHelp({
 }) {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<string | null>(null);
-  const [summary, setSummary] = useState(summaryInitiallyOpen);
   const online = useOnline();
   return (
     <div className="min-w-0 stack-y-3">
-      {summary ? (
-        <ContextSummary key={JSON.stringify(context)} context={context} onClose={() => setSummary(false)} />
-      ) : (
-        <Button size="sm" onClick={() => setSummary(true)}>
-          {label}
-        </Button>
-      )}
+      <Disclosure summary={label} defaultOpen={summaryInitiallyOpen} className="rounded-card border border-subtle p-3">
+        <ContextSummary key={JSON.stringify(context)} context={context} />
+      </Disclosure>
       {chat === null ? (
         <form
           className="flex min-w-0 items-center gap-2"
@@ -68,6 +64,12 @@ export function ContextualHelp({
             className="min-w-0 flex-1"
           />
           <Button type="submit" disabled={!online || !message.trim()}>
+            <img
+              src="/brands/nous.png"
+              alt=""
+              aria-hidden="true"
+              className="h-5 w-5 shrink-0 rounded-full object-contain"
+            />{" "}
             Gönder
           </Button>
         </form>
@@ -89,7 +91,7 @@ export function ContextualHelp({
   );
 }
 
-function ContextSummary({ context, onClose }: { context: AssistanceContext; onClose: () => void }) {
+function ContextSummary({ context }: { context: AssistanceContext }) {
   const query = useQuery({
     queryKey: [
       {
@@ -109,7 +111,7 @@ function ContextSummary({ context, onClose }: { context: AssistanceContext; onCl
   });
   const data = query.data;
   return (
-    <Section title={data?.title ?? "Mevcut durum"} action={<Button onClick={onClose}>Kapat</Button>}>
+    <div>
       {query.isPending ? (
         <SkeletonRows rows={3} />
       ) : query.isError ? (
@@ -120,22 +122,12 @@ function ContextSummary({ context, onClose }: { context: AssistanceContext; onCl
       ) : (
         data && (
           <div className="min-w-0 stack-y-3">
-            <p className="text-meta text-muted">
-              Yerel kayıt özeti · {new Date(data.generated_at).toLocaleString("tr-TR")}
-            </p>
-            {data.coverage && (
-              <p className="text-meta text-secondary">
-                {data.coverage.partial
-                  ? "Dönem / kaynak penceresi tamamlanmadı; tam dönem karşılaştırması yapılmaz."
-                  : "Seçilen dönemin kayıtları."}
-              </p>
-            )}
             <ul className="list-inside list-disc stack-y-2 text-body">
               {(data.facts ?? []).slice(0, 3).map((fact, i) => (
                 <li key={i} className="break-words">
                   {fact.status === "candidate"
                     ? "Kayıtlı beyan / öneri: "
-                    : fact.status === "missing"
+                    : fact.status === "missing" && fact.text !== "Henüz çalışma kaydı yok."
                       ? "Bilinmiyor: "
                       : ""}
                   {fact.text}
@@ -146,46 +138,50 @@ function ContextSummary({ context, onClose }: { context: AssistanceContext; onCl
               ))}
             </ul>
             {(data.facts ?? []).length > 3 && (
-              <details className="text-meta">
-                <summary>Özetin tamamı</summary>
+              <Disclosure className="text-meta" summary="Özetin tamamı">
                 <ul className="mt-2 stack-y-2">
                   {(data.facts ?? []).slice(3).map((fact, i) => (
                     <li key={i}>{fact.text}</li>
                   ))}
                 </ul>
-              </details>
+              </Disclosure>
             )}
             {(data.warnings ?? []).length > 0 && (
-              <details className="text-meta text-warn">
-                <summary>Kaynak sınırları ve eksikler ({(data.warnings ?? []).length})</summary>
+              <Disclosure
+                className="text-meta text-warn"
+                summary={`Kaynak ayrıntıları (${(data.warnings ?? []).length})`}
+              >
                 <ul className="mt-2 stack-y-1">
                   {(data.warnings ?? []).map((warning, i) => (
                     <li key={i}>{warning}</li>
                   ))}
                 </ul>
-              </details>
+              </Disclosure>
             )}
             {(data.links ?? []).length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                {(data.links ?? []).slice(0, 3).map((link) => (
-                  <a
-                    key={link.id}
-                    className="rounded-control border border-subtle px-2 py-1 text-meta text-accent"
-                    href={`#${link.route}`}
-                  >
-                    {context.kind === "project" && link.schedulable ? `Buradan devam et · ${link.title}` : link.title}
-                  </a>
-                ))}
+                {(data.links ?? [])
+                  .filter((link) => link.id !== ("entity_id" in context ? context.entity_id : undefined))
+                  .slice(0, 3)
+                  .map((link) => (
+                    <a
+                      key={link.id}
+                      className="inline-flex items-center gap-1.5 rounded-control border border-subtle px-2 py-1 text-meta text-primary hover:border-strong"
+                      href={`#${link.route}`}
+                    >
+                      <span className="text-micro text-muted">{typeLabel(link.type)}</span>
+                      {link.title}
+                    </a>
+                  ))}
                 {(data.links ?? []).some((link) => link.schedulable) && (
                   <ScheduleTasks
                     tasks={(data.links ?? []).filter((link) => link.schedulable)}
-                    label="Seçili görevleri planla"
+                    label="Görev seç ve planla"
                   />
                 )}
               </div>
             )}
-            <details className="text-meta text-secondary">
-              <summary>Kanıt ve kaynaklar</summary>
+            <Disclosure className="text-meta text-secondary" summary="Kanıt ve kaynaklar">
               <ul className="mt-2 stack-y-2">
                 {(data.sources ?? []).map((source) => (
                   <li key={source.ref} className="break-words">
@@ -203,12 +199,12 @@ function ContextSummary({ context, onClose }: { context: AssistanceContext; onCl
                   </li>
                 ))}
               </ul>
-            </details>
+            </Disclosure>
             <ContextMemory candidates={data.memory_candidates ?? []} sources={data.sources ?? []} />
           </div>
         )
       )}
-    </Section>
+    </div>
   );
 }
 

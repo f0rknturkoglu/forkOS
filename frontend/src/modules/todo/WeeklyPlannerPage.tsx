@@ -57,7 +57,7 @@ function DraggableCard({
     <div
       ref={drag.setNodeRef}
       className={cx(
-        "flex w-full items-center rounded-control border border-transparent border-l-2 border-l-strong bg-surface text-meta transition-colors",
+        "flex w-full items-center rounded-control border border-transparent bg-surface text-meta transition-colors",
         muted && "border-subtle text-muted",
         selected && "border-accent-border bg-accent-surface text-primary",
         drag.isDragging && "opacity-30",

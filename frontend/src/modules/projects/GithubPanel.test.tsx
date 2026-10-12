@@ -228,7 +228,7 @@ describe("project GitHub hub", () => {
 
     const line = await screen.findByTestId("github-repo-stats");
     expect(line.textContent).toContain("TypeScript");
-    expect(line.textContent).toContain("açık issue");
+    expect(line.textContent).toContain("issue");
     expect(line.textContent).toContain("son push");
     expect(line.textContent).toContain("bu hafta 2 commit");
   });

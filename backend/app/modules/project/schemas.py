@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ProjectIn(BaseModel):
@@ -50,3 +50,34 @@ class IssueToTodoIn(BaseModel):
 class GithubCredentialsIn(BaseModel):
     login: str = Field(min_length=1)
     token: str = Field(min_length=1)
+
+
+class ProjectResourceIn(BaseModel):
+    client_uuid: uuid.UUID
+    title: str = Field(min_length=1, max_length=300)
+    url: str = Field(min_length=1, max_length=4000)
+
+    @field_validator("title")
+    @classmethod
+    def resource_title(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Bağlantı adı gerekli")
+        return value
+
+    @field_validator("url")
+    @classmethod
+    def resource_url(cls, value: str) -> str:
+        from urllib.parse import urlsplit
+
+        value = value.strip()
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError("Geçerli, kimlik bilgisi içermeyen http(s) bağlantısı gerekli")
+        return value
+
+
+class ProjectResourceOut(BaseModel):
+    id: uuid.UUID
+    title: str
+    url: str

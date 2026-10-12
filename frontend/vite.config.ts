@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["technology/*.{svg,png}"],
+      includeAssets: ["technology/*.{svg,png}", "brands/*.{svg,png}"],
       manifest: {
         name: "forkOS",
         short_name: "forkOS",
