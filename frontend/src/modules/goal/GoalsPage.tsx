@@ -325,13 +325,17 @@ export function GoalsPage() {
                   </div>
                   {objective && (
                     <ContextualHelp
-                      key={objective.goal.id}
+                      key={`help:${objective.goal.id}`}
                       context={{ kind: "goal", entity_id: objective.goal.id }}
                       label="Bu hedefte ilerliyor muyum?"
                     />
                   )}
                   {objective && (
-                    <ObjectiveDetail key={objective.goal.id} objective={objective} providers={data.providers} />
+                    <ObjectiveDetail
+                      key={`detail:${objective.goal.id}`}
+                      objective={objective}
+                      providers={data.providers}
+                    />
                   )}
                   {data.objectives.some((o) => !o.goal.strategic_plan_id) && (
                     <p className="text-meta text-muted">

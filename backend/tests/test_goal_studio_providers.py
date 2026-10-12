@@ -388,3 +388,12 @@ async def test_attributed_plain_final_is_only_discussion_no_proposal(profile, ap
         result = await studio.reconcile(db, await studio.get_session(db, item.id))
         assert result.state == "drafting" and result.error is None and result.revision is None
         assert result.messages[-1] == {"role": "assistant", "text": "Merhaba!"}
+
+
+@pytest.mark.no_database
+async def test_invalid_port_never_echoes_pasted_secret(profile, api, monkeypatch):
+    secret = "fixture-secret-not-for-response"
+    monkeypatch.setattr(settings, "hermes_goal_base_url", "http://127.0.0.1:" + secret)
+    with pytest.raises(ValueError) as invalid:
+        transport.loopback(settings.hermes_goal_base_url, profile=True)
+    assert secret not in str(invalid.value)

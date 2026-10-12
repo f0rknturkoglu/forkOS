@@ -24,7 +24,12 @@ MODEL_PORTS = {11434, 18434, 18435}
 
 
 def loopback(value, *, profile=False):
-    url = urlsplit(value)
+    try:
+        url = urlsplit(value)
+        port = url.port
+    except ValueError:
+        # urllib's invalid-port error echoes the raw input; never expose a pasted secret.
+        raise ValueError("Hermes/model adresi geçersiz; sayısal loopback portu gerekli") from None
     allowed = {"127.0.0.1", "::1"}
     if profile and settings.hermes_goal_topology == "host_bridge":
         allowed = {"host.docker.internal"}
@@ -35,8 +40,8 @@ def loopback(value, *, profile=False):
         or url.password
         or url.query
         or url.fragment
-        or not url.port
-        or (profile and (url.path not in {"", "/"} or url.port != 8643))
+        or not port
+        or (profile and (url.path not in {"", "/"} or port != 8643))
     ):
         raise ValueError(
             "Hermes adresi doğrulanmış tek-profilli loopback/host köprüsü adresi olmalı; /p/ prefix desteklenmez"
