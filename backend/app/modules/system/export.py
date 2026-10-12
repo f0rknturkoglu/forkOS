@@ -101,15 +101,16 @@ async def full_json(session: AsyncSession) -> dict:
                         if f.is_file():
                             target = f
                             break
-                if target.is_file():
-                    try:
-                        content = target.read_bytes()
-                        files[doc_id] = {
-                            "filename": target.name,
-                            "data_b64": base64.b64encode(content).decode("ascii"),
-                        }
-                    except OSError:
-                        pass
+                if not target.is_file():
+                    raise RuntimeError(f"Yedek bütünlük hatası: '{doc_id}' belge dosyası bulunamadı.")
+                try:
+                    content = target.read_bytes()
+                except OSError as error:
+                    raise RuntimeError(f"Yedek bütünlük hatası: '{doc_id}' belge dosyası okunamadı.") from error
+                files[doc_id] = {
+                    "filename": target.name,
+                    "data_b64": base64.b64encode(content).decode("ascii"),
+                }
 
     # Not ekleri: binary `data/attachments/<sha256>` altinda. Yalnizca
     # SATIRLARIN gosterdigi blob'lar yedege girer (yetim dosyalar girmez);

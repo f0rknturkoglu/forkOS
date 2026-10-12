@@ -39,9 +39,10 @@ async def disaster_restore(session: AsyncSession, payload: dict) -> dict:
     ihlali, count uyusmazligi, yetim) transaction'i ROLLBACK eder ve
     orijinal veri yerinde kalir (Faz 28).
     """
+    file_journal = []
     try:
         await clean_schema(session)
-        summary = await restore.restore(session, payload, commit=False)
+        summary = await restore.restore(session, payload, commit=False, file_journal=file_journal)
         verification = await restore.verify_restore(session, payload)
 
         expected = {
@@ -67,11 +68,19 @@ async def disaster_restore(session: AsyncSession, payload: dict) -> dict:
         if verification["orphan_parents"]:
             raise ValueError(f"yetim todo parent var: {verification['orphan_parents']}")
 
-        # Yalnizca tum dogrulama gectikten sonra COMMIT.
-        await session.commit()
-        return {"summary": summary, "verification": verification}
-    except Exception:
+    except BaseException:
         # Truncate/import/dogrulama hatalarinda tum transaction geri alinir;
         # orijinal veri yerinde kalir. CLI guvenlik yedegini raporlar.
+        try:
+            await session.rollback()
+        finally:
+            restore.rollback_files(file_journal)
+        raise
+    # Commit acknowledgement may be lost after the server committed. Complete
+    # files are retained on this uncertain boundary, as in merge restore.
+    try:
+        await session.commit()
+    except BaseException:
         await session.rollback()
         raise
+    return {"summary": summary, "verification": verification}

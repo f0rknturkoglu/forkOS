@@ -16,11 +16,15 @@ insert sirasinda elenir, DB yeniden uretir.
 """
 from __future__ import annotations
 
+import base64
 import gzip
 import json
+import os
+import tempfile
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import (
@@ -53,11 +57,14 @@ def insert_order() -> list[str]:
 
 # Self-referencing FK: parent_id ayni batch'te onceden eklenmis olmayabilir.
 # Once parent_id=NULL ile insert, ardindan geri bagla (FK db'de dogrulanir).
-SELF_FK_TABLES: dict[str, str] = {
-    "note_folder": "parent_id",
-    "todo": "parent_id",
-    "study_topic": "parent_id",
-}
+def self_fk_columns() -> dict[str, list[str]]:
+    """Discover every self reference, including recurrence and historical tables."""
+    return {
+        table.name: [column.name for column in table.columns
+                     if any(fk.column.table is table for fk in column.foreign_keys)]
+        for table in Base.metadata.sorted_tables
+        if any(fk.column.table is table for column in table.columns for fk in column.foreign_keys)
+    }
 
 CHUNK = 400  # asyncpg bind parametre limitine takilmamak icin parcali insert
 
@@ -235,11 +242,12 @@ def _coerce(value: Any, col_type: TypeEngine) -> Any:
 
 
 async def _insert_batch(
-    session: AsyncSession, table_name: str, rows: list[dict]
+    session: AsyncSession, table_name: str, rows: list[dict], *, added_ids: set | None = None
 ) -> tuple[int, int]:
     """ON CONFLICT DO NOTHING ile parcali insert. Doner: (eklenen, atlanan)."""
     table = Base.metadata.tables[table_name]
     columns = _insertable(table_name)
+    self_columns = self_fk_columns().get(table_name, [])
     inserted = 0
     skipped = 0
     for start in range(0, len(rows), CHUNK):
@@ -248,17 +256,58 @@ async def _insert_batch(
             {col: _coerce(row[col], table.c[col].type) for col in columns if col in row}
             for row in chunk
         ]
+        for value in values:
+            for column in self_columns:
+                value[column] = None
         if not values:
             continue
         statement = insert(table).values(values).on_conflict_do_nothing()
-        result = await session.execute(statement)
-        inserted += result.rowcount or 0
-        skipped += len(values) - (result.rowcount or 0)
+        if added_ids is not None:
+            result = await session.execute(statement.returning(table.c.id))
+            new_ids = set(result.scalars().all())
+            added_ids.update(new_ids)
+            count = len(new_ids)
+        else:
+            result = await session.execute(statement)
+            count = result.rowcount or 0
+        inserted += count
+        skipped += len(values) - count
     return inserted, skipped
 
 
 async def restore(
     session: AsyncSession, payload: dict, *, commit: bool = True,
+    file_journal: list[Path] | None = None,
+) -> dict:
+    """Rollback newly created files along with a failed database transaction.
+
+    A caller using commit=False owns the journal until its final verification
+    and commit (disaster restore). Existing files are never overwritten.
+    """
+    journal = file_journal if file_journal is not None else []
+    try:
+        summary = await _restore(session, payload, file_journal=journal)
+    except BaseException:
+        try:
+            await session.rollback()
+        finally:
+            rollback_files(journal)
+        raise
+    if commit:
+        try:
+            await session.commit()
+        except BaseException:
+            # A lost acknowledgement cannot prove the COMMIT failed. Preserve
+            # complete, exclusive files so a committed row never loses its data;
+            # an idempotent retry reconciles a failed/unknown delivery safely.
+            await session.rollback()
+            raise
+    return summary
+
+
+async def _restore(
+    session: AsyncSession, payload: dict, *,
+    file_journal: list[Path],
 ) -> dict:
     """Yedek yukler. Doner: tablo bazinda {inserted, skipped} ozeti.
 
@@ -276,7 +325,11 @@ async def restore(
             errors.append(f"bozuk ekler: {', '.join(att_check['corrupt'])}")
         raise ValueError(f"Yedek ek bütünlük hatası: {'; '.join(errors)}")
 
+    # Validate every destination before the first database or file write.
+    _document_files(payload)
     summary: dict[str, dict[str, int]] = {}
+    self_references = self_fk_columns()
+    added_ids: dict[str, set] = {name: set() for name in self_references}
 
     # 1. Asama: FK sirasiyla, cakisma olursa yok sayarak ekle.
     for table_name in insert_order():
@@ -292,25 +345,28 @@ async def restore(
                 summary[table_name] = {"inserted": 0, "skipped": 0,
                                        "secret_skipped": len(secret_rows)}
             continue
-        inserted, skipped = await _insert_batch(session, table_name, rows)
+        inserted, skipped = await _insert_batch(session, table_name, rows, added_ids=added_ids.get(table_name))
         entry: dict = {"inserted": inserted, "skipped": skipped}
         if secret_rows:
             entry["secret_skipped"] = len(secret_rows)
         summary[table_name] = entry
 
     # 2. Asama: self-FK referanslarini geri bagla.
-    for table_name, column in SELF_FK_TABLES.items():
+    for table_name, columns in self_references.items():
         rows = _rows(payload, table_name)
         if not rows:
             continue
         table = Base.metadata.tables[table_name]
         fixed = 0
         for row in rows:
-            parent = row.get(column)
-            if not parent:
+            if _coerce(row["id"], table.c.id.type) not in added_ids[table_name]:
+                continue
+            references = {column: _coerce(row[column], table.c[column].type)
+                          for column in columns if row.get(column) is not None}
+            if not references:
                 continue
             result = await session.execute(
-                update(table).where(table.c.id == row["id"]).values({column: parent})
+                update(table).where(table.c.id == _coerce(row["id"], table.c.id.type)).values(references)
             )
             fixed += result.rowcount or 0
         if fixed:
@@ -338,10 +394,10 @@ async def restore(
         )
 
     # 4. Asama: fiziksel dosyalari diske ac (yerel dokumanlar + not ekleri)
-    files_restored = restore_files(payload)
+    files_restored = restore_files(payload, journal=file_journal)
     if files_restored:
         summary["_files"] = {"restored": files_restored}
-    attachments_restored = restore_attachments(payload)
+    attachments_restored = restore_attachments(payload, journal=file_journal)
     if attachments_restored:
         summary["_attachments"] = {"restored": attachments_restored}
 
@@ -352,70 +408,95 @@ async def restore(
         session, verb="backup.restored",
         payload={"restored": restored_total, "tables": summary},
     )
-    if commit:
-        await session.commit()
-    else:
-        await session.flush()
+    await session.flush()
     return summary
 
 
-def restore_files(payload: dict) -> int:
-    """Yedekte base64 olarak saklanan yerel doküman dosyalarını (CV/PDF) diske yazar."""
-    files = payload.get("files") or {}
-    if not isinstance(files, dict) or not files:
-        return 0
-    import base64
+def rollback_files(journal: list[Path]) -> None:
+    """Remove only files created by this restore, never pre-existing data."""
+    for path in reversed(journal):
+        path.unlink(missing_ok=True)
+    journal.clear()
 
+
+def _document_files(payload: dict) -> list[tuple[Path, bytes]]:
     from app.modules.document.service import DOCUMENTS_DIR
 
-    restored = 0
-    for doc_id, file_info in files.items():
-        if not isinstance(file_info, dict):
-            continue
-        filename = file_info.get("filename")
-        data_b64 = file_info.get("data_b64")
-        if not filename or not data_b64:
-            continue
+    files = payload.get("files") or {}
+    if not isinstance(files, dict):
+        raise ValueError("Geçersiz belge dosyaları")
+    root = DOCUMENTS_DIR.resolve()
+    prepared = []
+    for doc_id, info in files.items():
         try:
-            target_dir = DOCUMENTS_DIR / str(doc_id)
-            target_dir.mkdir(parents=True, exist_ok=True)
-            target_file = target_dir / filename
-            target_file.write_bytes(base64.b64decode(data_b64))
-            restored += 1
-        except Exception:
-            pass
+            directory = root / str(uuid.UUID(str(doc_id)))
+            filename = info["filename"]
+            if (not isinstance(filename, str) or filename in {"", ".", ".."}
+                    or "/" in filename or "\\" in filename):
+                raise ValueError("Geçersiz belge dosya adı")
+            target = directory / filename
+            if directory.is_symlink() or target.is_symlink():
+                raise ValueError("Belge hedefi sembolik bağlantı olamaz")
+            content = base64.b64decode(info["data_b64"], validate=True)
+            if target.exists() and target.read_bytes() != content:
+                raise ValueError("Belge dosyası çakışması; mevcut dosya korundu")
+            prepared.append((target, content))
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("Geçersiz veya çakışan belge yedeği: " + str(error)) from error
+    return prepared
+
+
+def _write_missing(target: Path, content: bytes, journal: list[Path]) -> bool:
+    if target.is_symlink():
+        raise ValueError("Yedek hedefi sembolik bağlantı olamaz")
+    if target.exists():
+        if target.read_bytes() != content:
+            raise ValueError("Yedek dosyası çakışması; mevcut dosya korundu")
+        return False
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # Publish a complete file atomically, without replacing a concurrent writer.
+    handle, temporary_name = tempfile.mkstemp(prefix=".restore-", dir=target.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(handle, "wb") as sink:
+            sink.write(content)
+            sink.flush()
+            os.fsync(sink.fileno())
+        os.link(temporary, target)
+        journal.append(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return True
+
+
+def restore_files(payload: dict, *, journal: list[Path] | None = None) -> int:
+    """Validate paths and preserve existing document content; errors are visible."""
+    own_journal = journal if journal is not None else []
+    restored = 0
+    try:
+        for target, content in _document_files(payload):
+            restored += int(_write_missing(target, content, own_journal))
+    except BaseException:
+        rollback_files(own_journal)
+        raise
     return restored
 
 
-def restore_attachments(payload: dict) -> int:
-    """Yedekteki not eki blob'larini `data/attachments/<sha256>` altina yaz.
-
-    Ad, ICERIGIN ozetinden dogrulanir: yedekteki anahtar ile icerigin sha256'si
-    tutmuyorsa dosya YAZILMAZ (bozuk/kurcalanmis yedek sessizce kabul edilmez).
-    `store_blob` content-addressed oldugu icin tekrar calistirmak zararsizdir.
-    """
-    entries = payload.get("attachments") or {}
-    if not isinstance(entries, dict) or not entries:
-        return 0
-    import base64
-
+def restore_attachments(payload: dict, *, journal: list[Path] | None = None) -> int:
     from app.modules.note import storage as attachment_storage
 
+    check = check_attachments_integrity(payload)
+    if not check["ok"]:
+        raise ValueError("Yedek ek bütünlük hatası")
+    own_journal = journal if journal is not None else []
     restored = 0
-    for digest, data_b64 in entries.items():
-        if not isinstance(data_b64, str) or not attachment_storage.is_digest(str(digest)):
-            continue
-        try:
-            content = base64.b64decode(data_b64, validate=True)
-        except Exception:  # noqa: BLE001 - bozuk kayit digerlerini durdurmamali
-            continue
-        if attachment_storage.digest_of(content) != digest:
-            continue
-        try:
-            attachment_storage.store_blob(content)
-            restored += 1
-        except OSError:
-            continue
+    try:
+        for digest, data_b64 in (payload.get("attachments") or {}).items():
+            target = attachment_storage.blob_path(digest)
+            restored += int(_write_missing(target, base64.b64decode(data_b64, validate=True), own_journal))
+    except BaseException:
+        rollback_files(own_journal)
+        raise
     return restored
 
 
