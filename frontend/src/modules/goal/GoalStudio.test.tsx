@@ -151,3 +151,30 @@ it("raw JSON editing blocks approval until the changed draft is validated", asyn
   fireEvent.change(text, { target: { value: "{broken" } });
   expect(screen.getByRole("button", { name: "Bu revizyonu onayla ve uygula" }).hasAttribute("disabled")).toBe(true);
 });
+
+it("cloud consent is explicit, bound to server policy, revocable and shows actual model origin", async () => {
+  const permission = { revision: "c".repeat(64), policy_id: "d".repeat(64), allowed: false };
+  const cloud = {
+    state: "consent_required",
+    provider_label: "Nous Portal",
+    configured_model: "configured-model",
+    local: false,
+    consent: permission,
+  };
+  vi.mocked(api.get).mockResolvedValue(cloud);
+  vi.mocked(api.put).mockResolvedValue({ ...permission, allowed: true });
+  show("Hedefimi konuşalım");
+  const grant = await screen.findByRole("button", { name: "İzni kaydet" });
+  expect(grant.hasAttribute("disabled")).toBe(true);
+  expect(api.post).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("checkbox"));
+  vi.mocked(api.get).mockResolvedValue({ ...cloud, state: "ready", consent: { ...permission, allowed: true } });
+  vi.mocked(api.post).mockResolvedValue({ ...draft, runtime: { provider: "nous", model: "actual-model" } });
+  fireEvent.click(grant);
+  await waitFor(() => expect(api.put).toHaveBeenCalledWith("/goals/studio/consent", { ...permission, allowed: true }));
+  expect(await screen.findByText("Son yanıt: nous · actual-model")).toBeTruthy();
+  fireEvent.click(await screen.findByRole("button", { name: "Bulut iznini geri al" }));
+  await waitFor(() =>
+    expect(api.put).toHaveBeenLastCalledWith("/goals/studio/consent", { ...permission, allowed: false }),
+  );
+});

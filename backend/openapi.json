@@ -17244,6 +17244,68 @@
         "title": "StudioApplied",
         "type": "object"
       },
+      "StudioConsentIn": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed": {
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Id"
+          },
+          "revision": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "allowed"
+        ],
+        "title": "StudioConsentIn",
+        "type": "object"
+      },
+      "StudioConsentOut": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed": {
+            "default": false,
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Id"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "StudioConsentOut",
+        "type": "object"
+      },
       "StudioDecisionIn": {
         "additionalProperties": false,
         "properties": {
@@ -18167,6 +18229,32 @@
         "title": "StudioRevisionOut",
         "type": "object"
       },
+      "StudioRuntime": {
+        "additionalProperties": false,
+        "properties": {
+          "model": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "custom",
+              "openai-codex",
+              "nous"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model"
+        ],
+        "title": "StudioRuntime",
+        "type": "object"
+      },
       "StudioSessionIn": {
         "additionalProperties": false,
         "properties": {
@@ -18328,6 +18416,16 @@
               }
             ]
           },
+          "runtime": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StudioRuntime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "state": {
             "title": "State",
             "type": "string"
@@ -18345,12 +18443,87 @@
       "StudioStatus": {
         "additionalProperties": false,
         "properties": {
+          "configured_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configured Model"
+          },
+          "consent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StudioConsentOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hermes_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hermes Version"
+          },
+          "local": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local"
+          },
           "message": {
             "title": "Message",
             "type": "string"
           },
+          "profile": {
+            "default": "forkos-goal-studio",
+            "title": "Profile",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "local_custom",
+                  "codex_oauth",
+                  "nous_portal"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Label"
+          },
           "provider_notice": {
-            "default": "Bu görüşme yalnız doğrulanmış yerel model ve araçsız Hermes profiliyle çalışır. Bulut sağlayıcı ve otomatik dış model geçişi engellenir.",
+            "default": "Yalnız seçili bağlamın sınırlı özeti ve gönderdiğin mesaj kullanılır; sohbet kayıt değişikliği onayı değildir.",
             "title": "Provider Notice",
             "type": "string"
           },
@@ -18359,9 +18532,24 @@
               "not_configured",
               "unavailable",
               "unsupported",
+              "consent_required",
               "ready"
             ],
             "title": "State",
+            "type": "string"
+          },
+          "tools_verified": {
+            "default": false,
+            "title": "Tools Verified",
+            "type": "boolean"
+          },
+          "topology": {
+            "default": "native",
+            "enum": [
+              "native",
+              "host_bridge"
+            ],
+            "title": "Topology",
             "type": "string"
           }
         },
@@ -21071,7 +21259,7 @@
     }
   },
   "info": {
-    "title": "Life OS",
+    "title": "forkOS",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
@@ -26283,6 +26471,48 @@
         },
         "summary": "Pillar Update",
         "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/studio/consent": {
+      "put": {
+        "operationId": "consent_api_goals_studio_consent_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudioConsentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioConsentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Consent",
+        "tags": [
+          "goals",
           "goals"
         ]
       }

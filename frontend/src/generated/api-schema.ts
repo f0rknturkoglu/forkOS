@@ -1989,6 +1989,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/goals/studio/consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Consent */
+        put: operations["consent_api_goals_studio_consent_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/goals/studio/context": {
         parameters: {
             query?: never;
@@ -11456,6 +11473,27 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** StudioConsentIn */
+        StudioConsentIn: {
+            /** Allowed */
+            allowed: boolean;
+            /** Policy Id */
+            policy_id?: string | null;
+            /** Revision */
+            revision: string;
+        };
+        /** StudioConsentOut */
+        StudioConsentOut: {
+            /**
+             * Allowed
+             * @default false
+             */
+            allowed: boolean;
+            /** Policy Id */
+            policy_id?: string | null;
+            /** Revision */
+            revision: string;
+        };
         /** StudioDecisionIn */
         StudioDecisionIn: {
             /**
@@ -11714,6 +11752,16 @@ export interface components {
             /** State */
             state: string;
         };
+        /** StudioRuntime */
+        StudioRuntime: {
+            /** Model */
+            model: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "custom" | "openai-codex" | "nous";
+        };
         /** StudioSessionIn */
         StudioSessionIn: {
             /**
@@ -11748,23 +11796,51 @@ export interface components {
              */
             progress: string;
             revision: components["schemas"]["StudioRevisionOut"] | null;
+            runtime?: components["schemas"]["StudioRuntime"] | null;
             /** State */
             state: string;
         };
         /** StudioStatus */
         StudioStatus: {
+            /** Configured Model */
+            configured_model?: string | null;
+            consent?: components["schemas"]["StudioConsentOut"] | null;
+            /** Hermes Version */
+            hermes_version?: string | null;
+            /** Local */
+            local?: boolean | null;
             /** Message */
             message: string;
             /**
+             * Profile
+             * @default forkos-goal-studio
+             */
+            profile: string;
+            /** Provider */
+            provider?: ("local_custom" | "codex_oauth" | "nous_portal") | null;
+            /** Provider Label */
+            provider_label?: string | null;
+            /**
              * Provider Notice
-             * @default Bu görüşme yalnız doğrulanmış yerel model ve araçsız Hermes profiliyle çalışır. Bulut sağlayıcı ve otomatik dış model geçişi engellenir.
+             * @default Yalnız seçili bağlamın sınırlı özeti ve gönderdiğin mesaj kullanılır; sohbet kayıt değişikliği onayı değildir.
              */
             provider_notice: string;
             /**
              * State
              * @enum {string}
              */
-            state: "not_configured" | "unavailable" | "unsupported" | "ready";
+            state: "not_configured" | "unavailable" | "unsupported" | "consent_required" | "ready";
+            /**
+             * Tools Verified
+             * @default false
+             */
+            tools_verified: boolean;
+            /**
+             * Topology
+             * @default native
+             * @enum {string}
+             */
+            topology: "native" | "host_bridge";
         };
         /** StudioTurnIn */
         StudioTurnIn: {
@@ -16445,6 +16521,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PillarOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    consent_api_goals_studio_consent_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudioConsentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioConsentOut"];
                 };
             };
             /** @description Validation Error */

@@ -1,8 +1,10 @@
 # Dedicated profile only. Do not copy credentials, tools, hooks or skills from the user's profile.
 model:
   provider: custom
-  default: qwen3.5:9b
-  base_url: http://127.0.0.1:11434/v1
+  default: Qwen3.5-9B-Q4_K_M
+  base_url: http://127.0.0.1:18435/v1
+auth:
+  adopt_external_logins: false
 platform_toolsets:
   api_server: []
 mcp_servers: {}
@@ -31,3 +33,4 @@ platforms:
         enabled: false
 gateway:
   multiplex_profiles: false
+  standalone: true

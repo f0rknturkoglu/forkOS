@@ -176,7 +176,8 @@ def stop_engine(keep_engine=False):
 
 
 def ports_closed():
-    for port in (5173, 8787, 5433, 18434):
+    goal_ports = (8643, 18435) if (Path.home() / '.hermes/profiles/forkos-goal-studio/.forkos-goal-studio-owned').exists() else ()
+    for port in (5173, 8787, 5433, 18434, *goal_ports):
         with socket.socket() as connection:
             connection.settimeout(1)
             if connection.connect_ex(('127.0.0.1', port)) == 0:
@@ -190,6 +191,7 @@ def stop(keep_engine=False):
     print('\nforkOS · Güvenli kapanış checklist’i\n')
     failures = []
     actions = [
+        ('Hermes Goal Studio', lambda: (run([sys.executable, str(ROOT / 'scripts/hermes_goal_runtime.py'), 'stop']), 'ayrı profil kapalı')[1] if (Path.home() / '.hermes/profiles/forkos-goal-studio/.forkos-goal-studio-owned').exists() else 'yapılandırılmamış'),
         ('Hermes Desktop', lambda: quit_app('com.nousresearch.hermes')),
         ('Obsidian', lambda: quit_app('md.obsidian')),
         ('Model ve arka plan süreçleri', stop_processes),
@@ -241,6 +243,11 @@ def main():
         compose += ['-f', 'compose.obsidian.yaml']
     if not args.stable:
         compose += ['-f', 'compose.dev.yaml']
+    goal_profile = Path.home() / '.hermes/profiles/forkos-goal-studio'
+    if (goal_profile / '.forkos-goal-studio-owned').exists():
+        os.environ['HERMES_GOAL_PROFILE_DIR'] = str(goal_profile)
+        compose += ['-f', 'compose.hermes-goal.yaml']
+        step('Hermes Goal Studio', lambda: (run([sys.executable, str(ROOT / 'scripts/hermes_goal_runtime.py'), 'start'], timeout=90), 'ayrı araçsız profil')[1])
 
     def engine():
         if not shutil.which('docker'):

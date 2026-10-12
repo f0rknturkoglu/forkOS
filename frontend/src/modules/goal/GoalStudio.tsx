@@ -2,7 +2,7 @@ import { ArrowUp, RefreshCw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, streamGoalStudio } from "@/core/api";
-import { Button, IconButton, Field, Input, Textarea, Select } from "@/core/ui";
+import { Button, IconButton, Field, Input, Textarea, Select, Checkbox } from "@/core/ui";
 import { invalidateAfter } from "@/core/invalidation";
 import { entityRoute, typeLabel } from "@/core/entityRegistry";
 import { readStored, writeStored } from "@/core/storage";
@@ -25,6 +25,7 @@ const stateNames: Record<string, string> = {
   drafting: "Görüşme",
   running: "Hermes yanıtlıyor…",
   unknown_delivery: "Teslim sonucu belirsiz",
+  delivery_blocked: "Gönderim engellendi",
   approval_pending: "Onay bekliyor",
   applied: "Uygulandı",
   rejected: "Reddedildi",
@@ -59,10 +60,30 @@ export function GoalStudio({
   const [editorDirty, setEditorDirty] = useState(false);
   const [live, setLive] = useState("");
   const [error, setError] = useState("");
+  const [cloudChecked, setCloudChecked] = useState(false);
   const status = useQuery({
     queryKey: ["goal-studio-status"],
     queryFn: () => api.get<S["StudioStatus"]>("/goals/studio/status"),
     retry: false,
+  });
+  useEffect(() => setCloudChecked(false), [status.data?.consent?.policy_id]);
+  const permission = useMutation({
+    mutationFn: (allowed: boolean) =>
+      api.put<S["StudioConsentOut"]>("/goals/studio/consent", {
+        revision: status.data?.consent?.revision,
+        policy_id: status.data?.consent?.policy_id,
+        allowed,
+      }),
+    onSuccess: () => {
+      setError("");
+      setCloudChecked(false);
+      invalidateAfter("goal-studio.consent");
+      void status.refetch();
+    },
+    onError: (e: Error) => {
+      setError(e.message);
+      void status.refetch();
+    },
   });
   const adopt = (next: Session) => {
     if (JSON.stringify(next.context ?? null) !== JSON.stringify(assistanceContext ?? null)) {
@@ -80,14 +101,18 @@ export function GoalStudio({
   const mutation = useMutation({
     mutationFn: (fn: () => Promise<Session>) => fn(),
     onSuccess: adopt,
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error) => {
+      setError(e.message);
+      void status.refetch();
+    },
   });
   const run = (fn: () => Promise<Session>) => {
     setError("");
     mutation.mutate(fn);
   };
   const running = session?.state === "running";
-  const busy = mutation.isPending || running || session?.state === "unknown_delivery";
+  const busy =
+    mutation.isPending || running || session?.state === "unknown_delivery" || session?.state === "delivery_blocked";
   const dirty = editorDirty || JSON.stringify(proposal) !== JSON.stringify(session?.revision?.proposal ?? null);
   useEffect(() => {
     if (!running || !session) return;
@@ -184,6 +209,62 @@ export function GoalStudio({
           <X size={14} />
         </IconButton>
       </div>
+      <div className="flex flex-wrap items-center gap-2 text-meta text-muted">
+        {status.data?.provider_label && (
+          <span>
+            {status.data.provider_label} · {status.data.local ? "Yerel" : "Bulut"} · {status.data.configured_model}
+          </span>
+        )}
+        {status.data?.state === "ready" && <span role="status">Bağlı · etkin araç yok</span>}
+        <IconButton
+          title="Bağlantıyı yeniden kontrol et"
+          disabled={status.isFetching}
+          onClick={() => void status.refetch()}
+        >
+          <RefreshCw size={14} />
+        </IconButton>
+      </div>
+      {session?.runtime && (
+        <p className="text-meta text-secondary">
+          Son yanıt: {session.runtime.provider} · {session.runtime.model}
+        </p>
+      )}
+      {status.data?.local === false && status.data.consent && (
+        <div className="rounded-control border border-subtle p-2 stack-y-2">
+          <p className="text-meta">
+            Seçili bağlam özeti ve mesajın {status.data.provider_label} sağlayıcısına gönderilir. Sağlayıcının veri
+            saklama kuralları geçerlidir.
+          </p>
+          {status.data.consent.allowed ? (
+            <div className="flex flex-wrap items-center gap-2 text-meta">
+              <span>Bu sağlayıcı ve model için izin açık</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={permission.isPending}
+                onClick={() => permission.mutate(false)}
+              >
+                Bulut iznini geri al
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <Checkbox
+                checked={cloudChecked}
+                onChange={setCloudChecked}
+                label="Bu sağlayıcı ve modelle Goal Studio görüşmelerine izin veriyorum"
+              />
+              <Button
+                size="sm"
+                disabled={!cloudChecked || permission.isPending}
+                onClick={() => permission.mutate(true)}
+              >
+                İzni kaydet
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
       {status.data?.state !== "ready" && (
         <div className="flex items-center gap-2 text-meta text-muted">
           <span role="status" title={status.data?.message}>
@@ -193,13 +274,6 @@ export function GoalStudio({
                 ? "Hermes yapılandırılmamış"
                 : (status.data?.message ?? "Bağlantı kontrol ediliyor…")}
           </span>
-          <IconButton
-            title="Bağlantıyı yeniden kontrol et"
-            disabled={status.isFetching}
-            onClick={() => void status.refetch()}
-          >
-            <RefreshCw size={14} />
-          </IconButton>
         </div>
       )}
       {error && (
@@ -298,6 +372,14 @@ export function GoalStudio({
               Aynı turu uzlaştır
             </Button>
           )}
+          {session.state === "delivery_blocked" && (
+            <Button
+              disabled={mutation.isPending}
+              onClick={() => run(() => api.post<Session>(`/goals/studio/sessions/${session.id}/stop`))}
+            >
+              Engellenen turu kapat
+            </Button>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -319,7 +401,11 @@ export function GoalStudio({
                 onChange={(value) => setMessage(value.slice(0, 6000))}
               />
             </Field>
-            <Button type="submit" disabled={busy || status.data?.state !== "ready" || !message.trim()}>
+            <Button
+              type="submit"
+              ariaLabel="Hermes’e gönder"
+              disabled={busy || status.data?.state !== "ready" || !message.trim()}
+            >
               <ArrowUp size={16} aria-hidden />
             </Button>
           </form>

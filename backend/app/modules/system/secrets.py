@@ -11,15 +11,19 @@ varsa restore/import bunlari atlar, ama diskte kalan dosya hala icerir.
 Gecmis yedeklerdeki anahtarlarin dondurulmesi (rotation) onerilir.
 """
 
-SECRET_SETTING_KEYS: frozenset[str] = frozenset({
-    "media.tmdb_key",
-    "media.google_books_key",
-    "media.igdb_client_id",
-    "media.igdb_client_secret",
-    # RAWG artik arayuzde yok (IGDB oyun aramasini devraldi) ama eski
-    # kayitlarda anahtar kalmis olabilir; yedekten yine dislanir.
-    "media.rawg_key",
-})
+SECRET_SETTING_KEYS: frozenset[str] = frozenset(
+    {
+        # Authorization is not portable data: a backup must never grant cloud access.
+        "hermes.goal_studio.consent.v1",
+        "media.tmdb_key",
+        "media.google_books_key",
+        "media.igdb_client_id",
+        "media.igdb_client_secret",
+        # RAWG artik arayuzde yok (IGDB oyun aramasini devraldi) ama eski
+        # kayitlarda anahtar kalmis olabilir; yedekten yine dislanir.
+        "media.rawg_key",
+    }
+)
 
 
 def is_secret_setting(key: str) -> bool:

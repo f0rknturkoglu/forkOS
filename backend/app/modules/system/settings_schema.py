@@ -8,6 +8,7 @@ bileseniyle yazsa da backend son sozu soyler: bozuk bir istemci
 Dogrulanmayan anahtarlar SERBEST birakilir: burasi beyaz liste degil, bilinen
 anahtarlarin sozlesmesidir. Yeni bir ayar eklerken tip kuralini da buraya yaz.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -46,13 +47,16 @@ DEFAULTS: dict[str, Any] = {
 
 #: Kullanici tercihi DEGIL, sistemin kendi calisma durumu. "Ayarlari sifirla"
 #: bunlara dokunmaz; silinirlerse worker sagligi ve elle senkron gecmisi kaybolur.
-RUNTIME_SETTING_KEYS: frozenset[str] = frozenset({
-    "rss.starter_feeds.v1",
-    WORKER_HEARTBEAT_KEY,
-    "system.manual_refresh",
-    MAINTENANCE_SETTING_KEY,
-    BACKUP_REVISION_KEY,
-})
+RUNTIME_SETTING_KEYS: frozenset[str] = frozenset(
+    {
+        "rss.starter_feeds.v1",
+        "hermes.goal_studio.consent.v1",
+        WORKER_HEARTBEAT_KEY,
+        "system.manual_refresh",
+        MAINTENANCE_SETTING_KEY,
+        BACKUP_REVISION_KEY,
+    }
+)
 
 
 def _is_int(value: Any) -> bool:
@@ -75,7 +79,10 @@ def _is_career_profile(value: Any) -> bool:
 
 #: anahtar -> (hata mesaji, dogrulayici). Mesaj kullaniciya arayuzde gorunur.
 SETTING_VALIDATORS: dict[str, tuple[str, Callable[[Any], bool]]] = {
-    "rss.retention_days": ("1 ile 3650 arasında tam sayı olmalı", lambda v: _is_int(v) and 1 <= v <= 3650),
+    "rss.retention_days": (
+        "1 ile 3650 arasında tam sayı olmalı",
+        lambda v: _is_int(v) and 1 <= v <= 3650,
+    ),
     #: 0 = yalniz manuel; aksi halde 5 dk ile 24 saat arasi.
     "rss.interval_minutes": (
         "0 (yalnız manuel) veya 5-1440 arasında tam sayı olmalı",
@@ -86,7 +93,10 @@ SETTING_VALIDATORS: dict[str, tuple[str, Callable[[Any], bool]]] = {
     "today.widget_order": ("widget kimliklerinden oluşan liste olmalı", _is_str_list),
     "today.widget_hidden": ("widget kimliklerinden oluşan liste olmalı", _is_str_list),
     "news.subreddits": ("subreddit adlarından oluşan liste olmalı", _is_str_list),
-    "opportunity.career_profile": ("konum, ülke listesi ve relokasyon alanları eksik", _is_career_profile),
+    "opportunity.career_profile": (
+        "konum, ülke listesi ve relokasyon alanları eksik",
+        _is_career_profile,
+    ),
     "automation.profile": (
         "geçerli bir profil seçin (manual/balanced/active)",
         lambda v: v in automation.PROFILES,
@@ -112,7 +122,10 @@ SETTING_VALIDATORS: dict[str, tuple[str, Callable[[Any], bool]]] = {
 
 def validate_setting(key: str, value: Any) -> str | None:
     """Gecerliyse None, degilse Turkce hata mesaji."""
-    if key.startswith(("media.", "finance.", "automation.media.")) or key == "backup.drive_folder_id":
+    if (
+        key.startswith(("media.", "finance.", "automation.media."))
+        or key == "backup.drive_folder_id"
+    ):
         return "Bu özellik V1 kapsamından kaldırıldı"
     rule = SETTING_VALIDATORS.get(key)
     if rule is None:

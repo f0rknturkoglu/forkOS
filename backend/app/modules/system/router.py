@@ -101,15 +101,20 @@ async def manual_refresh(
 async def settings(session: AsyncSession = Depends(get_session)):
     result = dict(DEFAULTS)
     rows = list((await session.execute(select(Setting))).scalars())
-    result.update({item.key: item.value for item in rows
-                   if not item.key.startswith(("media.", "finance.", "automation.media."))
-                   and item.key != "backup.drive_folder_id"})
+    result.update(
+        {
+            item.key: item.value
+            for item in rows
+            if not item.key.startswith(("media.", "finance.", "automation.media."))
+            and item.key != "backup.drive_folder_id"
+        }
+    )
     return result
 
 
 @router.put("/settings/{key:path}")
 async def put_setting(key: str, body: SettingIn, session: AsyncSession = Depends(get_session)):
-    if key == "product.experience.v1":
+    if key in {"product.experience.v1", "hermes.goal_studio.consent.v1"}:
         raise HTTPException(422, "Bu tercih sürümlü ürün sözleşmesiyle kaydedilmeli")
     problem = validate_setting(key, body.value)
     if problem is not None:
@@ -609,7 +614,6 @@ async def career_ops_doctor():
     return res.model_dump()
 
 
-
 experience_router = APIRouter(route_class=StudioRoute)
 
 
@@ -619,20 +623,29 @@ async def get_experience(session: AsyncSession = Depends(get_session)):
 
 
 @experience_router.put("/system/experience", response_model=experience.ExperienceOut)
-async def put_experience(body: experience.ExperienceUpdate, session: AsyncSession = Depends(get_session)):
+async def put_experience(
+    body: experience.ExperienceUpdate, session: AsyncSession = Depends(get_session)
+):
     return await experience.update(session, body)
 
 
 @experience_router.post("/system/experience/repair", response_model=experience.ExperienceOut)
-async def repair_experience(body: experience.ExperienceRepairIn, session: AsyncSession = Depends(get_session)):
+async def repair_experience(
+    body: experience.ExperienceRepairIn, session: AsyncSession = Depends(get_session)
+):
     return await experience.repair_feed_memberships(session, expected_revision=body.revision)
 
 
 @router.get("/news/huggingface-papers")
-async def huggingface_papers(date: str | None = None, limit: int = Query(20, ge=1, le=30), session: AsyncSession = Depends(get_session)):
+async def huggingface_papers(
+    date: str | None = None,
+    limit: int = Query(20, ge=1, le=30),
+    session: AsyncSession = Depends(get_session),
+):
     if not await experience.enabled(session, "hf"):
         return []
     from app.sources.news import HuggingFacePapersSource
+
     try:
         source = HuggingFacePapersSource(date=date)
         return await news.fetch_news_source(session, source, limit)

@@ -161,10 +161,36 @@ class StudioDecisionIn(Closed):
     decision: Literal["approve", "reject"]
 
 
+class StudioConsentIn(Closed):
+    revision: str = Field(pattern=r"^[0-9a-f]{64}$")
+    policy_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    allowed: bool
+
+
+class StudioConsentOut(Closed):
+    revision: str
+    policy_id: str | None = None
+    allowed: bool = False
+
+
+class StudioRuntime(Closed):
+    provider: Literal["custom", "openai-codex", "nous"]
+    model: str = Field(min_length=1, max_length=200)
+
+
 class StudioStatus(Closed):
-    state: Literal["not_configured", "unavailable", "unsupported", "ready"]
+    state: Literal["not_configured", "unavailable", "unsupported", "consent_required", "ready"]
     message: str
-    provider_notice: str = "Bu görüşme yalnız doğrulanmış yerel model ve araçsız Hermes profiliyle çalışır. Bulut sağlayıcı ve otomatik dış model geçişi engellenir."
+    provider_notice: str = "Yalnız seçili bağlamın sınırlı özeti ve gönderdiğin mesaj kullanılır; sohbet kayıt değişikliği onayı değildir."
+    provider: Literal["local_custom", "codex_oauth", "nous_portal"] | None = None
+    provider_label: str | None = None
+    configured_model: str | None = None
+    local: bool | None = None
+    profile: str = "forkos-goal-studio"
+    topology: Literal["native", "host_bridge"] = "native"
+    hermes_version: str | None = None
+    tools_verified: bool = False
+    consent: StudioConsentOut | None = None
 
 
 class StudioApplied(Closed):
@@ -184,6 +210,7 @@ class StudioRevisionOut(Closed):
 
 
 class StudioSessionOut(Closed):
+    runtime: StudioRuntime | None = None
     id: UUID
     state: str
     messages: list[dict]

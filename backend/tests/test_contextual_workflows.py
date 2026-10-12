@@ -346,6 +346,7 @@ async def test_contextual_model_turn_reuses_transport_and_cannot_create_proposal
             return {"run_id": "fixture_context_run"}
         return {
             "status": "completed",
+            "runtime": {"provider": "custom", "model": "fixture"},
             "output": json.dumps(
                 {
                     "discussion": "Kaynak eksik; sonuç bilinmiyor.",
@@ -355,6 +356,11 @@ async def test_contextual_model_turn_reuses_transport_and_cannot_create_proposal
         }
 
     monkeypatch.setattr(studio_transport, "require_ready", ready)
+
+    async def inference(*args, **kwargs):
+        return {"id": "f" * 64, "provider": "custom", "model": "fixture", "local": True}
+
+    monkeypatch.setattr(studio_transport, "require_inference", inference)
     monkeypatch.setattr(
         studio_transport, "verified_profile", lambda: {"model": {"default": "fixture"}}
     )

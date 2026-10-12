@@ -1,0 +1,15 @@
+# Optional, authenticated macOS host bridge. Hermes/model stay bound to host loopback.
+# No OAuth token, profile .env, personal memory or Vault is mounted into forkOS.
+services:
+  api:
+    env_file:
+      - ${HERMES_GOAL_PROFILE_DIR:?Set the dedicated Goal Studio profile directory}/forkos.env
+    environment:
+      HERMES_GOAL_TOPOLOGY: host_bridge
+      HERMES_GOAL_BASE_URL: http://host.docker.internal:8643
+      HERMES_GOAL_PROFILE_CONFIG: /hermes-goal-profile/config.yaml
+    volumes:
+      - ${HERMES_GOAL_PROFILE_DIR}/config.yaml:/hermes-goal-profile/config.yaml:ro
+      - ${HERMES_GOAL_PROFILE_DIR}/hooks:/hermes-goal-profile/hooks:ro
+      - ${HERMES_GOAL_PROFILE_DIR}/plugins:/hermes-goal-profile/plugins:ro
+      - ${HERMES_GOAL_PROFILE_DIR}/cron:/hermes-goal-profile/cron:ro

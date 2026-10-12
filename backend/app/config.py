@@ -24,9 +24,11 @@ class Settings(BaseSettings):
     google_redirect_uri: str = "http://127.0.0.1:8787/api/auth/google/callback"
     worker_enabled: bool = False
     # Dedicated Hermes profile only; credentials never leave the backend.
-    hermes_goal_base_url: str = "http://127.0.0.1:8643/p/forkos-goal-studio"
+    hermes_goal_base_url: str = "http://127.0.0.1:8643"
     hermes_goal_api_key: str = ""
     hermes_goal_profile_config: str = ""
+    hermes_goal_topology: Literal["native", "host_bridge"] = "native"
+    hermes_goal_model_api_key: str = ""
 
     #: Opsiyonel Obsidian Vault destegi (hibrit mimari).
     #: Bos birakilirsa Vault entegrasyonu pasiftir ve forkOS normal calisir.

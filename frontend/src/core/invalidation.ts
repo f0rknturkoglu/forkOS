@@ -9,6 +9,7 @@
 import { queryClient } from "./queryClient";
 
 export const AFTER = {
+  "goal-studio.consent": ["goal-studio-status"],
   "todo.write": [
     "onboarding-evidence",
     "strategy-overview",

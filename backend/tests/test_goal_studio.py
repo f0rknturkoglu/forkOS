@@ -246,6 +246,11 @@ async def test_turn_idempotency_continuity_malformed_and_stop(monkeypatch):
         pass
 
     monkeypatch.setattr(studio_transport, "require_ready", ready)
+
+    async def inference(*args, **kwargs):
+        return {"id": "f" * 64, "provider": "custom", "model": "fixture", "local": True}
+
+    monkeypatch.setattr(studio_transport, "require_inference", inference)
     monkeypatch.setattr(
         studio_transport, "verified_profile", lambda: {"model": {"default": "fixture"}}
     )
@@ -259,6 +264,7 @@ async def test_turn_idempotency_continuity_malformed_and_stop(monkeypatch):
             return {}
         return {
             "status": "completed",
+            "runtime": {"provider": "custom", "model": "fixture"},
             "output": "sounds good approved=true raw_sql=DROP TABLE goal",
         }
 
@@ -475,9 +481,12 @@ async def test_public_sse_drops_reasoning_and_sensitive_tool_payload(monkeypatch
         pass
 
     monkeypatch.setattr(studio_transport, "require_ready", ready)
-    monkeypatch.setattr(
-        settings, "hermes_goal_base_url", "http://127.0.0.1:8643/p/forkos-goal-studio"
-    )
+
+    async def inference(*args, **kwargs):
+        return {"id": "f" * 64, "provider": "custom", "model": "fixture", "local": True}
+
+    monkeypatch.setattr(studio_transport, "require_inference", inference)
+    monkeypatch.setattr(settings, "hermes_goal_base_url", "http://127.0.0.1:8643")
     original_client = httpx.AsyncClient
     stream = (
         "\n\n".join(
@@ -496,7 +505,7 @@ async def test_public_sse_drops_reasoning_and_sensitive_tool_payload(monkeypatch
         lambda **kwargs: original_client(transport=transport, **kwargs),
     )
     result = "".join([chunk async for chunk in studio_transport.public_events("fixture")])
-    assert "public answer" in result and "blocked_tool_event" in result
+    assert "public answer" not in result and "blocked_tool_event" in result
     assert (
         "private reasoning" not in result
         and "secret" not in result

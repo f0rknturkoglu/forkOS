@@ -10,8 +10,10 @@ from app.core.local_ui import StudioRoute
 from app.db import get_session
 from app.integrations.contextual import build_summary
 from app.integrations.contextual_schemas import AssistanceContext, AssistanceSummary
-from app.modules.goal import studio, studio_transport
+from app.modules.goal import studio, studio_policy, studio_transport
 from app.modules.goal.studio_schemas import (
+    StudioConsentIn,
+    StudioConsentOut,
     StudioDecisionIn,
     StudioProposal,
     StudioSessionIn,
@@ -29,8 +31,13 @@ async def context(body: AssistanceContext, db: AsyncSession = Depends(get_sessio
 
 
 @router.get("/status", response_model=StudioStatus)
-async def status():
-    return await studio_transport.status()
+async def status(db: AsyncSession = Depends(get_session)):
+    return await studio_transport.status(db)
+
+
+@router.put("/consent", response_model=StudioConsentOut)
+async def consent(body: StudioConsentIn, db: AsyncSession = Depends(get_session)):
+    return await studio_policy.update_consent(db, body)
 
 
 @router.post("/sessions", response_model=StudioSessionOut)
