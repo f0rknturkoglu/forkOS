@@ -14,9 +14,16 @@ Pomodoro geçmişinde tamamlanan seanslar elle eklenebilir, düzenlenebilir ve o
 
 ## Başlangıç ve kişisel akış
 
-Yeni kurulumun karşılama akışı, isteğe bağlı kaynak seçimi ve tekrar açılabilen rehberleri vardır. Her sayfanın header'ındaki `(i)` bilgiyi ve rehberleri toplar. Akış kaynakları kullanıcı seçimiyle açılır; HN, GitHub · Yeni ve Popüler, Hugging Face Papers, Reddit ve mevcut RSS abonelikleri desteklenir. [Başlangıç ve rehberler](docs/product/v1-welcome-onboarding.md) · [Kişisel akış](docs/product/personal-feed-discovery.md).
+Yeni kurulumun karşılama akışı, isteğe bağlı kaynak seçimi ve tekrar açılabilen rehberleri vardır. Her sayfanın header'ındaki `(i)` bilgiyi ve rehberleri toplar. Akış kaynakları kullanıcı seçimiyle açılır; HN, GitHub, Hugging Face Papers, Reddit ve mevcut RSS abonelikleri desteklenir. [Başlangıç ve rehberler](docs/product/v1-welcome-onboarding.md) · [Kişisel akış](docs/product/personal-feed-discovery.md).
 
 Tutorialı tekrar denemek için **Ayarlar → Genel & Görünüm → Tutorial deneme modu → Tutorialı sıfırdan başlat**. Bu işlem yalnız rehber ilerlemesini sıfırlar; hedefler, görevler, öğrenme kayıtları ve akış kaynakları korunur.
+
+Kaynak sonuçları eksik veya gecikmiş olabilir; başvuru ve son tarih bilgisini özgün kaynaktan kontrol et. Mevcut otomasyon tercihleri açıksa API açılışında kaynak çekimi başlayabilir. Modül görünürlüğü ile arka plan güncellemesi ayrı ayarlardır.
+
+## Yerel V1 doğrulaması
+
+[Pre-release readiness](docs/architecture/v1-pre-release-readiness.md) · [Kapatılan bulgular](docs/architecture/v1-pre-release-findings.md) · [Taslak V1 notları](docs/releases/v1-draft.md).
+Yerel testler CI onayının yerine geçmez; henüz V1 etiketi veya release yayımlanmadı.
 
 ## Neler sunuyor?
 
@@ -136,7 +143,12 @@ Bilgi köprüsü (Notlar, günlükler, proje günlükleri) Vault mount'u gerekti
 `.env` içine `OBSIDIAN_VAULT_HOST_PATH` (host yolu) ve `OBSIDIAN_VAULT_NAME`
 değerlerini yaz, sonra `make up-obsidian CO="docker compose"` ile başlat. Vault
 mount'u yalnızca `api` servisine verilir; `web` container'ı Vault'u görmez ve
-Vault dosyaları forkOS yedeğine girmez. `make up` sessizce farklı davranmaz:
+Vault dosyaları forkOS yedeğine girmez; Vault'u ayrıca yedekle.
+Merge restore mevcut kayıtları güncellemez ve farklı içerikteki mevcut dosyanın
+üzerine yazmaz. Eksik belge veya bozuk ek açık hata verir. COMMIT cevabı kaybolursa
+tam dosyalar korunur; aynı yedekle idempotent tekrar deneme yapılabilir. Bu durum
+veya süreç/güç kesilmesi yetim dosya bırakabilir; DB ve dosya sistemi arasında
+kesintisiz dağıtık transaction garantisi verilmez. `make up` sessizce farklı davranmaz:
 hangi runtime'ı istediğini komut söyler.
 
 `Makefile` varsayılan olarak `podman compose` kullanır. Podman kullanıyorsan `CO` parametresini yazmana gerek yoktur.

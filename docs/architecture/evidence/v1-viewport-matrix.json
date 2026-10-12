@@ -1,0 +1,1692 @@
+[
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/",
+    "actual": 360,
+    "body": 350,
+    "heading": "İyi akşamlar12 Ekim Pazartesi21:34Günlük özet–Gelen kutusu–Bugün kaydedilentoplam 00Okunmamış RSS1 a",
+    "root": 350
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/goals",
+    "actual": 360,
+    "body": 360,
+    "heading": "HedeflerHedefler & StratejiGenel BakışHedeflerStratejik planGeçmişHermes ile hedef hazırlaBağlantı k",
+    "root": 360
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/todos",
+    "actual": 360,
+    "body": 360,
+    "heading": "GörevlerTüm görevler0 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinler",
+    "root": 360
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/planner",
+    "actual": 360,
+    "body": 360,
+    "heading": "PlanlanmamışAçık görevlerin hepsi planlandı.Haftalık plan12 Eki – 18 Eki 20260 blokBu haftaGörevlerB",
+    "root": 360
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/habits",
+    "actual": 360,
+    "body": 360,
+    "heading": "RutinlerTekrarlanan görevler0 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinle",
+    "root": 360
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/calendar",
+    "actual": 360,
+    "body": 350,
+    "heading": "TakvimEkim 20266 etkinlikGoogle'dan çekBugünAyHaftaGoogle salt okunur · yalnız plan blokları gönderi",
+    "root": 350
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/pomodoro",
+    "actual": 360,
+    "body": 350,
+    "heading": "PlanlamaOdak12 Ekim 2026 Pazartesi Odaklan İstatistikler AyarlarYeni odak seansı10 dk mola50 dk25 dk",
+    "root": 350
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/projects",
+    "actual": 360,
+    "body": 360,
+    "heading": "Projeler1Sentetik V1 projesi48 dk önce · aktifSentetik V1 projesiaktifGenelİşlerGeçmiş Detaylar Deta",
+    "root": 360
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/opportunities",
+    "actual": 360,
+    "body": 350,
+    "heading": "FırsatlarKeşfedilen iş ilanları ve kısa listeKeşfetBaşvurularDuyurularProfilKaynaklarKaynakları çekT",
+    "root": 350
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/learning",
+    "actual": 360,
+    "body": 350,
+    "heading": "KonularKurslarTekrarİstatistikler JSON yükleArşivli alanlar Alan yönetimiTümüBaşlamadıÇalışılıyorÖğr",
+    "root": 350
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/flashcard",
+    "actual": 360,
+    "body": 360,
+    "heading": "Desteler1Sentetik V1 kartları1 kartKartlarTekrar çalışma alanı1 deste Zayıf noktalar Bugünün tekrarı",
+    "root": 360
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/bookmarks",
+    "actual": 360,
+    "body": 350,
+    "heading": "KoleksiyonlarTumu3Gelen Kutusu1Okuma Listesi2Öğrenme0Kaynak0Projeler0Arşiv0Okuma durumuHepsiOkunmadi",
+    "root": 350
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/feed",
+    "actual": 360,
+    "body": 350,
+    "heading": "Okuma akışıKaynaklarTümüRSSHacker NewsGitHubPapersBütün seçkilerSentetik üç kaynak0 okunmamış RSS ya",
+    "root": 350
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/rss",
+    "actual": 360,
+    "body": 350,
+    "heading": "RSS & AkışAkışRSS Kaynakları Tümünü tazeleTüm Okunmamışlar0Bugün0Kaydedilenler1TümüKlasörlerTümünü d",
+    "root": 350
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/activity",
+    "actual": 360,
+    "body": 360,
+    "heading": "EtkinlikEtkinlik & RitimRitim0 günKesintisiz serirekor 0 gün0 dkBugün odak1 seans · 1 kesinti0Bugün ",
+    "root": 360
+  },
+  {
+    "theme": "light",
+    "width": 360,
+    "height": 800,
+    "route": "#/review/weekly",
+    "actual": 360,
+    "body": 360,
+    "heading": "Değerlendirme hesaplanıyor…",
+    "root": 360
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/",
+    "actual": 390,
+    "body": 380,
+    "heading": "İyi akşamlar12 Ekim Pazartesi21:34Günlük özet41Gelen kutusu3Bugün kaydedilentoplam 30Okunmamış RSS1 ",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/goals",
+    "actual": 390,
+    "body": 380,
+    "heading": "HedeflerHedefler & StratejiGenel BakışHedeflerStratejik planGeçmişHermes ile hedef hazırlaYeni hedef",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/todos",
+    "actual": 390,
+    "body": 380,
+    "heading": "GörevlerTüm görevler6 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinlerTarihsi",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/planner",
+    "actual": 390,
+    "body": 380,
+    "heading": "Planlanmamış6Sentetik V1: Türkçe uzun başlık ve plan doğrulamasıProje görevi sentetikSentetik hafta ",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/habits",
+    "actual": 390,
+    "body": 390,
+    "heading": "RutinlerTekrarlanan görevler0 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinle",
+    "root": 390
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/calendar",
+    "actual": 390,
+    "body": 380,
+    "heading": "TakvimEkim 20266 etkinlikGoogle'dan çekBugünAyHaftaGoogle salt okunur · yalnız plan blokları gönderi",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/pomodoro",
+    "actual": 390,
+    "body": 380,
+    "heading": "PlanlamaOdak12 Ekim 2026 Pazartesi Odaklan İstatistikler AyarlarYeni odak seansı10 dk mola50 dk25 dk",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/projects",
+    "actual": 390,
+    "body": 380,
+    "heading": "Projeler1Sentetik V1 projesi48 dk önce · aktifSentetik V1 projesiaktifGenelİşlerGeçmiş Detaylar Deta",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/opportunities",
+    "actual": 390,
+    "body": 390,
+    "heading": "FırsatlarKeşfedilen iş ilanları ve kısa listeKeşfet1BaşvurularDuyurular1ProfilKaynaklarKaynakları çe",
+    "root": 390
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/learning",
+    "actual": 390,
+    "body": 380,
+    "heading": "KonularKurslarTekrarİstatistikler JSON yükleAlan seç…Sentetik V1 ÖğrenmeArşivli alanlar Alan yönetim",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/flashcard",
+    "actual": 390,
+    "body": 390,
+    "heading": "Desteler1Sentetik V1 kartları1 kartKartlarTekrar çalışma alanı1 deste Zayıf noktalar Bugünün tekrarı",
+    "root": 390
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/bookmarks",
+    "actual": 390,
+    "body": 380,
+    "heading": "KoleksiyonlarTumu3Gelen Kutusu1Okuma Listesi2Öğrenme0Kaynak0Projeler0Arşiv0Okuma durumuHepsiOkunmadi",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/feed",
+    "actual": 390,
+    "body": 380,
+    "heading": "Okuma akışıKaynaklarTümüRSSHacker NewsGitHubPapersBütün seçkilerSentetik üç kaynak0 okunmamış RSS ya",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/rss",
+    "actual": 390,
+    "body": 380,
+    "heading": "RSS & AkışAkışRSS Kaynakları Tümünü tazeleTüm Okunmamışlar0Bugün0Kaydedilenler1TümüKlasörlerTümünü d",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/activity",
+    "actual": 390,
+    "body": 380,
+    "heading": "EtkinlikEtkinlik & RitimRitim1 günKesintisiz serirekor 1 gün0 dkBugün odak1 seans · 1 kesinti0Bugün ",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 390,
+    "height": 844,
+    "route": "#/review/weekly",
+    "actual": 390,
+    "body": 380,
+    "heading": "DeğerlendirmeHaftalık değerlendirme12 Eki → 18 EkiKaydedildiAgent için özeti kopyalaHaftalıkAylıkYıl",
+    "root": 380
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/",
+    "actual": 768,
+    "body": 758,
+    "heading": "İyi akşamlar12 Ekim Pazartesi21:34Günlük özet41Gelen kutusu3Bugün kaydedilentoplam 30Okunmamış RSS1 ",
+    "root": 758
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/goals",
+    "actual": 768,
+    "body": 768,
+    "heading": "HedeflerHedefler & StratejiGenel BakışHedeflerStratejik planGeçmişHermes ile hedef hazırlaYeni hedef",
+    "root": 768
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/todos",
+    "actual": 768,
+    "body": 768,
+    "heading": "GörevlerTüm görevler6 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinlerTarihsi",
+    "root": 768
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/planner",
+    "actual": 768,
+    "body": 768,
+    "heading": "Planlanmamış6Sentetik V1: Türkçe uzun başlık ve plan doğrulamasıProje görevi sentetikSentetik hafta ",
+    "root": 768
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/habits",
+    "actual": 768,
+    "body": 768,
+    "heading": "RutinlerTekrarlanan görevler0 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinle",
+    "root": 768
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/calendar",
+    "actual": 768,
+    "body": 758,
+    "heading": "TakvimEkim 20266 etkinlikGoogle'dan çekBugünAyHaftaGoogle salt okunur · yalnız plan blokları gönderi",
+    "root": 758
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/pomodoro",
+    "actual": 768,
+    "body": 768,
+    "heading": "PlanlamaOdak12 Ekim 2026 Pazartesi Odaklan İstatistikler AyarlarYeni odak seansı10 dk mola50 dk25 dk",
+    "root": 768
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/projects",
+    "actual": 768,
+    "body": 768,
+    "heading": "Projeler1Sentetik V1 projesi48 dk önce · aktifSentetik V1 projesiaktifGenelİşlerGeçmiş Detaylar Deta",
+    "root": 768
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/opportunities",
+    "actual": 768,
+    "body": 768,
+    "heading": "FırsatlarKeşfedilen iş ilanları ve kısa listeKeşfet1BaşvurularDuyurular1ProfilKaynaklarKaynakları çe",
+    "root": 768
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/learning",
+    "actual": 768,
+    "body": 758,
+    "heading": "KonularKurslarTekrarİstatistikler JSON yükleAlan seç…Sentetik V1 ÖğrenmeArşivli alanlar Alan yönetim",
+    "root": 758
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/flashcard",
+    "actual": 768,
+    "body": 768,
+    "heading": "Desteler1Sentetik V1 kartları1 kartKartlarTekrar çalışma alanı1 deste Zayıf noktalar Bugünün tekrarı",
+    "root": 768
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/bookmarks",
+    "actual": 768,
+    "body": 768,
+    "heading": "KoleksiyonlarTumu3Gelen Kutusu1Okuma Listesi2Öğrenme0Kaynak0Projeler0Arşiv0Okuma durumuHepsiOkunmadi",
+    "root": 768
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/feed",
+    "actual": 768,
+    "body": 768,
+    "heading": "Okuma akışıKaynaklarTümüRSSHacker NewsGitHubPapersBütün seçkilerSentetik üç kaynak0 okunmamış RSS ya",
+    "root": 768
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/rss",
+    "actual": 768,
+    "body": 758,
+    "heading": "RSS & AkışAkışRSS Kaynakları Tümünü tazeleTüm Okunmamışlar0Bugün0Kaydedilenler1TümüKlasörlerTümünü d",
+    "root": 758
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/activity",
+    "actual": 768,
+    "body": 758,
+    "heading": "EtkinlikEtkinlik & RitimRitim1 günKesintisiz serirekor 1 gün0 dkBugün odak1 seans · 1 kesinti0Bugün ",
+    "root": 758
+  },
+  {
+    "theme": "light",
+    "width": 768,
+    "height": 1024,
+    "route": "#/review/weekly",
+    "actual": 768,
+    "body": 758,
+    "heading": "DeğerlendirmeHaftalık değerlendirme12 Eki → 18 EkiKaydedildiAgent için özeti kopyalaHaftalıkAylıkYıl",
+    "root": 758
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "İyi akşamlar12 Ekim Pazartesi21:34Günlük özet41Gelen kutusu3Bugün kaydedilentoplam 30Okunmamış RSS1 ",
+    "root": 1270
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/goals",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "HedeflerHedefler & StratejiGenel BakışHedeflerStratejik planGeçmişHermes ile hedef hazırlaYeni hedef",
+    "root": 1270
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/todos",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "GörevlerTüm görevler6 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinlerTarihsi",
+    "root": 1280
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/planner",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "Planlanmamış6Sentetik V1: Türkçe uzun başlık ve plan doğrulamasıProje görevi sentetikSentetik hafta ",
+    "root": 1280
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/habits",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "RutinlerTekrarlanan görevler0 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinle",
+    "root": 1280
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/calendar",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "TakvimEkim 20266 etkinlikGoogle'dan çekBugünAyHaftaGoogle salt okunur · yalnız plan blokları gönderi",
+    "root": 1270
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/pomodoro",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "PlanlamaOdak12 Ekim 2026 Pazartesi Odaklan İstatistikler AyarlarYeni odak seansı10 dk mola50 dk25 dk",
+    "root": 1280
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/projects",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "Projeler1Sentetik V1 projesi48 dk önce · aktifSentetik V1 projesiaktifGenelİşlerGeçmiş Detaylar Deta",
+    "root": 1280
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/opportunities",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "FırsatlarKeşfedilen iş ilanları ve kısa listeKeşfet1BaşvurularDuyurular1ProfilKaynaklarKaynakları çe",
+    "root": 1280
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/learning",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "KonularKurslarTekrarİstatistikler JSON yükleAlan seç…Sentetik V1 ÖğrenmeArşivli alanlar Alan yönetim",
+    "root": 1270
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/flashcard",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "Desteler1Sentetik V1 kartları1 kartKartlarTekrar çalışma alanı1 deste Zayıf noktalar Bugünün tekrarı",
+    "root": 1280
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/bookmarks",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "KoleksiyonlarTumu3Gelen Kutusu1Okuma Listesi2Öğrenme0Kaynak0Projeler0Arşiv0Okuma durumuHepsiOkunmadi",
+    "root": 1280
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/feed",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "Okuma akışıKaynaklarTümüRSSHacker NewsGitHubPapersBütün seçkilerSentetik üç kaynak0 okunmamış RSS ya",
+    "root": 1280
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/rss",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "RSS & AkışAkışRSS Kaynakları Tümünü tazeleTüm Okunmamışlar0Bugün0Kaydedilenler1TümüKlasörlerTümünü d",
+    "root": 1280
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/activity",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "EtkinlikEtkinlik & RitimRitim1 günKesintisiz serirekor 1 gün0 dkBugün odak1 seans · 1 kesinti0Bugün ",
+    "root": 1270
+  },
+  {
+    "theme": "light",
+    "width": 1280,
+    "height": 800,
+    "route": "#/review/weekly",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "DeğerlendirmeHaftalık değerlendirme12 Eki → 18 EkiKaydedildiAgent için özeti kopyalaHaftalıkAylıkYıl",
+    "root": 1270
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "İyi akşamlar12 Ekim Pazartesi21:34Günlük özet41Gelen kutusu3Bugün kaydedilentoplam 30Okunmamış RSS1 ",
+    "root": 1430
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/goals",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "HedeflerHedefler & StratejiGenel BakışHedeflerStratejik planGeçmişHermes ile hedef hazırlaYeni hedef",
+    "root": 1430
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/todos",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "GörevlerTüm görevler6 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinlerTarihsi",
+    "root": 1440
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/planner",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "Planlanmamış6Sentetik V1: Türkçe uzun başlık ve plan doğrulamasıProje görevi sentetikSentetik hafta ",
+    "root": 1440
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/habits",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "RutinlerTekrarlanan görevler0 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinle",
+    "root": 1440
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/calendar",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "TakvimEkim 20266 etkinlikGoogle'dan çekBugünAyHaftaGoogle salt okunur · yalnız plan blokları gönderi",
+    "root": 1430
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/pomodoro",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "PlanlamaOdak12 Ekim 2026 Pazartesi Odaklan İstatistikler AyarlarYeni odak seansı10 dk mola50 dk25 dk",
+    "root": 1440
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/projects",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "Projeler1Sentetik V1 projesi48 dk önce · aktifSentetik V1 projesiaktifGenelİşlerGeçmiş Detaylar Deta",
+    "root": 1440
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/opportunities",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "FırsatlarKeşfedilen iş ilanları ve kısa listeKeşfet1BaşvurularDuyurular1ProfilKaynaklarKaynakları çe",
+    "root": 1440
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/learning",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "KonularKurslarTekrarİstatistikler JSON yükleAlan seç…Sentetik V1 ÖğrenmeArşivli alanlar Alan yönetim",
+    "root": 1430
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/flashcard",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "Desteler1Sentetik V1 kartları1 kartKartlarTekrar çalışma alanı1 deste Zayıf noktalar Bugünün tekrarı",
+    "root": 1440
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/bookmarks",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "KoleksiyonlarTumu3Gelen Kutusu1Okuma Listesi2Öğrenme0Kaynak0Projeler0Arşiv0Okuma durumuHepsiOkunmadi",
+    "root": 1440
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/feed",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "Okuma akışıKaynaklarTümüRSSHacker NewsGitHubPapersBütün seçkilerSentetik üç kaynak0 okunmamış RSS ya",
+    "root": 1440
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/rss",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "RSS & AkışAkışRSS Kaynakları Tümünü tazeleTüm Okunmamışlar0Bugün0Kaydedilenler1TümüKlasörlerTümünü d",
+    "root": 1440
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/activity",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "EtkinlikEtkinlik & RitimRitim1 günKesintisiz serirekor 1 gün0 dkBugün odak1 seans · 1 kesinti0Bugün ",
+    "root": 1430
+  },
+  {
+    "theme": "light",
+    "width": 1440,
+    "height": 900,
+    "route": "#/review/weekly",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "DeğerlendirmeHaftalık değerlendirme12 Eki → 18 EkiKaydedildiAgent için özeti kopyalaHaftalıkAylıkYıl",
+    "root": 1430
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/",
+    "actual": 360,
+    "body": 350,
+    "heading": "İyi akşamlar12 Ekim Pazartesi21:34Günlük özet41Gelen kutusu3Bugün kaydedilentoplam 30Okunmamış RSS1 ",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/goals",
+    "actual": 360,
+    "body": 350,
+    "heading": "HedeflerHedefler & StratejiGenel BakışHedeflerStratejik planGeçmişHermes ile hedef hazırlaYeni hedef",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/todos",
+    "actual": 360,
+    "body": 350,
+    "heading": "GörevlerTüm görevler6 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinlerTarihsi",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/planner",
+    "actual": 360,
+    "body": 350,
+    "heading": "Planlanmamış6Sentetik V1: Türkçe uzun başlık ve plan doğrulamasıProje görevi sentetikSentetik hafta ",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/habits",
+    "actual": 360,
+    "body": 360,
+    "heading": "RutinlerTekrarlanan görevler0 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinle",
+    "root": 360
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/calendar",
+    "actual": 360,
+    "body": 350,
+    "heading": "TakvimEkim 20266 etkinlikGoogle'dan çekBugünAyHaftaGoogle salt okunur · yalnız plan blokları gönderi",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/pomodoro",
+    "actual": 360,
+    "body": 350,
+    "heading": "PlanlamaOdak12 Ekim 2026 Pazartesi Odaklan İstatistikler AyarlarYeni odak seansı10 dk mola50 dk25 dk",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/projects",
+    "actual": 360,
+    "body": 350,
+    "heading": "Projeler1Sentetik V1 projesi48 dk önce · aktifSentetik V1 projesiaktifGenelİşlerGeçmiş Detaylar Deta",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/opportunities",
+    "actual": 360,
+    "body": 360,
+    "heading": "FırsatlarKeşfedilen iş ilanları ve kısa listeKeşfet1BaşvurularDuyurular1ProfilKaynaklarKaynakları çe",
+    "root": 360
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/learning",
+    "actual": 360,
+    "body": 350,
+    "heading": "KonularKurslarTekrarİstatistikler JSON yükleAlan seç…Sentetik V1 ÖğrenmeArşivli alanlar Alan yönetim",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/flashcard",
+    "actual": 360,
+    "body": 360,
+    "heading": "Desteler1Sentetik V1 kartları1 kartKartlarTekrar çalışma alanı1 deste Zayıf noktalar Bugünün tekrarı",
+    "root": 360
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/bookmarks",
+    "actual": 360,
+    "body": 350,
+    "heading": "KoleksiyonlarTumu3Gelen Kutusu1Okuma Listesi2Öğrenme0Kaynak0Projeler0Arşiv0Okuma durumuHepsiOkunmadi",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/feed",
+    "actual": 360,
+    "body": 350,
+    "heading": "Okuma akışıKaynaklarTümüRSSHacker NewsGitHubPapersBütün seçkilerSentetik üç kaynak0 okunmamış RSS ya",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/rss",
+    "actual": 360,
+    "body": 350,
+    "heading": "RSS & AkışAkışRSS Kaynakları Tümünü tazeleTüm Okunmamışlar0Bugün0Kaydedilenler1TümüKlasörlerTümünü d",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/activity",
+    "actual": 360,
+    "body": 350,
+    "heading": "EtkinlikEtkinlik & RitimRitim1 günKesintisiz serirekor 1 gün0 dkBugün odak1 seans · 1 kesinti0Bugün ",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 360,
+    "height": 800,
+    "route": "#/review/weekly",
+    "actual": 360,
+    "body": 350,
+    "heading": "DeğerlendirmeHaftalık değerlendirme12 Eki → 18 EkiKaydedildiAgent için özeti kopyalaHaftalıkAylıkYıl",
+    "root": 350
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/",
+    "actual": 390,
+    "body": 380,
+    "heading": "İyi akşamlar12 Ekim Pazartesi21:34Günlük özet41Gelen kutusu3Bugün kaydedilentoplam 30Okunmamış RSS1 ",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/goals",
+    "actual": 390,
+    "body": 380,
+    "heading": "HedeflerHedefler & StratejiGenel BakışHedeflerStratejik planGeçmişHermes ile hedef hazırlaYeni hedef",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/todos",
+    "actual": 390,
+    "body": 380,
+    "heading": "GörevlerTüm görevler6 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinlerTarihsi",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/planner",
+    "actual": 390,
+    "body": 380,
+    "heading": "Planlanmamış6Sentetik V1: Türkçe uzun başlık ve plan doğrulamasıProje görevi sentetikSentetik hafta ",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/habits",
+    "actual": 390,
+    "body": 390,
+    "heading": "RutinlerTekrarlanan görevler0 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinle",
+    "root": 390
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/calendar",
+    "actual": 390,
+    "body": 380,
+    "heading": "TakvimEkim 20266 etkinlikGoogle'dan çekBugünAyHaftaGoogle salt okunur · yalnız plan blokları gönderi",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/pomodoro",
+    "actual": 390,
+    "body": 380,
+    "heading": "PlanlamaOdak12 Ekim 2026 Pazartesi Odaklan İstatistikler AyarlarYeni odak seansı10 dk mola50 dk25 dk",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/projects",
+    "actual": 390,
+    "body": 380,
+    "heading": "Projeler1Sentetik V1 projesi48 dk önce · aktifSentetik V1 projesiaktifGenelİşlerGeçmiş Detaylar Deta",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/opportunities",
+    "actual": 390,
+    "body": 390,
+    "heading": "FırsatlarKeşfedilen iş ilanları ve kısa listeKeşfet1BaşvurularDuyurular1ProfilKaynaklarKaynakları çe",
+    "root": 390
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/learning",
+    "actual": 390,
+    "body": 380,
+    "heading": "KonularKurslarTekrarİstatistikler JSON yükleAlan seç…Sentetik V1 ÖğrenmeArşivli alanlar Alan yönetim",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/flashcard",
+    "actual": 390,
+    "body": 390,
+    "heading": "Desteler1Sentetik V1 kartları1 kartKartlarTekrar çalışma alanı1 deste Zayıf noktalar Bugünün tekrarı",
+    "root": 390
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/bookmarks",
+    "actual": 390,
+    "body": 380,
+    "heading": "KoleksiyonlarTumu3Gelen Kutusu1Okuma Listesi2Öğrenme0Kaynak0Projeler0Arşiv0Okuma durumuHepsiOkunmadi",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/feed",
+    "actual": 390,
+    "body": 380,
+    "heading": "Okuma akışıKaynaklarTümüRSSHacker NewsGitHubPapersBütün seçkilerSentetik üç kaynak0 okunmamış RSS ya",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/rss",
+    "actual": 390,
+    "body": 380,
+    "heading": "RSS & AkışAkışRSS Kaynakları Tümünü tazeleTüm Okunmamışlar0Bugün0Kaydedilenler1TümüKlasörlerTümünü d",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/activity",
+    "actual": 390,
+    "body": 380,
+    "heading": "EtkinlikEtkinlik & RitimRitim1 günKesintisiz serirekor 1 gün0 dkBugün odak1 seans · 1 kesinti0Bugün ",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 390,
+    "height": 844,
+    "route": "#/review/weekly",
+    "actual": 390,
+    "body": 380,
+    "heading": "DeğerlendirmeHaftalık değerlendirme12 Eki → 18 EkiKaydedildiAgent için özeti kopyalaHaftalıkAylıkYıl",
+    "root": 380
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/",
+    "actual": 768,
+    "body": 758,
+    "heading": "İyi akşamlar12 Ekim Pazartesi21:34Günlük özet41Gelen kutusu3Bugün kaydedilentoplam 30Okunmamış RSS1 ",
+    "root": 758
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/goals",
+    "actual": 768,
+    "body": 768,
+    "heading": "HedeflerHedefler & StratejiGenel BakışHedeflerStratejik planGeçmişHermes ile hedef hazırlaYeni hedef",
+    "root": 768
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/todos",
+    "actual": 768,
+    "body": 768,
+    "heading": "GörevlerTüm görevler6 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinlerTarihsi",
+    "root": 768
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/planner",
+    "actual": 768,
+    "body": 768,
+    "heading": "Planlanmamış6Sentetik V1: Türkçe uzun başlık ve plan doğrulamasıProje görevi sentetikSentetik hafta ",
+    "root": 768
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/habits",
+    "actual": 768,
+    "body": 768,
+    "heading": "RutinlerTekrarlanan görevler0 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinle",
+    "root": 768
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/calendar",
+    "actual": 768,
+    "body": 758,
+    "heading": "TakvimEkim 20266 etkinlikGoogle'dan çekBugünAyHaftaGoogle salt okunur · yalnız plan blokları gönderi",
+    "root": 758
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/pomodoro",
+    "actual": 768,
+    "body": 768,
+    "heading": "PlanlamaOdak12 Ekim 2026 Pazartesi Odaklan İstatistikler AyarlarYeni odak seansı10 dk mola50 dk25 dk",
+    "root": 768
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/projects",
+    "actual": 768,
+    "body": 768,
+    "heading": "Projeler1Sentetik V1 projesi48 dk önce · aktifSentetik V1 projesiaktifGenelİşlerGeçmiş Detaylar Deta",
+    "root": 768
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/opportunities",
+    "actual": 768,
+    "body": 768,
+    "heading": "FırsatlarKeşfedilen iş ilanları ve kısa listeKeşfet1BaşvurularDuyurular1ProfilKaynaklarKaynakları çe",
+    "root": 768
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/learning",
+    "actual": 768,
+    "body": 758,
+    "heading": "KonularKurslarTekrarİstatistikler JSON yükleAlan seç…Sentetik V1 ÖğrenmeArşivli alanlar Alan yönetim",
+    "root": 758
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/flashcard",
+    "actual": 768,
+    "body": 768,
+    "heading": "Desteler1Sentetik V1 kartları1 kartKartlarTekrar çalışma alanı1 deste Zayıf noktalar Bugünün tekrarı",
+    "root": 768
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/bookmarks",
+    "actual": 768,
+    "body": 768,
+    "heading": "KoleksiyonlarTumu3Gelen Kutusu1Okuma Listesi2Öğrenme0Kaynak0Projeler0Arşiv0Okuma durumuHepsiOkunmadi",
+    "root": 768
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/feed",
+    "actual": 768,
+    "body": 768,
+    "heading": "Okuma akışıKaynaklarTümüRSSHacker NewsGitHubPapersBütün seçkilerSentetik üç kaynak0 okunmamış RSS ya",
+    "root": 768
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/rss",
+    "actual": 768,
+    "body": 758,
+    "heading": "RSS & AkışAkışRSS Kaynakları Tümünü tazeleTüm Okunmamışlar0Bugün0Kaydedilenler1TümüKlasörlerTümünü d",
+    "root": 758
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/activity",
+    "actual": 768,
+    "body": 758,
+    "heading": "EtkinlikEtkinlik & RitimRitim1 günKesintisiz serirekor 1 gün0 dkBugün odak1 seans · 1 kesinti0Bugün ",
+    "root": 758
+  },
+  {
+    "theme": "dark",
+    "width": 768,
+    "height": 1024,
+    "route": "#/review/weekly",
+    "actual": 768,
+    "body": 758,
+    "heading": "DeğerlendirmeHaftalık değerlendirme12 Eki → 18 EkiKaydedildiAgent için özeti kopyalaHaftalıkAylıkYıl",
+    "root": 758
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "İyi akşamlar12 Ekim Pazartesi21:34Günlük özet41Gelen kutusu3Bugün kaydedilentoplam 30Okunmamış RSS1 ",
+    "root": 1270
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/goals",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "HedeflerHedefler & StratejiGenel BakışHedeflerStratejik planGeçmişHermes ile hedef hazırlaYeni hedef",
+    "root": 1270
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/todos",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "GörevlerTüm görevler6 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinlerTarihsi",
+    "root": 1280
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/planner",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "Planlanmamış6Sentetik V1: Türkçe uzun başlık ve plan doğrulamasıProje görevi sentetikSentetik hafta ",
+    "root": 1280
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/habits",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "RutinlerTekrarlanan görevler0 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinle",
+    "root": 1280
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/calendar",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "TakvimEkim 20266 etkinlikGoogle'dan çekBugünAyHaftaGoogle salt okunur · yalnız plan blokları gönderi",
+    "root": 1270
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/pomodoro",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "PlanlamaOdak12 Ekim 2026 Pazartesi Odaklan İstatistikler AyarlarYeni odak seansı10 dk mola50 dk25 dk",
+    "root": 1280
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/projects",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "Projeler1Sentetik V1 projesi48 dk önce · aktifSentetik V1 projesiaktifGenelİşlerGeçmiş Detaylar Deta",
+    "root": 1280
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/opportunities",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "FırsatlarKeşfedilen iş ilanları ve kısa listeKeşfet1BaşvurularDuyurular1ProfilKaynaklarKaynakları çe",
+    "root": 1280
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/learning",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "KonularKurslarTekrarİstatistikler JSON yükleAlan seç…Sentetik V1 ÖğrenmeArşivli alanlar Alan yönetim",
+    "root": 1270
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/flashcard",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "Desteler1Sentetik V1 kartları1 kartKartlarTekrar çalışma alanı1 deste Zayıf noktalar Bugünün tekrarı",
+    "root": 1280
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/bookmarks",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "KoleksiyonlarTumu3Gelen Kutusu1Okuma Listesi2Öğrenme0Kaynak0Projeler0Arşiv0Okuma durumuHepsiOkunmadi",
+    "root": 1280
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/feed",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "Okuma akışıKaynaklarTümüRSSHacker NewsGitHubPapersBütün seçkilerSentetik üç kaynak0 okunmamış RSS ya",
+    "root": 1280
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/rss",
+    "actual": 1280,
+    "body": 1280,
+    "heading": "RSS & AkışAkışRSS Kaynakları Tümünü tazeleTüm Okunmamışlar0Bugün0Kaydedilenler1TümüKlasörlerTümünü d",
+    "root": 1280
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/activity",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "EtkinlikEtkinlik & RitimRitim1 günKesintisiz serirekor 1 gün0 dkBugün odak1 seans · 1 kesinti0Bugün ",
+    "root": 1270
+  },
+  {
+    "theme": "dark",
+    "width": 1280,
+    "height": 800,
+    "route": "#/review/weekly",
+    "actual": 1280,
+    "body": 1270,
+    "heading": "DeğerlendirmeHaftalık değerlendirme12 Eki → 18 EkiKaydedildiAgent için özeti kopyalaHaftalıkAylıkYıl",
+    "root": 1270
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "İyi akşamlar12 Ekim Pazartesi21:34Günlük özet41Gelen kutusu3Bugün kaydedilentoplam 30Okunmamış RSS1 ",
+    "root": 1430
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/goals",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "HedeflerHedefler & StratejiGenel BakışHedeflerStratejik planGeçmişHermes ile hedef hazırlaYeni hedef",
+    "root": 1430
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/todos",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "GörevlerTüm görevler6 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinlerTarihsi",
+    "root": 1440
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/planner",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "Planlanmamış6Sentetik V1: Türkçe uzun başlık ve plan doğrulamasıProje görevi sentetikSentetik hafta ",
+    "root": 1440
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/habits",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "RutinlerTekrarlanan görevler0 kayıtHaftalık plan →açıkdevamtamambırakılantümüGörevlerBu HaftaRutinle",
+    "root": 1440
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/calendar",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "TakvimEkim 20266 etkinlikGoogle'dan çekBugünAyHaftaGoogle salt okunur · yalnız plan blokları gönderi",
+    "root": 1430
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/pomodoro",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "PlanlamaOdak12 Ekim 2026 Pazartesi Odaklan İstatistikler AyarlarYeni odak seansı10 dk mola50 dk25 dk",
+    "root": 1440
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/projects",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "Projeler1Sentetik V1 projesi48 dk önce · aktifSentetik V1 projesiaktifGenelİşlerGeçmiş Detaylar Deta",
+    "root": 1440
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/opportunities",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "FırsatlarKeşfedilen iş ilanları ve kısa listeKeşfet1BaşvurularDuyurular1ProfilKaynaklarKaynakları çe",
+    "root": 1440
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/learning",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "KonularKurslarTekrarİstatistikler JSON yükleAlan seç…Sentetik V1 ÖğrenmeArşivli alanlar Alan yönetim",
+    "root": 1430
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/flashcard",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "Desteler1Sentetik V1 kartları1 kartKartlarTekrar çalışma alanı1 deste Zayıf noktalar Bugünün tekrarı",
+    "root": 1440
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/bookmarks",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "KoleksiyonlarTumu3Gelen Kutusu1Okuma Listesi2Öğrenme0Kaynak0Projeler0Arşiv0Okuma durumuHepsiOkunmadi",
+    "root": 1440
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/feed",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "Okuma akışıKaynaklarTümüRSSHacker NewsGitHubPapersBütün seçkilerSentetik üç kaynak0 okunmamış RSS ya",
+    "root": 1440
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/rss",
+    "actual": 1440,
+    "body": 1440,
+    "heading": "RSS & AkışAkışRSS Kaynakları Tümünü tazeleTüm Okunmamışlar0Bugün0Kaydedilenler1TümüKlasörlerTümünü d",
+    "root": 1440
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/activity",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "EtkinlikEtkinlik & RitimRitim1 günKesintisiz serirekor 1 gün0 dkBugün odak1 seans · 1 kesinti0Bugün ",
+    "root": 1430
+  },
+  {
+    "theme": "dark",
+    "width": 1440,
+    "height": 900,
+    "route": "#/review/weekly",
+    "actual": 1440,
+    "body": 1430,
+    "heading": "DeğerlendirmeHaftalık değerlendirme12 Eki → 18 EkiKaydedildiAgent için özeti kopyalaHaftalıkAylıkYıl",
+    "root": 1430
+  },
+  {
+    "route": "#/settings",
+    "theme": "Açık sıcak beyaz",
+    "body": 350,
+    "heading": "Ayarlar",
+    "height": 800,
+    "root": 350,
+    "width": 360
+  },
+  {
+    "route": "#/settings",
+    "theme": "Açık sıcak beyaz",
+    "body": 380,
+    "heading": "Ayarlar",
+    "height": 844,
+    "root": 380,
+    "width": 390
+  },
+  {
+    "route": "#/settings",
+    "theme": "Açık sıcak beyaz",
+    "body": 768,
+    "heading": "Ayarlar",
+    "height": 1024,
+    "root": 768,
+    "width": 768
+  },
+  {
+    "route": "#/settings",
+    "theme": "Açık sıcak beyaz",
+    "body": 1280,
+    "heading": "Ayarlar",
+    "height": 800,
+    "root": 1280,
+    "width": 1280
+  },
+  {
+    "route": "#/settings",
+    "theme": "Açık sıcak beyaz",
+    "body": 1440,
+    "heading": "Ayarlar",
+    "height": 900,
+    "root": 1440,
+    "width": 1440
+  },
+  {
+    "route": "#/settings",
+    "theme": "Koyu aynı tokenlar, koyu zemin",
+    "body": 350,
+    "heading": "Ayarlar",
+    "height": 800,
+    "root": 350,
+    "width": 360
+  },
+  {
+    "route": "#/settings",
+    "theme": "Koyu aynı tokenlar, koyu zemin",
+    "body": 380,
+    "heading": "Ayarlar",
+    "height": 844,
+    "root": 380,
+    "width": 390
+  },
+  {
+    "route": "#/settings",
+    "theme": "Koyu aynı tokenlar, koyu zemin",
+    "body": 768,
+    "heading": "Ayarlar",
+    "height": 1024,
+    "root": 768,
+    "width": 768
+  },
+  {
+    "route": "#/settings",
+    "theme": "Koyu aynı tokenlar, koyu zemin",
+    "body": 1280,
+    "heading": "Ayarlar",
+    "height": 800,
+    "root": 1280,
+    "width": 1280
+  },
+  {
+    "route": "#/settings",
+    "theme": "Koyu aynı tokenlar, koyu zemin",
+    "body": 1440,
+    "heading": "Ayarlar",
+    "height": 900,
+    "root": 1440,
+    "width": 1440
+  }
+]
