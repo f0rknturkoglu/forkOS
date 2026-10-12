@@ -524,4 +524,11 @@ forkOS tek kullanıcı içindir ve auth içermez. `BIND_ADDR=127.0.0.1` değerin
 
 ## Hermes Goal Studio ve Capture V1
 
-Goals içinde konuşma, tipli taslak, revizyon incelemesi ve açık kullanıcı onayı desteklenir. Hermes ayrı araçsız yerel profil gerektirir; manuel Goals bağımsızdır. Capture 0.2.0 her hedefte kalıcı UUID, doğru teslim durumu ve kariyer/akademi ayrımı kullanır. Kurulum, ağ sınırı, migration ve doğrulama için [güncel sözleşme](docs/architecture/hermes-goal-studio-extension-v1.md).
+Goals içinde konuşma, tipli taslak, revizyon incelemesi ve açık kullanıcı onayı desteklenir. Hermes ayrı araçsız profil gerektirir; yerel çıkarım ve açık backend iznine bağlı Codex OAuth/Nous desteklenir. Manuel Goals bağımsızdır. Capture 0.2.0 her hedefte kalıcı UUID, doğru teslim durumu ve kariyer/akademi ayrımı kullanır. Kurulum, ağ sınırı, migration ve doğrulama için [güncel sözleşme](docs/architecture/hermes-goal-studio-extension-v1.md).
+
+
+## V1 final kapanış — 12 Ekim 2026
+
+[Güncel kapanış kanıtı](docs/architecture/v1-final-closure.md) ve [Hermes sağlayıcı/izin/topoloji sözleşmesi](docs/hermes/goal-studio-runtime.md).
+
+Ürün adı ve FastAPI title **forkOS**; API sözleşme sürümü **0.1.0**, frontend özel paket adı **forkos-frontend**, Capture extension **0.2.0**. V1 release candidate, bu ayrı bileşen sürümlerini eşitlemez. CI bu kapanışın dışındadır.

@@ -1,6 +1,6 @@
 # Hermes Goal Studio ve Capture V1
 
-Doğrulama tarihi: 11 Ekim 2026. Çalışma başlangıcı `05cb22c`; `b8124a9` sonrasındaki değişiklikler korunmuştur.
+Mimari güncelleme: 12 Ekim 2026. Aşağıdaki ilk QA sonuçları tarihsel 11 Ekim doğrulamasıdır; güncel gate final kapanış raporundadır. Çalışma başlangıcı `05cb22c`; `b8124a9` sonrasındaki değişiklikler korunmuştur.
 
 ## 1. Doğrulanan mimari
 
@@ -21,43 +21,33 @@ flowchart LR
 
 H1'in 11 eylemi genişletilmedi. H2 hafızası otomatik okunmaz/yazılmaz; H3 bağlam, H4 yerel sınırlı extraction, H5 review, H6 dikkat ve H7 execution sözleşmeleri korunur. H4 stratejik akıl yürütme yerine kullanılmaz; H7'ye Goal yazma yetkisi eklenmez.
 
-## 2. Hermes API taşıması
+## 2. Hermes API taşıması ve güvenli profil
 
-[Resmî API server belgesi](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server) ve kurulu `44fc5f629` kaynak ağacı incelendi. GET health/capabilities/toolsets, POST runs, GET run/status/events ve POST stop kullanılır. Oturum kimliği kararlıdır; tur UUID'si resmî `Idempotency-Key` olur. İlk turda seçilen bağlam gönderilir; sonraki turlarda tüm geçmiş tekrar gönderilmez. Kaybolan yanıt aynı kimlik ve aynı kaydedilmiş istekle uzlaştırılır. 23 saatten eski belirsiz tur otomatik tekrarlanmaz.
+12 Ekim 2026 güncel sözleşmesi: [Goal Studio runtime](../hermes/goal-studio-runtime.md).
+Hermes 0.21.6; standalone named-profile daemon 127.0.0.1:8643, normal `/v1` uçları.
+Native loopback ve doğrulanmış OrbStack host bridge ayrı modlardır. Kapalı sağlayıcı
+listesi custom / openai-codex / nous; bulut CAS/policy-bound izin olmadan çalışmaz.
+Etkin araçlar canlı API'de boş olmalıdır; profil memory/MCP/hooks/plugin/fallback kapalıdır.
+Config/profil doğrulaması eksik veya sürüm uyumsuzsa hazır sayılmaz.
 
-Hermes sürümü; profil kimliği, Bearer auth, run status/events/stop ve runs idempotency özelliklerini doğrulamadan hazır sayılmaz. Genel proxy, çağıran URL/model/provider/key alanı yoktur.
-
-## 3. Güvenlik ve profil kurulumu
-
-Örnek: `config/hermes-goal-studio/config.yaml`. Kullanıcının mevcut Hermes profiline uygulanmaz. Ayrı `forkos-goal-studio` profili ve ayrı daemon gerekir. API server platform araç kümesi **açıkça boş**, MCP/plugin/fallback kapalı; hafıza, background review ve curator kapalıdır. Profilde hook veya dolu cron jobs dosyası reddedilir. Yeni profil oluştururken global config, `.env`, auth, skills, hooks veya cron dosyalarını kopyalamayın.
-
-Operatör, kendi Hermes kurulumunda ayrı profili oluşturur; yalnız örnek YAML'i yerleştirir. Bu profilin `.env` dosyasında ayrı `API_SERVER_KEY` ve yerel custom sağlayıcının gerekli ayarları tutulur. Dosya izinleri 0600 olmalıdır. Ollama örneği `qwen3.5:9b`, `http://127.0.0.1:11434/v1` kullanır. Model indirilmez veya Hermes otomatik açılmaz. Profil daemon'u kendi resmî Hermes CLI sürümünün `--profile forkos-goal-studio gateway run` komutuyla başlatılabilir. Lazy yüklemeleri engellemek için `HERMES_DISABLE_LAZY_INSTALLS=1` kullanın. Profilin curator kapalı ve cron listesi boş olduğunu ayrıca doğrulayın.
-
-forkOS backend ortamı:
-
-```dotenv
-HERMES_GOAL_BASE_URL=http://127.0.0.1:8643/p/forkos-goal-studio
-HERMES_GOAL_API_KEY=<yalnız-sunucuda-ayrı-profil-anahtarı>
-HERMES_GOAL_PROFILE_CONFIG=<aynı-profilin-salt-okunur-config.yaml-yolu>
-```
-
-Anahtar browser, URL, frontend bundle, extension veya localStorage'a verilmez. Config dosyası ve yanındaki profil dizinleri güvenilen operatöre ait olmalıdır. Profil/anahtar değişirse daemon yeniden başlatılır. Browser Origin yalnız `http://127.0.0.1:5173` veya `http://localhost:5173`; Host yalnız loopback/localhost; mutation JSON + `X-ForkOS-Goal-Studio: 1` gerektirir. Extension ve MCP onay yolu yoktur. Hermes yalnız sayısal loopback HTTP adresine bağlanır; proxy ortamı ve redirect kapalıdır. İki eşzamanlı upstream bağlantı, 8 sn HTTP/25 sn stream, 64 KB istek/128 KB upstream/6000 karakter mesaj/20 tur sınırı vardır. SSE yalnız kamuya açık message.delta ve lifecycle olaylarını taşır; reasoning/raw tool payload'ları taşınmaz.
-
-**Ağ yerleşimi:** API ve Hermes aynı loopback ağ alanında olmalıdır. macOS host Hermes'i normal OrbStack API container'ının `127.0.0.1` adresinde değildir. Bu değişiklik host.docker.internal veya LAN erişimini otomatik açmaz. Native forkOS API + native Hermes ya da aynı ağ alanındaki izole daemon kullanılmalıdır. Varsayılan Compose kurulumunda profil ayarlanmadan manuel Goals çalışır, Studio yapılandırılmamış/erişilemiyor gösterir. Container için profil dizinini salt okunur bağlayın ve env değerlerini ayrıca API'ye geçirin; örnek `.env` tek başına mount yaratmaz.
-
-Hermes genel olarak bulut inference sağlayıcısı kullanabilir; UI bunu açıklar. Bu geçit yerel `custom` sağlayıcı ve loopback model adresini zorunlu kılar. Yerel sağlayıcı operatör tarafından değiştirilmiş bir bulut relay ise güvenilen ortam sınırı aşılmış olur; bu kod inference sunucusunun iç ağ davranışını kanıtlamaz.
+Resmî runs durable idempotency kullanılır. Frozen UUID farklı mesaj/provider/model
+ile replay edilemez; delivery_blocked ile unknown_delivery ayrıdır. SSE raw delta
+veya reasoning göstermez. Final bounded sohbet/JSON ve gerçek runtime provider/model
+kökeni doğrulanır; alias underlying model sanılmaz. Kayıt yazma yine yalnız typed
+revision approval'dır. Kurulum, özel anahtarlar, toolset wrapper sözleşmesi,
+cloud opt-in/revoke ve canlı test sınırları bağlantıdaki runbook'tadır.
 
 ## 4. Kullanıcı akışı ve onay yaşam döngüsü
 
 “Hermes ile Hedef Hazırla” → yeni/seçili hedef → konuşma → yapılandırılmış taslak → düzenleme → yeni revizyon doğrulaması → **Bu revizyonu onayla ve uygula**. “Hermes ile Geliştir” seçili hedefi bağlam yapar. Manuel form ve mevcut overview korunur.
 
-Oturum drafting/running/unknown_delivery/approval_pending/applied/rejected/stale/failed durumlarını gösterir. Revizyon ready_for_review → approved → applied veya failed olur; reject/stale ayrı terminal kararlardır. Approved durumu atomik transaction içinde kaydedilir; kalıcı approval Event ile nihai sonuç birlikte commit edilir. Chat “onayladım” metni yetki değildir. Red kanonik kayıt yazmaz. Durdurma isteği, gerçek koşu durumu uzlaştırılana kadar tamamlandı sayılmaz.
+Oturum drafting/running/delivery_blocked/unknown_delivery/approval_pending/applied/rejected/stale/failed durumlarını gösterir. Revizyon ready_for_review → approved → applied veya failed olur; reject/stale ayrı terminal kararlardır. Approved durumu atomik transaction içinde kaydedilir; kalıcı approval Event ile nihai sonuç birlikte commit edilir. Chat “onayladım” metni yetki değildir. Red kanonik kayıt yazmaz. Durdurma isteği, gerçek koşu durumu uzlaştırılana kadar tamamlandı sayılmaz.
 
 ## 5. Yapılandırılmış şema ve revizyon
 
 Pydantic `StudioProposal` version 1, generated TS üzerinden UI'ye gelir. En fazla 20 kapalı işlem: plan.create, pillar.create, goal.create/update, key_result.save, milestone.create/update. Her işlem canonical input contract'ını sarar; shell/SQL/file/tool/approval veya bilinmeyen alan kabul edilmez. İşlem anahtarları ve hedefler tektir; referanslar canonical UUID veya önceki işlem anahtarıdır.
 
-Kanonik servisler tarih/plan/pillar/parent cycle/KR sağlayıcı/hedef/yol kurallarını savepoint dry-run içinde doğrular. Önizleme domain Event veya çocuk kayıt bırakmaz. Rationale, assumptions, evidence, missing ve warnings sınırlıdır. Her revizyon SHA256(proposal+before), öncesi snapshot ve 24 saat TTL taşır. İstemci revizyonu değiştirdiğinde onay kapanır; raw JSON editörü de bu kontrole dahildir. Yeni doğrulama yeni revizyon oluşturur. Hatalı model çıktısı discussion olarak kalır.
+Kanonik servisler tarih/plan/pillar/parent cycle/KR sağlayıcı/hedef/yol kurallarını savepoint dry-run içinde doğrular. Önizleme domain Event veya çocuk kayıt bırakmaz. Rationale, assumptions, evidence, missing ve warnings sınırlıdır. Her revizyon SHA256(proposal+before), öncesi snapshot ve 24 saat TTL taşır. İstemci revizyonu değiştirdiğinde onay kapanır; raw JSON editörü de bu kontrole dahildir. Yeni doğrulama yeni revizyon oluşturur. Hatalı model çıktısı raw discussion olarak gösterilmez; geçerli discussion korunur, taslak uygulanmaz.
 
 ## 6. Kanonik Goals entegrasyonu
 

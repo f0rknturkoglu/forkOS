@@ -61,7 +61,7 @@ graph TD
 
 **Tech Stack:** Python 3.14/FastAPI, SQLAlchemy (asyncpg), Alembic, Pydantic v2, TypeScript/React (Vite), Vitest, pytest.
 
-**Spec:** [docs/superpowers/specs/2026-09-22-a1-hardening-a2-bootstrap-continuity-design.md](file:///Users/furkanturkoglu/Desktop/Projeler/forkOS/docs/superpowers/specs/2026-09-22-a1-hardening-a2-bootstrap-continuity-design.md)
+**Spec:** [docs/superpowers/specs/2026-09-22-a1-hardening-a2-bootstrap-continuity-design.md](../specs/2026-09-22-a1-hardening-a2-bootstrap-continuity-design.md)
 
 ## Global Constraints
 

@@ -61,7 +61,7 @@ graph TD
 
 **Tech Stack:** FastAPI, SQLAlchemy 2.0 Async, PostgreSQL 16 (asyncpg), Alembic, Pydantic v2, Vite / React / TypeScript, Hermes CLI v0.21.3.
 
-**Spec:** [`docs/superpowers/specs/2026-09-22-a1-1b-a2-1-correctness-pass-design.md`](file:///Users/furkanturkoglu/Desktop/Projeler/forkOS/docs/superpowers/specs/2026-09-22-a1-1b-a2-1-correctness-pass-design.md)
+**Spec:** [`docs/superpowers/specs/2026-09-22-a1-1b-a2-1-correctness-pass-design.md`](../specs/2026-09-22-a1-1b-a2-1-correctness-pass-design.md)
 
 ## Global Constraints
 

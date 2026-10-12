@@ -21,7 +21,7 @@ import { localDateKey } from "@/lib/date";
 import type { components } from "@/generated/api-schema";
 
 type S = components["schemas"];
-export type AssistanceContext = NonNullable<S["StudioSessionIn"]["context"]>;
+type AssistanceContext = NonNullable<S["StudioSessionIn"]["context"]>;
 
 function tomorrow() {
   const date = new Date();

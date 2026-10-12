@@ -110,3 +110,8 @@ hareket drift üretir; proje başlığına göre otomatik hedef eşlemesi yapıl
 ## Hermes Goal Studio ve Capture V1
 
 Goals içinde konuşma, tipli taslak, revizyon incelemesi ve açık kullanıcı onayı desteklenir. Hermes ayrı araçsız yerel profil gerektirir; manuel Goals bağımsızdır. Capture 0.2.0 her hedefte kalıcı UUID, doğru teslim durumu ve kariyer/akademi ayrımı kullanır. Kurulum, ağ sınırı, migration ve doğrulama için [güncel sözleşme](architecture/hermes-goal-studio-extension-v1.md).
+
+
+## V1 final kapanış — 12 Ekim 2026
+
+[Güncel kapanış kanıtı](architecture/v1-final-closure.md) ve [Hermes sağlayıcı/izin/topoloji sözleşmesi](hermes/goal-studio-runtime.md).

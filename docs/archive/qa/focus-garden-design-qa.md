@@ -1,9 +1,11 @@
 # Odak Modülü Tasarım QA
 
+> Tarihsel QA: 11 Ekim 2026 öncesi Bahçe tasarımı. Bahçe V1 arayüzünden kaldırılmıştır; bu kayıt güncel ürün veya release doğrulaması değildir.
+
 ## Referans ve ortam
 
 - Seçilen görsel yön: `Sessiz Bahçe`, seçenek 3.
-- Görsel referans: `/Users/furkanturkoglu/.codex/generated_images/01a0a163-9f36-7912-b914-51f1097a423a/exec-589130da-9319-4e73-9912-7f2a36ed56cc.png`
+- Görsel referans: `yerel ImageGen artefaktı `exec-589130da-9319-4e73-9912-7f2a36ed56cc.png` (repo dışı)`
 - Referans boyutu: 1487 x 1058 px.
 - Uygulama önizlemesi: Codex yerel tarayıcı sekmesi 5, `http://127.0.0.1:5173/#/pomodoro`.
 - QA viewport'u: 1487 x 1058 CSS px, device pixel ratio 1.

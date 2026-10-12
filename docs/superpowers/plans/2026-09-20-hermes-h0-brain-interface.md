@@ -36,7 +36,7 @@ graph TD
 
 **Tech Stack:** Python 3.12+, FastAPI, Starlette, SQLAlchemy 2.0 (Async), `mcp>=1.0,<3.0` (Official Python MCP SDK), Pydantic v2.
 
-**Spec:** [docs/superpowers/specs/2026-09-20-hermes-h0-brain-interface-design.md](file:///Users/furkanturkoglu/Desktop/Projeler/forkOS/docs/superpowers/specs/2026-09-20-hermes-h0-brain-interface-design.md)
+**Spec:** [docs/superpowers/specs/2026-09-20-hermes-h0-brain-interface-design.md](../specs/2026-09-20-hermes-h0-brain-interface-design.md)
 
 ## Global Constraints
 - **Zero Mutation:** Zero mutating tools exposed via MCP. No task creation, task completion, project update, or Vault write.

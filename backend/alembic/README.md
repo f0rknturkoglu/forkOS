@@ -54,8 +54,26 @@ Bu dosyaları yalnızca isimleri düzenlemek için yeniden adlandırma. PostgreS
 
 Kişisel `lifeos` veritabanını migration denemesi için sıfırlama. `make test`, adı `_test` ile biten geçici PostgreSQL veritabanı kullanır ve test projesini iş bitince `down -v` ile temizler.
 
-Güncel tek head: `0079_retire_media_batches` (önceki `0078_pomodoro_source`).
+Tarihsel predecessor: `0079_retire_media_batches` (öncesi `0078_pomodoro_source`).
 0078 kaynak kanıtına göre timer/manual ayrımını korur. 0079 yalnız emekli Media
 kuyruklarını gerekçeli terminal duruma geçirir ve retirement audit ekler; tarihsel
 tablo, dosya veya Event silmez. Başlangıç/migration preflight ve recovery adımları
 [preflight kapanış raporunda](../../docs/architecture/v1-preflight-closure.md).
+
+
+## 0080 ve güvenli geri dönüş
+
+`0080_goal_studio_capture`, `0079_retire_media_batches` sonrasındadır. Capture teslim
+makbuzu, Goal Studio oturumu/revizyonu ve ilgili indeksleri yoksa oluşturur.
+`downgrade()` kasıtlı no-op'tur: Alembic revision pointer `0079` olur; bu üç tablonun
+şeması ve geçmiş verisi **korunur**. Tam şema geri alma değildir. Yeniden upgrade
+`has_table` / `IF NOT EXISTS` kontrolleriyle kayıtları korur. Tarihsel revision'ları değiştirmeyin.
+
+Normal Compose `migrate` servisi API başlamadan `alembic upgrade head` çalıştırır.
+Manuel `make migrate CO="docker compose"` aynı zinciri operatörün seçtiği zamanda
+çalıştırır; ikinci bir migration mekanizması yoktur. Downgrade bir başlangıç adımı değildir.
+
+İzole PostgreSQL 16 testi: `tests/test_v1_migration_roundtrip.py`. Clean install için
+boş `compose.test.yaml` DB'sinde `alembic upgrade head`; mevcut kayıtların korunması
+ve `0079 → 0080 → 0079 → 0080` / export-restore roundtrip için ilgili testi çalıştırın.
+Güncel test sonuçları [V1 final kapanış raporundadır](../../docs/architecture/v1-final-closure.md).

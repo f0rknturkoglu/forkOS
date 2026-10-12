@@ -66,7 +66,7 @@ export const JOURNEYS = [
   { id: "learning", title: "Öğrenmeye başlamak", module: "learning", icon: GraduationCap },
   { id: "career", title: "Kariyerimi yönetmek", module: "opportunity", icon: Compass },
 ] as const;
-export interface TourStep {
+interface TourStep {
   id: string;
   module: string;
   routeIndex?: number;

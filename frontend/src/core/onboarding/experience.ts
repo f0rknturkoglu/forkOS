@@ -12,7 +12,7 @@ export type Experience = Omit<S["ExperienceOut"], "onboarding" | "feed"> & {
 export type OnboardingState = Required<S["OnboardingState"]>;
 export type FeedPreferences = Required<Omit<S["FeedPreferences"], "bundles">> & { bundles: FeedBundle[] };
 export type FeedBundle = Required<S["FeedBundle"]>;
-export const EXPERIENCE_KEY = ["settings", "experience"];
+const EXPERIENCE_KEY = ["settings", "experience"];
 export function useExperience() {
   return useQuery({
     queryKey: EXPERIENCE_KEY,

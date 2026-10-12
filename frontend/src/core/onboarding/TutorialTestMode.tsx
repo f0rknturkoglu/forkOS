@@ -4,7 +4,7 @@ import { readStored, writeStored } from "@/core/storage";
 import { useOnline } from "@/lib/hooks";
 import { useExperience, useSaveExperience, type OnboardingState } from "./experience";
 
-export function freshTutorial(state: OnboardingState): OnboardingState {
+function freshTutorial(state: OnboardingState): OnboardingState {
   return {
     ...state,
     status: "in_progress",

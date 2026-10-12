@@ -10,7 +10,7 @@ gözler; [A3 epizodik devir](a3-episodic-handoff.md) katmanı ise oturumlar aras
 sınırlı, kaynağa bağlı bir tarihsel devir taşır. İkisi de MCP araç sayısını veya
 model bağlamını değiştirmez.
 
-Yüzey **H0 → H7 + A5 (A5.1, A5.2, A5.3)** boyunca büyüdü ve bugün toplam **34** araçtır:
+Yüzey **H0 → H7 + A5 (A5.1, A5.2, A5.3)** boyunca büyüdü ve bugün toplam **37** araçtır:
 
 ```text
 H0   8 araç   operasyonel durum + bilgi kasası OKUMA
@@ -23,6 +23,8 @@ H6   1 araç   PROAKTİF dikkat kontrolü: kural/koşu durumu, konfigürasyon ve
               kullanıcı override'ı (forkos_proactivity)
 H7   1 araç   KALICI karar ve SINIRLI yürütme: plan revizyonu, sunucu tarafı
               onay, adım makbuzu ve kesintiye dayanıklı yürütme (forkos_execution)
+Career 2 araç yerel görüşme zekâsı ve sonuç analitiği
+Strategy 1 araç hedef/strateji gözlemi
 A5   3 araç   H3 kanıt sıralaması, A4 aday yargısı ve yanıt kanıt desteği yargısı (forkos_context_judge, forkos_memory_judge, forkos_answer_judge)
 ```
 
@@ -47,7 +49,7 @@ forkOS ekosistemi net sorumluluk sınırlarına sahip üç ana bileşenden oluş
                                        ▼
                        ┌────────────────────────────────┐
                        │  forkOS Brain Interface (/mcp) │
-                       │      34 Bounded MCP Tools      │
+                       │      37 Bounded MCP Tools      │
                        └───────────────┬────────────────┘
                                        │
                 ┌──────────────────────┴──────────────────────┐
@@ -138,12 +140,12 @@ H0 aşamasında güvenlik, mahremiyet ve veri bütünlüğü en yüksek öncelik
 
 ---
 
-## 3. Sağlanan MCP Araçları (34)
+## 3. Sağlanan MCP Araçları (37)
 
-Arayüz toplam **34** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
+Arayüz toplam **37** bounded araç sunar: **8 salt-okunur** (H0) + **11 yazma**
 (H1) + **5 sıcak hafıza** (H2) + **1 kanıt getirme** (H3) + **1 yerel biliş**
 (H4) + **3 gözden geçirme/anlamsal aday** (H5) + **1 proaktif dikkat** (H6) + **1 kalıcı
-karar/yürütme** (H7) + **3 yargı aracı** (A5). Yazma araçları `readOnlyHint=false` taşır ve
+karar/yürütme** (H7) + **3 yargı aracı** (A5) + **2 kariyer gözlemi** + **1 strateji gözlemi**. Yazma araçları `readOnlyHint=false` taşır ve
 `trust: untrusted` bir istemcide kullanıcı onayı gerektirir.
 
 ### Okuma araçları (H0)
@@ -289,3 +291,6 @@ Goals içinde konuşma, tipli taslak, revizyon incelemesi ve açık kullanıcı 
 ## Bağlam içinden yardım
 
 Review, Project, Goal, Learning ve Career içindeki isteğe bağlı yerel özetler mevcut domain/H5 servislerini kullanır. Görüşme aynı Goal Studio'nun doğrulanmış araçsız yerel profiline bağlıdır; cloud fallback yoktur. Görev planlaması mevcut H7 exact-revision onay/yürütmesi, hafıza mevcut A4 inspect/confirm/promote akışıdır. Reader konu bağlantısı ve kart retry'ları kanonik servisleri kullanır. Gerçek tarayıcı/fixture ayrımı, güvenlik sınırları ve kalan blokajlar: [Workflow Cohesion raporu](../architecture/invisible-intelligence-workflow-cohesion.md).
+
+
+Goal Studio ayrı araçsız profildir; MCP Brain Interface bağlantısından bağımsızdır. [Güncel sağlayıcı, izin ve kurulum sözleşmesi](goal-studio-runtime.md).

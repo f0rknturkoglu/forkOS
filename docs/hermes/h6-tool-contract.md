@@ -1,12 +1,12 @@
 # forkOS × Hermes — H6 Araç Sözleşmesi (`forkos_proactivity`)
 
-H6 genel yüzeye **tam olarak bir** araç ekler. Yüzey **28** olur
-(H0 8 + H1 11 + H2 5 + H3 1 + H4 1 + H5 1 + H6 1). Mikro-araç çoğaltması
-YOKTUR: tek araç, yedi işlem.
+Güncelleme: 12 Ekim 2026. Sözleşme kaynağı kapalı operation/schema ve servis registry tanımlarıdır.
+
+H6 genel yüzeyde tek araçtır. Güncel toplam **37** araç için [MCP envanteri](README.md) kanoniktir. Tek araç, yedi işlem.
 
 Araç bir otomasyon yürütücüsü **değildir**: kapalı bir işlem kümesi
 (incele / ayarla / snooze / geçmiş) sunar
-(`backend/app/integrations/agent/tools.py:1156-1160`).
+(`backend/app/integrations/agent/tools.py`).
 
 ---
 
@@ -25,7 +25,7 @@ forkos_proactivity(
 )
 ```
 
-Anotasyonlar (`tools.py:83-87`):
+Anotasyonlar (`tools.py`):
 
 ```text
 readOnlyHint    = false      yapılandırma ve override durumunu YAZAR
@@ -35,7 +35,7 @@ idempotentHint  = true       aynı girdiyle tekrar çağrı ek durum üretmez
 
 Araç **hiçbir koşulda** Todo, Project, Opportunity, Review, Vault veya Hot
 Memory kaydını değiştirmez; arka plan worker'ı da canonical mutasyon yapmaz
-(`tools.py:1187-1192`).
+(`tools.py`).
 
 ### 1.1 Reddedilen alan ve işlemler
 
@@ -48,19 +48,19 @@ timeout · webhook · url · channel · email · push
 ```
 
 Bilinmeyen anahtar **sessizce düşmez**: şemalar `extra="forbid"` taşır
-(`schemas.py:14`, `schemas.py:26`), yani REST tarafında 422 döner. MCP
+(`schemas.py`, `schemas.py`), yani REST tarafında 422 döner. MCP
 `configure` yolunda bilinmeyen alt anahtar `UNKNOWN_CONFIG_FIELD` ile
-reddedilir (`tools.py:1162`, `tools.py:1212-1216`); kural ayarında kapalı şema
-`service.py:287-290`'dır.
+reddedilir (`tools.py`, `tools.py`); kural ayarında kapalı şema
+`service.py`'dır.
 
-- Bilinmeyen `operation` → `UNKNOWN_OPERATION` (`tools.py:1276-1278`).
-- Bilinmeyen `kind` → `UNKNOWN_RULE_KIND` (`service.py:249-250`).
+- Bilinmeyen `operation` → `UNKNOWN_OPERATION` (`tools.py`).
+- Bilinmeyen `kind` → `UNKNOWN_RULE_KIND` (`service.py`).
 - Kural `kind` kümesi **kapalıdır**: `morning_continuity`, `daily_close`,
-  `weekly_review`, `deadline_staircase`, `continuity_gap`, `project_stalled`
-  (`models.py:46-53`). Serbest ifade kabul edilmez.
+  `weekly_review`, `deadline_staircase`, `continuity_gap`, `project_stalled`, `strategy_attention`
+  (`models.py`). Serbest ifade kabul edilmez.
 - `config` serbest JSON **değildir**: `rule_set`'te kural türüne göre izin
   verilen alanlar kapalıdır ve bilinmeyen alan `UNKNOWN_CONFIG_FIELD` ile
-  reddedilir (`service.validate_rule_config`, `service.py:283`);
+  reddedilir (`service.validate_rule_config`, `service.py`);
   `configure`'ın davranışı için §5'e bakın.
 
 ---
@@ -79,28 +79,28 @@ reddedilir (`tools.py:1162`, `tools.py:1212-1216`); kural ayarında kapalı şem
 
 `configure` ve `rule_set` **aynı servis fonksiyonlarını** REST uçlarıyla
 paylaşır; araç kendi ikinci durum kopyasını tutmaz
-(`tools.py:1210-1229`, `tools.py:1230-1239`).
+(`tools.py`, `tools.py`).
 
 `evaluate_now` `catch_up` çağırmaz: normal turdur, `proactivity_tick` ile
-aynıdır (`tools.py:1264-1275`).
+aynıdır (`tools.py`).
 
 ### 2.1 Snooze semantiği
 
 ```text
-until  saat dilimli ISO-8601 ZORUNLU          service.py:1054-1055
-until  şimdiden SONRA olmalı                  service.py:1056-1057
-until + run_id  → koşu `snoozed` durumuna geçer   service.py:1061-1070
-until + kind    → kural düzeyinde susar           service.py:1072-1078
+until  saat dilimli ISO-8601 ZORUNLU          service.py
+until  şimdiden SONRA olmalı                  service.py
+until + run_id  → koşu `snoozed` durumuna geçer   service.py
+until + kind    → kural düzeyinde susar           service.py
 serbest metin ("yarın sabah") çözümlenmez     INVALID_ARGUMENT
 ```
 
 Snooze **açık kullanıcı override'ıdır** ve otomasyonun önündedir. `run_id` ile
-verilen snooze koşuyu **`snoozed` durumuna geçirir** (`service.py:1067-1068`) —
+verilen snooze koşuyu **`snoozed` durumuna geçirir** (`service.py`) —
 bu "çözüldü" ya da "kapatıldı" değildir. Süre dolduğunda tur koşuyu yeniden
-`candidate` yapar ve **güncel durumla** değerlendirir (`service.py:503-505`).
+`candidate` yapar ve **güncel durumla** değerlendirir (`service.py`).
 
 `unsnooze` override'ı kaldırır; bu **hemen** bildirim üretmez — sonraki tur karar
-verir (`service.unsnooze`, `service.py:1081-1088`).
+verir (`service.unsnooze`, `service.py`).
 
 ---
 
@@ -130,7 +130,7 @@ recent_failures            ProactivityFailureOut[]
 ### 3.2 Kural (`ProactivityRuleOut`)
 
 ```text
-kind            "morning_continuity" | ... | "project_stalled"
+kind            "morning_continuity" | ... | "project_stalled" | "strategy_attention"
 version         1
 logical_key     "<kind>:v<version>:<scope>"
 enabled         bool
@@ -139,7 +139,7 @@ snoozed_until   str | null     (ISO-8601)
 ```
 
 `recent_failures[]` (`ProactivityFailureOut`): `rule_kind`, `failure_code`, `at`
-(ISO-8601). Son `MAX_RECENT_FAILURES = 5` kayıt gösterilir (`service.py:89`).
+(ISO-8601). Son `MAX_RECENT_FAILURES = 5` kayıt gösterilir (`service.py`).
 
 ### 3.3 Koşu (`ProactivityRunOut`)
 
@@ -190,15 +190,15 @@ failed       string[]  (değerlendirmesi çöken kural türleri)
 | `PROACTIVITY_FAILED` | Beklenmeyen iç hata (`PROACTIVITY_FAILED: <Tip>`) | MCP |
 
 Hata zarfı sızdırmazdır: yığın izi, SQL veya dosya yolu taşınmaz
-(`tools.py:1279-1284`). REST tarafında `RUN_NOT_FOUND` → **404**, kalan
+(`tools.py`). REST tarafında `RUN_NOT_FOUND` → **404**, kalan
 `ProactivityError` kodları → **422**; gövde `{"detail": "<KOD>: <mesaj>"}`
-(`router.py:26-28`).
+(`router.py`).
 
 ---
 
 ## 5. REST uçları
 
-Tümü `/api` öneki altındadır (`backend/app/main.py:144`).
+Tümü `/api` öneki altındadır (`backend/app/main.py`).
 
 | Metot | Yol | Gövde | Dönüş | Hata |
 |---|---|---|---|---|
@@ -213,7 +213,7 @@ Tümü `/api` öneki altındadır (`backend/app/main.py:144`).
 
 `ProactivityConfigIn` yalnızca bilinen alanları **okur**: `enabled`,
 `quiet_hours_start`, `quiet_hours_end`, `focus_deferral_enabled`, `digest_time`
-(`schemas.py:12-19`).
+(`schemas.py`).
 
 ```text
 configure  bilinmeyen alan  → REDDEDİLİR (422 / UNKNOWN_CONFIG_FIELD)
@@ -224,7 +224,7 @@ snooze     saat dilimsiz / geçmiş damga → REDDEDİLİR (INVALID_SNOOZE)
 `SnoozeIn.until` **saat dilimli** mutlak zamandır.
 
 `GET /api/proactivity/rules` çağrısı kuralların açılışta yazılmasını
-(varsayılanların tohumlanmasını) tetikler; idempotenttir (`router.py:56-58`).
+(varsayılanların tohumlanmasını) tetikler; idempotenttir (`router.py`).
 
 ---
 

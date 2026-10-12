@@ -35,7 +35,7 @@ graph TD
 
 **Tech Stack:** Python 3.14, FastAPI, SQLAlchemy 2.0 (asyncpg), Pydantic v2, Node.js (v22+), Pytest.
 
-**Spec:** [docs/superpowers/specs/2026-09-25-career-ops-c2-discovery-design.md](file:///Users/furkanturkoglu/Desktop/Projeler/forkOS/docs/superpowers/specs/2026-09-25-career-ops-c2-discovery-design.md)
+**Spec:** [docs/superpowers/specs/2026-09-25-career-ops-c2-discovery-design.md](../specs/2026-09-25-career-ops-c2-discovery-design.md)
 
 ## Global Constraints
 - Sole canonical database: forkOS PostgreSQL (`Opportunity`, `OpportunitySourceObservation`).

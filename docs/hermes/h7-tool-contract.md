@@ -1,12 +1,12 @@
 # forkOS × Hermes — H7 Araç Sözleşmesi (`forkos_execution`)
 
-H7 genel yüzeye **tam olarak bir** araç ekler. Yüzey **29** olur
-(H0 8 + H1 11 + H2 5 + H3 1 + H4 1 + H5 1 + H6 1 + H7 1). Mikro-araç
-çoğaltması YOKTUR: tek araç, dokuz işlem.
+Güncelleme: 12 Ekim 2026. Sözleşme kaynağı kapalı operation/schema ve servis registry tanımlarıdır.
+
+H7 genel yüzeyde tek araçtır. Güncel toplam **37** araç için [MCP envanteri](README.md) kanoniktir. Tek araç, **on işlem**: recover ve status dahildir.
 
 Araç bir otomasyon yürütücüsü **değildir**: kapalı bir işlem kümesi sunar ve
 yürütme yalnızca **onaylanmış tam bir revizyon** üzerinde çalışır
-(`backend/app/integrations/agent/tools.py:1307-1310`).
+(`backend/app/integrations/agent/tools.py`).
 
 ---
 
@@ -33,7 +33,7 @@ forkos_execution(
 )
 ```
 
-Anotasyonlar (`tools.py:92-97`):
+Anotasyonlar (`tools.py`):
 
 ```text
 readOnlyHint    = false      plan/karar durumunu YAZAR (H7'nin kendi tabloları)
@@ -43,7 +43,7 @@ idempotentHint  = true       aynı girdiyle tekrar çağrı ek durum üretmez
 
 `execute` dışındaki tüm işlemler **yalnızca H7'nin operasyonel tablolarına**
 yazar; canonical mutasyon tek bir yerde ve H1 üzerinden olur
-(`execution.py:283-285`).
+(`execution.py`).
 
 ### 1.1 Reddedilen alan ve işlemler
 
@@ -56,15 +56,15 @@ auto_approve · approved · skip_approval · force · dry_run=false · rollback
 model · prompt · system_prompt · temperature · api_key
 ```
 
-- Bilinmeyen `operation` → `UNKNOWN_OPERATION` (`tools.py:1453-1455`).
+- Bilinmeyen `operation` → `UNKNOWN_OPERATION` (`tools.py`).
 - Adım `action` kümesi **kapalıdır**: yalnızca
   `write_registry.WRITE_ACTIONS` içindeki 11 H1 eylemi
-  (`write_registry.py:88-136`); bilinmeyen eylem `UNKNOWN_ACTION` ile planı
-  reddeder (`steps.py:76-81`).
+  (`write_registry.py`); bilinmeyen eylem `UNKNOWN_ACTION` ile planı
+  reddeder (`steps.py`).
 - `steps` serbest JSON **değildir**: her argüman H1'in Pydantic modelinden
-  geçer (`steps.py:88-95`).
+  geçer (`steps.py`).
 - Onay bir **alan değildir**: `approved: true` diye bir girdi yoktur; onay
-  ayrı bir işlemdir ve sunucu tarafında kayıt üretir (`tools.py:99-102`).
+  ayrı bir işlemdir ve sunucu tarafında kayıt üretir (`tools.py`).
 
 ---
 
@@ -91,14 +91,14 @@ dayanıklılık sınırı).
 
 İşlem yönlendirmesi tek bir servis katmanına gider (`service.py`); araç kendi
 ikinci durum kopyasını tutmaz. MCP ile REST **aynı** `_plan_view()` çıktısını
-üretir (`service.py:532-574`).
+üretir (`service.py`).
 
 ### 2.1 Kaydedilen aktör
 
 ```text
-MCP  approve/reject/respond/cancel/execute/recover  → actor = "mcp_client"   tools.py:1402-1457
-REST approve/reject/respond/cancel/execute/recover  → actor = "forkos_ui"    service.py:274/319/339/371/407/518
-sistem kaynaklı süre dolumu                 → actor = "system"        service.py:122
+MCP  approve/reject/respond/cancel/execute/recover  → actor = "mcp_client"   tools.py
+REST approve/reject/respond/cancel/execute/recover  → actor = "forkos_ui"    service.py/319/339/371/407/518
+sistem kaynaklı süre dolumu                 → actor = "system"        service.py
 ```
 
 `decided_by` **yeti üretmez**; yalnızca kararın hangi kanaldan geldiğini
@@ -108,7 +108,7 @@ kaydeder. Yetki her zaman `approve()` içinde üretilir.
 
 ## 3. Plan görünümü şeması
 
-`_plan_view()` (`service.py:532-574`) — `get`, `approve`, `reject`, `respond`,
+`_plan_view()` (`service.py`) — `get`, `approve`, `reject`, `respond`,
 `cancel`, `execute`, `prepare` aynı şemayı döner:
 
 ```text
@@ -134,7 +134,7 @@ created_at · updated_at                ISO-8601
 `receipts[]`: `step_id`, `ordinal`, `action`, `target`, `status`
 (`completed|failed|skipped|not_attempted`), `error_code`, `result_ref`,
 `completed_at`. Tam H1 yanıt gövdesi **taşınmaz**; `result_ref` yalnızca
-sınırlı bir referanstır (`models.py:184-214`).
+sınırlı bir referanstır (`models.py`).
 
 ---
 
@@ -156,22 +156,22 @@ sınırlı bir referanstır (`models.py:184-214`).
 | `PLAN_NOT_AWAITING_INPUT` | `respond` yanlış durumda | MCP + REST (422) |
 | `INVALID_INPUT_RESPONSE` | Cevap boş | MCP + REST (422) |
 | `INVALID_TRANSITION` / `UNKNOWN_STATE` | Durum makinesi geçişi reddetti | MCP + REST (422) |
-| `UNKNOWN_OPERATION` | İşlem dokuzlu kümede değil | MCP |
+| `UNKNOWN_OPERATION` | İşlem onlu kümede değil | MCP |
 | `UNKNOWN_DECISION_KIND` | İç denetim türü tanımsız (iç hata) | MCP + REST |
 | `EXECUTION_FAILED` | Beklenmeyen iç hata (`EXECUTION_FAILED: <Tip>`) | MCP |
 
 Hata zarfı sızdırmazdır: yığın izi, SQL veya dosya yolu taşınmaz
-(`tools.py:1456-1461`). Adım düzeyindeki H1 hataları çağırana değil, **makbuza**
+(`tools.py`). Adım düzeyindeki H1 hataları çağırana değil, **makbuza**
 yazılır ve sınırlı koda indirgenir: `INVALID_INPUT`, `NOT_FOUND`, `STALE`,
 `EXPIRED`, `CONFLICT`, `ACTION_ERROR`, `FORBIDDEN`, aksi halde `ACTION_FAILED`
-(`execution.py:327-342`).
+(`execution.py`).
 
 ---
 
 ## 5. REST uçları
 
-Tümü `/api` öneki altındadır (`backend/app/main.py:144`);
-`backend/app/modules/execution/router.py:40-107`.
+Tümü `/api` öneki altındadır (`backend/app/main.py`);
+`backend/app/modules/execution/router.py`.
 
 | Metot | Yol | Gövde | Dönüş | Hata |
 |---|---|---|---|---|
@@ -185,7 +185,7 @@ Tümü `/api` öneki altındadır (`backend/app/main.py:144`);
 
 ```text
 plan hazırlama için REST ucu YOKTUR: plan üretimi Hermes/MCP yolundadır.
-karar uçları canonical mutasyon YAPMAZ; yalnızca plan durumunu değiştirir  router.py:1-6
+karar uçları canonical mutasyon YAPMAZ; yalnızca plan durumunu değiştirir  router.py
 `states` filtresi bilinmeyen durum adını sessizce düşürür (boş liste döner).
 ```
 

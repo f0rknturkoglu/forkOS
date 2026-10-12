@@ -8,7 +8,7 @@ import { api } from "@/core/api";
 
 export const AGENT_CONTINUITY_STATUS_KEY = "agent-continuity-status";
 
-export interface AgentContinuityStatus {
+interface AgentContinuityStatus {
   available: boolean;
   last_bootstrap_at: string | null;
   last_context_at: string | null;

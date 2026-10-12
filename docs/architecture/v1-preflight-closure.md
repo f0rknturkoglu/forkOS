@@ -1,5 +1,7 @@
 # V1.1 Preflight Closure
 
+> Tarihsel doğrulama raporu. Bu belgedeki test sayıları ait olduğu commit içindir; güncel gate için [V1 final kapanış](v1-final-closure.md).
+
 Doğrulama: 11 Ekim 2026. Başlangıç: `main`, `b8124a9`; çalışma başında checkout temizdi. Bu çalışma mevcut Academic & Career LifeOS kapsamını korur.
 
 ## A. Doğrulanan başlangıç sorunları

@@ -10,11 +10,11 @@ import type { components } from "@/generated/api-schema";
 export const AGENT_SEMANTIC_STATUS_KEY = "agent-semantic-status";
 export const AGENT_SEMANTIC_CANDIDATES_KEY = "agent-semantic-candidates";
 
-export type SemanticStatus = components["schemas"]["SemanticStatusOut"];
+type SemanticStatus = components["schemas"]["SemanticStatusOut"];
 export type SemanticCandidate = components["schemas"]["SemanticCandidateRead"];
-export type SemanticCandidateList = components["schemas"]["SemanticCandidateListResponse"];
-export type SemanticCandidateRefresh = components["schemas"]["SemanticCandidateRefreshOut"];
-export type SemanticCandidatePromote = components["schemas"]["SemanticCandidatePromoteOut"];
+type SemanticCandidateList = components["schemas"]["SemanticCandidateListResponse"];
+type SemanticCandidateRefresh = components["schemas"]["SemanticCandidateRefreshOut"];
+type SemanticCandidatePromote = components["schemas"]["SemanticCandidatePromoteOut"];
 
 export const getAgentSemanticStatus = () => api.get<SemanticStatus>("/agent/semantic/status");
 

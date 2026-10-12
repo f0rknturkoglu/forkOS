@@ -60,7 +60,7 @@ interface Paper {
   upvotes: number;
   num_comments: number;
 }
-export const FEED_FILTERS: { id: FeedFilter; label: string }[] = [
+const FEED_FILTERS: { id: FeedFilter; label: string }[] = [
   { id: "all", label: "Tümü" },
   { id: "rss", label: "RSS" },
   { id: "reddit", label: "Reddit" },

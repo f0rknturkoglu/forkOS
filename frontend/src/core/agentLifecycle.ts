@@ -3,7 +3,7 @@ import { api } from "@/core/api";
 
 export const AGENT_LIFECYCLE_STATUS_KEY = "agent-lifecycle-status";
 
-export interface AgentLifecycleStatus {
+interface AgentLifecycleStatus {
   available: boolean;
   last_event_at: string | null;
   last_harness: string | null;

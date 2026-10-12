@@ -1,5 +1,7 @@
 # forkOS × Hermes — H6 Proaktivite ve Dikkat Kontrolü
 
+Güncelleme: 12 Ekim 2026. Sözleşme kaynağı kapalı operation/schema ve servis registry tanımlarıdır.
+
 H6, forkOS'un **kullanıcı sormadan ne zaman devreye gireceğine** karar veren
 katmandır. Tek sorusu şudur:
 
@@ -19,7 +21,7 @@ H1      → MUTASYON : yalnızca kullanıcı onayından sonra canonical yazma
 H6 bir iş akışı motoru, zamanlanmış serbest istem yürütücüsü, kural DSL'i veya
 otomatik mutasyon katmanı **değildir**. Aday üretir, karar verir, (gerekirse)
 bildirir; hiçbir Todo/Project/Opportunity/Vault/Review/Event kaydını değiştirmez
-(`backend/app/modules/proactivity/__init__.py:8-14`).
+(`backend/app/modules/proactivity/__init__.py`).
 
 ## H6.1 — Doğruluk sertleştirmesi (dört açık kapatıldı)
 
@@ -77,38 +79,38 @@ teslim (delivery.py)       → kısa, deterministik bildirim metni (LLM YOK)
 
 > **H6 hiçbir zaman doğrudan tetikleyici payload'una güvenmez.** Bir aday
 > üretildiğinde ve teslim edilmeden hemen önce koşul **güncel durumdan yeniden
-> doğrulanır** (`rules.revalidate`, `rules.py:449`). Ertelenen bir teslim,
+> doğrulanır** (`rules.revalidate`, `rules.py`). Ertelenen bir teslim,
 > koşul ortadan kalktıysa iptal edilir.
 
 ---
 
 ## 2. Boru hattı
 
-Tek giriş noktası `service.tick()`'tir (`service.py:438`). Zamanlayıcı yalnızca
+Tek giriş noktası `service.tick()`'tir (`service.py`). Zamanlayıcı yalnızca
 onu çağırır; ritüeller, son tarihler ve proje izleme ayrı işler değildir.
 
 ```text
-kural değerlendirmesi (rules.evaluate_all, rules.py:420)
+kural değerlendirmesi (rules.evaluate_all, rules.py)
         ↓  Candidate (kullanıcıya dokunma kararı HENÜZ verilmedi)
-mantıksal koşu kimliği   (service._claim_run, service.py:329)  ── idempotent, DB'de tek
+mantıksal koşu kimliği   (service._claim_run, service.py)  ── idempotent, DB'de tek
         ↓
 GÜNCEL durum yeniden doğrulaması (rules.revalidate)
         ↓
-saf politika kararı      (policy.decide, policy.py:157)
+saf politika kararı      (policy.decide, policy.py)
         ↓
-silent | defer | digest | surface | prepare        (policy.OUTCOMES, policy.py:22)
+silent | defer | digest | surface | prepare        (policy.OUTCOMES, policy.py)
         ↓  surface / prepare ise
-H5 bağlamı TESLİM ANINDA kurulur (service._compose, service.py:753)
+H5 bağlamı TESLİM ANINDA kurulur (service._compose, service.py)
         ↓
-yeniden doğrulama (service._deliver_now, service.py:565)
+yeniden doğrulama (service._deliver_now, service.py)
         ↓
-Notification (delivery.deliver_run, delivery.py:81)
+Notification (delivery.deliver_run, delivery.py)
         ↓
 kullanıcı override'ı (snooze / dismiss)
 ```
 
 Koşu durumları bu boru hattının olgusal izidir; her tur için "değerlendirildi"
-satırı **yazılmaz** — yalnızca anlamlı geçişler kalıcıdır (`service.py:15-18`).
+satırı **yazılmaz** — yalnızca anlamlı geçişler kalıcıdır (`service.py`).
 
 ### 2.1 Neden koşu kimliği kalıcı
 
@@ -117,7 +119,7 @@ Aynı mantıksal tetik yüz kez değerlendirilse de **tek satır** kalır
 Bu yüzden idempotans yalnızca zamanlayıcının `max_instances=1` davranışına
 bırakılmaz. Kimlik, koşulu yeniden çözmeye yetecek kadar yapısal bilgi taşır
 (kural türü, konu tipi, konu kimliği, gerekçe kodları); kullanıcıya giden metin
-teslim anında yeniden üretilir (`models.py:129`, `models.py:13-15`).
+teslim anında yeniden üretilir (`models.py`, `models.py`).
 
 ---
 
@@ -135,7 +137,7 @@ proactivity/
 ```
 
 Modül kaydı: `ModuleSpec(id="proactivity", entity_types=[], event_verbs=[])`
-(`__init__.py:18-24`). **Hiçbir entity tipi ve hiçbir olay fiili üretmez**: bu
+(`__init__.py`). **Hiçbir entity tipi ve hiçbir olay fiili üretmez**: bu
 motorun operasyonel durumudur, aranabilir/linklenebilir nesne değildir.
 
 ---
@@ -149,7 +151,7 @@ motorun operasyonel durumudur, aranabilir/linklenebilir nesne değildir.
 
 `source_run`/`source_sync_batch` ile **aynı sınıftır**: bağımsız
 aranabilir/linklenebilir nesne değil, motorun operasyonel kaydıdır
-(`models.py:4-8`). Bu yüzden:
+(`models.py`). Bu yüzden:
 
 ```text
 proactivity_run.subject_id   → FK YOK : entity silinse bile "neden o gün
@@ -162,18 +164,18 @@ proactivity_run.notification_id → FK VAR (notification.id, on delete SET NULL)
 
 Kullanıcıya dönük kayıt `notification` tablosudur ve o çekirdektedir.
 Koşu ondan bağımsız olarak susturulabilir, ertelenebilir veya iptal edilebilir
-(`models.py:147-151`).
+(`models.py`).
 
 **Saklanmayanlar (bilinçli):** H5 paketleri, Vault alıntıları, sıcak hafıza
-gövdeleri, model istem/yanıtları (`models.py:13-15`). Koşu satırı yalnızca
+gövdeleri, model istem/yanıtları (`models.py`). Koşu satırı yalnızca
 koşulu yeniden çözmeye yetecek yapısal kimlik taşır.
 
 ---
 
-## 5. Kapalı kural ailesi (6)
+## 5. Kapalı kural ailesi (7)
 
 Genel bir kural DSL'i **yoktur**: yeni davranış eklemek kod yazmak demektir
-(`models.py:41-45`). Kural türü kümesi `models.RULE_KINDS` (`models.py:46`).
+(`models.py`). Kural türü kümesi `models.RULE_KINDS` (`models.py`).
 
 | Kural | Varsayılan | Ayar alanları | Kategori | H5 modu | Tetik anahtarı |
 |---|---|---|---|---|---|
@@ -183,48 +185,49 @@ Genel bir kural DSL'i **yoktur**: yeni davranış eklemek kod yazmak demektir
 | `deadline_staircase` | **açık** | — | `deadline_*` | — | `deadline:v2:<koşul-kimliği>:<revizyon>:<rung>d` |
 | `continuity_gap` | **kapalı** | `threshold_hours` 48 | `continuity_comeback` | `continuity` | `continuity_gap:v1:<gün>` |
 | `project_stalled` | **kapalı** | `days` 14, `cooldown_days` 7 | `project_stalled` | `continuity` | `project_stalled:v1:<project_id>` |
+| `strategy_attention` | **kapalı** | `cooldown_days` 30 | `strategy_attention` | — | `strategy_attention:v1:<subject>:<finding.code>` |
 
 Birikim (okunmamış içerik) için **ayrı bir kural ya da kategori yoktur**:
 H5 `unread_accumulation`'ı bir `AttentionCandidate` olarak üretir
-(`continuity.py:542-548`); H6 bunu süreklilik/ritüel adaylarının içinde taşır
-(`rules.py:530-538`).
+(`continuity.py`); H6 bunu süreklilik/ritüel adaylarının içinde taşır
+(`rules.py`).
 
-Varsayılanlar `service.RULE_DEFAULTS` (`service.py:65`), izin verilen ayar
-alanları `service.RULE_CONFIG_FIELDS` (`service.py:75`). Kurallar açılışta
-**idempotent** yazılır (`service.seed_rules`, `service.py:211`); her açılışta
+Varsayılanlar `service.RULE_DEFAULTS` (`service.py`), izin verilen ayar
+alanları `service.RULE_CONFIG_FIELDS` (`service.py`). Kurallar açılışta
+**idempotent** yazılır (`service.seed_rules`, `service.py`); her açılışta
 çoğalmaz.
 
 ### 5.1 Son tarih basamakları
 
-Tek mantıksal üretici `deadline_staircase`'tir (`rules.py:123`):
+Tek mantıksal üretici `deadline_staircase`'tir (`rules.py`):
 
 ```text
 son tarih merdiveni  (0, 1, 3, 7, 14, 30)   → basamak 0 "bugün bitiyor" ayrı koşudur
 takip merdiveni      (0, 1, 3, 7, 14)       → 30 gün takip için fazla geniştir
 ```
 
-Kalan süreye **en yakın** eşik kazanır (`rules._rung`, `rules.py:95`). Revizyon
+Kalan süreye **en yakın** eşik kazanır (`rules._rung`, `rules.py`). Revizyon
 = son tarihin kendisidir: tarih değişirse eski koşu bayatlar ve yeni tarih
-bağımsız basamaklar üretir (`rules.py:164-166`).
+bağımsız basamaklar üretir (`rules.py`).
 
 ### 5.2 Ritüel penceresi (misfire politikası)
 
 `run_once_if_still_relevant`: kaçırılan tur, **pencere içinde bir kez** telafi
 edilir; gün dışına taşan tur tekrar oynatılmaz (`rules._ritual_due`,
-`rules.py:359`). Haftalık ritüel ayrıca yapılandırılmış günü bekler
-(`rules._weekly_due`, `rules.py:375`).
+`rules.py`). Haftalık ritüel ayrıca yapılandırılmış günü bekler
+(`rules._weekly_due`, `rules.py`).
 
 ### 5.3 Proje hareketsizliği ≠ ihmal
 
 `project_stalled` "ihmal ediyorsun" demez; "kayıtlı aktivite yok" der
-(`rules.py:293-298`). Proje hareketi tanımı **tek yerde** durur: H5'in kanonik
+(`rules.py`). Proje hareketi tanımı **tek yerde** durur: H5'in kanonik
 `project_last_activity` okuyucusu — kanonik `Event` geçmişi (sayılan fiiller),
 projeye **bağlı görevlerin** hareketi dâhil. İkinci bir tanım yazmak aynı proje
-için iki farklı "durağan" cevabı üretirdi (`rules.py:318-323`). Worker senkronu,
+için iki farklı "durağan" cevabı üretirdi (`rules.py`). Worker senkronu,
 kaynak sağlığı, bildirim ve proaktif koşular sayılan fiiller arasında olmadığı
 için hareketsizliği sıfırlayamaz (`rules.last_meaningful_activity_at`,
-`rules.py:104-118`). Hiç kayıtlı hareketi olmayan proje için yaş **uydurulmaz**:
-"16 gündür" denmez, aday atlanır (`rules.py:329-332`).
+`rules.py`). Hiç kayıtlı hareketi olmayan proje için yaş **uydurulmaz**:
+"16 gündür" denmez, aday atlanır (`rules.py`).
 
 ---
 
@@ -235,22 +238,22 @@ sessizlik  birincil sınıftır: "yapacak bir şey yok" BAŞARIDIR.
 ```
 
 - Ana anahtar kapalıysa **hiçbir** H6 bildirimi çıkmaz (`proactivity.enabled`
-  varsayılan **false**; `service.CONFIG_DEFAULTS`, `service.py:56-62`).
+  varsayılan **false**; `service.CONFIG_DEFAULTS`, `service.py`).
 - Kural, bir tetik gördü diye bildirim çıkmaz: tetik yalnızca "şimdi
   değerlendir" demektir.
 - Anlamlı içerik yoksa teslim yerine **sessizlik** seçilir: koşu `suppressed` +
-  `NO_MEANINGFUL_CONTENT` olur, boş bildirim gönderilmez (`service.py:585-586`).
+  `NO_MEANINGFUL_CONTENT` olur, boş bildirim gönderilmez (`service.py`).
 - Ritüeller anlamlı bir şey bulamazsa **hiç aday üretmez**: temiz gün sessiz
-  geçer (`rules.py:211-291`).
+  geçer (`rules.py`).
 - `continuity_gap` yalnızca hareketsizlik **ve** anlamlı değişim birlikteyse
-  aday üretir (`rules.py:180-197`).
+  aday üretir (`rules.py`).
 
 Kullanıcı override'ı otomasyonun önündedir: `snooze` verilen ana kadar susar ve
 bu, kuralların/kuyrukta bekleyen koşuların üstünde durur
-(`policy.decide` adım 3, `policy.py:169-171`). Snooze **ayrı bir koşu durumudur**
-(`snoozed`; "çözüldü"/"kapatıldı" değil, `service.py:1067-1068`); süre dolduğunda
+(`policy.decide` adım 3, `policy.py`). Snooze **ayrı bir koşu durumudur**
+(`snoozed`; "çözüldü"/"kapatıldı" değil, `service.py`); süre dolduğunda
 tur koşuyu yeniden `candidate` yapıp **güncel** durumla değerlendirir
-(`service.py:503-505`).
+(`service.py`).
 
 ---
 
@@ -258,13 +261,13 @@ tur koşuyu yeniden `candidate` yapıp **güncel** durumla değerlendirir
 
 ```text
 proactivity_tick       her 1 dakika, max_instances=1, coalesce=True
-                       (backend/app/worker/main.py:125-132)
+                       (backend/app/worker/main.py)
 proactivity_catch_up   açılışta BİR KEZ, kaynaklar tazelendikten SONRA
-                       (backend/app/worker/main.py:156-157)
+                       (backend/app/worker/main.py)
 ```
 
-Her ikisi de **aynı servisi** çağırır (`backend/app/worker/jobs.py:43` ve
-`jobs.py:62`). Ritüel/son tarih/proje kararları bu turun içinde verilir; H6'nın
+Her ikisi de **aynı servisi** çağırır (`backend/app/worker/jobs.py` ve
+`jobs.py`). Ritüel/son tarih/proje kararları bu turun içinde verilir; H6'nın
 kendi durumu (idempotent koşu kimliği) fırtına korumasıdır.
 
 **Emekli işler:** eski `morning_digest` ve `deadline_ladder` işleri
@@ -277,7 +280,7 @@ durumundadır.
 
 | Yüzey | Girdi noktası |
 |---|---|
-| MCP (tek araç) | `forkos_proactivity` (`backend/app/integrations/agent/tools.py:1178`) |
+| MCP (tek araç) | `forkos_proactivity` (`backend/app/integrations/agent/tools.py`) |
 | REST | `GET/PUT /api/proactivity/*` (`backend/app/modules/proactivity/router.py`) |
 
 İkisi de **aynı servis fonksiyonlarını** çağırır; H6 kendi ikinci durum
@@ -289,11 +292,11 @@ kopyasını tutmaz. Ayrıntı: [H6 Araç Sözleşmesi](h6-tool-contract.md).
 
 | Bozulma | Davranış |
 |---|---|
-| **Ana anahtar kapalı** | Hiçbir bildirim çıkmaz. Bekleyen koşular tarihsel kalır; tekrar açıldığında **güncel** durumla yeniden değerlendirilir (`service.py:450-454`). |
-| **Kural kapalı** | Kuralın bekleyen teslimleri iptal edilir (`service.cancel_pending`, `service.py:378`); yeni aday üretilmez. |
-| **Kural değerlendirmesi çöker** | Diğer kurallar **etkilenmez**; hata sınırlı kodla koşu geçmişine yazılır (`RULE_EVALUATION_FAILED`), kullanıcıya bildirilmez (`rules.evaluate_all`, `rules.py:420`; `service._record_rule_failure`, `service.py:899`). |
-| **Yeniden doğrulama çöker** | Teslim **edilmez**; fail-closed (`rules.py:477`). |
-| **Bildirim zaten var** | Koşu teslim sayılmaz: `suppressed` + `DUPLICATE_TRIGGER` (`service.py:602-603`). |
+| **Ana anahtar kapalı** | Hiçbir bildirim çıkmaz. Bekleyen koşular tarihsel kalır; tekrar açıldığında **güncel** durumla yeniden değerlendirilir (`service.py`). |
+| **Kural kapalı** | Kuralın bekleyen teslimleri iptal edilir (`service.cancel_pending`, `service.py`); yeni aday üretilmez. |
+| **Kural değerlendirmesi çöker** | Diğer kurallar **etkilenmez**; hata sınırlı kodla koşu geçmişine yazılır (`RULE_EVALUATION_FAILED`), kullanıcıya bildirilmez (`rules.evaluate_all`, `rules.py`; `service._record_rule_failure`, `service.py`). |
+| **Yeniden doğrulama çöker** | Teslim **edilmez**; fail-closed (`rules.py`). |
+| **Bildirim zaten var** | Koşu teslim sayılmaz: `suppressed` + `DUPLICATE_TRIGGER` (`service.py`). |
 | **H5 erişilemez / anlamlı içerik yok** | Boş bildirim yerine sessizlik: `NO_MEANINGFUL_CONTENT`. |
 
 ---
@@ -312,14 +315,14 @@ cron string / SQL / araç adı     Entity/Event üretimi
 - **Otomatik mutasyon yok:** H6 hiçbir canonical kaydı değiştirmez; yazma yolu
   H1'dir ve onay kapısından geçer.
 - **LLM kapısı yok:** H6 v1'de "dokunayım mı?" sorusunu model **cevaplamaz**
-  (`policy.py:9-12`); bildirim metni bile kodla kurulur
-  (`delivery.py:1-8`) — worker Hermes olmadan da çalışır.
+  (`policy.py`); bildirim metni bile kodla kurulur
+  (`delivery.py`) — worker Hermes olmadan da çalışır.
 - **Dış push yok:** teslim yalnızca `notification` tablosuna yazılır
-  (`delivery.deliver_run`, `delivery.py:81`); e-posta/SMS/webhook/telemetri yok.
+  (`delivery.deliver_run`, `delivery.py`); e-posta/SMS/webhook/telemetri yok.
 - **Gözetim yok:** H6 kullanıcıyı izlemez; yalnızca zaten kanonik olan olay
-  geçmişini ve H5 çıktısını okur (`rules.py:104-118`).
+  geçmişini ve H5 çıktısını okur (`rules.py`).
 - **Ayrı temizlik işi yok:** budama mevcut günlük bakım adımına devredilir
-  (`service.prune_runs`, `service.py:1137`; `core/retention.py`).
+  (`service.prune_runs`, `service.py`; `core/retention.py`).
 
 ---
 

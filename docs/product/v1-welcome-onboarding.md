@@ -34,3 +34,10 @@ Nonmodal tur paneli işlem yapmayı engellemez. Lazy hedefler MutationObserver i
 ## Doğrulama ve sınırlar
 
 Ayrıntılı sonuçlar [teslim raporunda](v1-welcome-delivery.md). Tarayıcıda karşılama, gerçek görev, tur refresh/devam, yardım/Escape, kaynak galerisi ve gerçek okuma/kayıt yolları ayrı geçici DB ile doğrulandı. Her koşullu hedef/kariyer dalının her veri kombinasyonu tarayıcıda yürütülmedi; registry, guard ve geç yüklenen hedef davranışları otomatik testlerde kapsandı. OS ekran okuyucusu ve gerçek %200 browser zoom denemesi yapılmadı. Bu özellik yeni model, entegrasyon veya veri migration'ı kurmaz.
+
+
+## V1 final kapanış — 12 Ekim 2026
+
+Keşif ziyareti ile kanonik eylem kanıtı ayrıdır. Görünür DOM öğesi Goal/Todo/KR/kaynak oluşturulduğunu kanıtlamaz; server canonical_actions mevcut gerçek domain kayıtlarını doğrular. Mevcut kayıt açıkça böyle etiketlenir; Geçildi keşif tercihi olarak kalır. RSS galerisinde abonelikler anında kaydolur, Vazgeç yalnız kaydedilmemiş Feed tercihlerini bırakır.
+
+[Güncel kapanış kanıtı](../architecture/v1-final-closure.md) ve [Hermes sağlayıcı/izin/topoloji sözleşmesi](../hermes/goal-studio-runtime.md).

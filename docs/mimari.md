@@ -392,3 +392,8 @@ yeni içerik yazılmaz. `folder` yalnız metadata'dır, yol olarak kullanılmaz.
 0079 migration yalnız medya batch'lerini terminal duruma taşır, çalışan medya
 koşularını `abandoned` yapar ve yeni kapanış olayı ekler. Tarihsel medya batch ve
 koşuları retention dışında tutulur; fırsat kuyruğunun işleyişi değişmez.
+
+
+## V1 final kapanış — 12 Ekim 2026
+
+[Güncel kapanış kanıtı](architecture/v1-final-closure.md) ve [Hermes sağlayıcı/izin/topoloji sözleşmesi](hermes/goal-studio-runtime.md).

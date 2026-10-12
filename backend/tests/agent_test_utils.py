@@ -41,40 +41,45 @@ async def capture_db_content_fingerprint(session: AsyncSession) -> str:
 
     rows = (
         await session.execute(
-            select(Entity.id, Entity.type, Entity.title, Entity.search_text, Entity.archived_at)
-            .order_by(Entity.id)
+            select(
+                Entity.id, Entity.type, Entity.title, Entity.search_text, Entity.archived_at
+            ).order_by(Entity.id)
         )
     ).all()
     hasher.update(str(rows).encode("utf-8"))
 
     rows = (
         await session.execute(
-            select(Event.id, Event.entity_id, Event.verb, Event.payload, Event.occurred_at)
-            .order_by(Event.id)
+            select(
+                Event.id, Event.entity_id, Event.verb, Event.payload, Event.occurred_at
+            ).order_by(Event.id)
         )
     ).all()
     hasher.update(str(rows).encode("utf-8"))
 
     rows = (
         await session.execute(
-            select(Link.from_id, Link.to_id, Link.relation, Link.created_at)
-            .order_by(Link.from_id, Link.to_id, Link.relation)
+            select(Link.from_id, Link.to_id, Link.relation, Link.created_at).order_by(
+                Link.from_id, Link.to_id, Link.relation
+            )
         )
     ).all()
     hasher.update(str(rows).encode("utf-8"))
 
     rows = (
         await session.execute(
-            select(Todo.id, Todo.status, Todo.priority, Todo.due_at, Todo.completed_at)
-            .order_by(Todo.id)
+            select(Todo.id, Todo.status, Todo.priority, Todo.due_at, Todo.completed_at).order_by(
+                Todo.id
+            )
         )
     ).all()
     hasher.update(str(rows).encode("utf-8"))
 
     rows = (
         await session.execute(
-            select(Project.id, Project.status, Project.next_action, Project.github_repo, Project.stack)
-            .order_by(Project.id)
+            select(
+                Project.id, Project.status, Project.next_action, Project.github_repo, Project.stack
+            ).order_by(Project.id)
         )
     ).all()
     hasher.update(str(rows).encode("utf-8"))
@@ -129,24 +134,27 @@ async def capture_db_content_fingerprint(session: AsyncSession) -> str:
 
     rows = (
         await session.execute(
-            select(FlashcardCard.id, FlashcardCard.deck_id, FlashcardCard.reps, FlashcardCard.due_at)
-            .order_by(FlashcardCard.id)
+            select(
+                FlashcardCard.id, FlashcardCard.deck_id, FlashcardCard.reps, FlashcardCard.due_at
+            ).order_by(FlashcardCard.id)
         )
     ).all()
     hasher.update(str(rows).encode("utf-8"))
 
     rows = (
         await session.execute(
-            select(Bookmark.id, Bookmark.collection, Bookmark.url, Bookmark.read_status)
-            .order_by(Bookmark.id)
+            select(Bookmark.id, Bookmark.collection, Bookmark.url, Bookmark.read_status).order_by(
+                Bookmark.id
+            )
         )
     ).all()
     hasher.update(str(rows).encode("utf-8"))
 
     rows = (
         await session.execute(
-            select(Note.id, Note.folder_id, Note.project_id, Note.pinned, Note.body)
-            .order_by(Note.id)
+            select(Note.id, Note.folder_id, Note.project_id, Note.pinned, Note.body).order_by(
+                Note.id
+            )
         )
     ).all()
     hasher.update(str(rows).encode("utf-8"))
@@ -259,16 +267,18 @@ def _build_table_selects() -> dict[str, Any]:
         "flashcard_card": select(
             FlashcardCard.id, FlashcardCard.reps, FlashcardCard.due_at
         ).order_by(FlashcardCard.id),
-        "note": select(
-            Note.id, Note.body, Note.pinned, Note.trashed_at, Note.journal_day
-        ).order_by(Note.id),
+        "note": select(Note.id, Note.body, Note.pinned, Note.trashed_at, Note.journal_day).order_by(
+            Note.id
+        ),
         "note_folder": select(NoteFolder.id, NoteFolder.parent_id, NoteFolder.position).order_by(
             NoteFolder.id
         ),
         "link": select(Link.from_id, Link.to_id, Link.relation, Link.created_at).order_by(
             Link.from_id, Link.to_id, Link.relation
         ),
-        "event": select(Event.id, Event.verb, Event.entity_id, Event.occurred_at).order_by(Event.id),
+        "event": select(Event.id, Event.verb, Event.entity_id, Event.occurred_at).order_by(
+            Event.id
+        ),
     }
 
 

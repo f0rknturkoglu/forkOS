@@ -10,6 +10,6 @@ import type { components } from "@/generated/api-schema";
 
 export const AGENT_EPISODE_STATUS_KEY = "agent-episode-status";
 
-export type AgentEpisodeStatus = components["schemas"]["EpisodeStatusOut"];
+type AgentEpisodeStatus = components["schemas"]["EpisodeStatusOut"];
 
 export const getAgentEpisodeStatus = () => api.get<AgentEpisodeStatus>("/agent/episode/status");

@@ -31,7 +31,7 @@ graph TD
 
 **Tech Stack:** FastAPI, SQLAlchemy 2.0 (asyncpg), Alembic, Pydantic v2, Node.js v20+, Playwright Chromium, React/TypeScript.
 
-**Spec:** [docs/superpowers/specs/2026-09-25-career-ops-c3-design.md](file:///Users/furkanturkoglu/Desktop/Projeler/forkOS/docs/superpowers/specs/2026-09-25-career-ops-c3-design.md)
+**Spec:** [docs/superpowers/specs/2026-09-25-career-ops-c3-design.md](../specs/2026-09-25-career-ops-c3-design.md)
 
 ## Global Constraints
 - Zero LLM calls (deterministic rules, regex, DOM selectors, JSON APIs only).

@@ -1,5 +1,7 @@
 # V1 Scope Closure — doğrulama ve kalan işler
 
+> Tarihsel doğrulama raporu. Bu belgedeki test sayıları ait olduğu commit içindir; güncel gate için [V1 final kapanış](v1-final-closure.md).
+
 Başlangıç: `main`, `2c55ff5`, temiz çalışma ağacı. Kapsam kararı:
 [V1 ürün sözleşmesi](v1-product-scope.md). Önceki
 [konsolidasyon raporu](v1-scope-consolidation.md) tarihsel baseline'dır.

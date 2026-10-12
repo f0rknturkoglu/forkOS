@@ -32,7 +32,7 @@ graph TD
 
 **Tech Stack:** Python 3.12/3.14, FastAPI, Pydantic v2, Typer, Rich, Node.js (>=22.5), pytest, asyncio.
 
-**Spec:** [`docs/superpowers/specs/2026-09-25-career-ops-c1-design.md`](file:///Users/furkanturkoglu/Desktop/Projeler/forkOS/docs/superpowers/specs/2026-09-25-career-ops-c1-design.md)
+**Spec:** [`docs/superpowers/specs/2026-09-25-career-ops-c1-design.md`](../specs/2026-09-25-career-ops-c1-design.md)
 
 ## Global Constraints
 
