@@ -4047,9 +4047,10 @@ export interface paths {
         put?: never;
         /**
          * Refresh All
-         * @description Suresi gelmis tum feed'leri arka planda ceker; yanit hemen doner.
+         * @description Acknowledge completion before the UI invalidates RSS data.
          *
-         *     Cekim bir kez kuyruklanir; tekrar tiklamak suresi gelmemis feed bulamaz.
+         *     The existing bounded per-feed fetch records source_run health. A successful
+         *     response means the refresh finished, not that every source is healthy.
          */
         post: operations["refresh_all_api_rss_refresh_all_post"];
         delete?: never;

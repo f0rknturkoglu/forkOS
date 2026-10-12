@@ -11,7 +11,7 @@
  *    boşluk değildir.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/core/ui";
 import { RssPage } from "./RssPage";
@@ -75,6 +75,28 @@ function renderPage() {
 }
 
 describe("RSS okuyucu durum dili", () => {
+  it("shows pending refresh, prevents a second request and reports completion", async () => {
+    let finish!: (response: Response) => void;
+    const original = fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).includes("/rss/refresh-all"))
+          return new Promise<Response>((resolve) => {
+            finish = resolve;
+          });
+        return original(input, init);
+      }),
+    );
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Tümünü tazele" }));
+    const pending = await screen.findByRole("button", { name: "Yenileniyor…" });
+    expect((pending as HTMLButtonElement).disabled).toBe(true);
+    expect(pending.getAttribute("aria-busy")).toBe("true");
+    finish(json({ started: 1, added: 2 }));
+    expect(await screen.findByText("1 besleme yenilendi.")).toBeTruthy();
+    expect(((await screen.findByRole("button", { name: "Tümünü tazele" })) as HTMLButtonElement).disabled).toBe(false);
+  });
   it("kapatılan besleme nötr 'kapalı' led'i taşır — kırmızı hata değil", async () => {
     feedsBody = [feed({ id: "f1", title: "Kapalı Besleme", active: false })];
     renderPage();

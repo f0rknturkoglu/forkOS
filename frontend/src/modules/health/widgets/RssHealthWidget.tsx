@@ -48,10 +48,11 @@ export function RssHealthWidget() {
     onSuccess: (result) => {
       invalidateAfter("rss.write");
       toast.push(
-        result.started > 0 ? `${result.started} besleme çekiliyor…` : "Süresi gelen besleme yok — hepsi taze.",
+        result.started > 0 ? `${result.started} besleme yenilendi.` : "Süresi gelen besleme yok — hepsi taze.",
         { tone: result.started > 0 ? "neutral" : "ok" },
       );
     },
+    onError: (error) => toast.push(`RSS yenilenemedi: ${error.message}`, { tone: "danger" }),
   });
   const refreshOne = useMutation({
     mutationFn: (id: string) => api.post(`/rss/feeds/${id}/refresh`),

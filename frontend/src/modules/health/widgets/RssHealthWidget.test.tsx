@@ -205,7 +205,7 @@ describe("RSS Sağlığı widget'ı", () => {
     const single = screen.getByRole("button", { name: "Bu beslemeyi şimdi çek" });
     fireEvent.click(single);
 
-    expect(await screen.findByText(/besleme çekiliyor/)).toBeTruthy();
+    expect(await screen.findByText(/besleme yenilendi/)).toBeTruthy();
     await waitFor(() => expect(calls.some((call) => call.path === "/rss/feeds/f1/refresh")).toBe(true));
     expect(calls.some((call) => call.path === "/rss/refresh-all")).toBe(true);
   });

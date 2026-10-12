@@ -350,11 +350,12 @@ export function RssPage() {
       invalidateAfter("rss.write");
       toast.push(
         (result as { started: number }).started > 0
-          ? `${(result as { started: number }).started} besleme çekiliyor…`
+          ? `${(result as { started: number }).started} besleme yenilendi.`
           : "Süresi gelen besleme yok — hepsi taze.",
         { tone: (result as { started: number }).started > 0 ? "neutral" : "ok" },
       );
     },
+    onError: (error) => toast.push(`RSS yenilenemedi: ${error.message}`, { tone: "danger" }),
   });
 
   const refreshFeed = useMutation({
@@ -513,12 +514,13 @@ export function RssPage() {
           <div className="mb-2 flex items-center justify-end px-1">
             <button
               type="button"
-              disabled={!online}
+              disabled={!online || refreshAllFeed.isPending}
+              aria-busy={refreshAllFeed.isPending}
               onClick={() => refreshAllFeed.mutate()}
               title="Süresi gelen tüm beslemeleri çek"
               className="flex h-6 items-center gap-1 rounded px-1.5 text-meta text-muted hover:bg-surface-hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <RefreshCw size={12} /> Tümünü tazele
+              <RefreshCw size={12} /> {refreshAllFeed.isPending ? "Yenileniyor…" : "Tümünü tazele"}
             </button>
           </div>
           <ul className="stack-y-0.5">

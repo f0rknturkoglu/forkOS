@@ -194,13 +194,13 @@ async def rss_stats(session: AsyncSession = Depends(get_session)):
 
 @router.post("/rss/refresh-all")
 async def refresh_all(
-    background: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
-    """Suresi gelmis tum feed'leri arka planda ceker; yanit hemen doner.
+    """Acknowledge completion before the UI invalidates RSS data.
 
-    Cekim bir kez kuyruklanir; tekrar tiklamak suresi gelmemis feed bulamaz.
+    The existing bounded per-feed fetch records source_run health. A successful
+    response means the refresh finished, not that every source is healthy.
     """
     due = await service.due_feeds(session, interval_minutes=None)
-    background.add_task(service.refresh_all)
-    return {"started": len(due)}
+    added = await service.refresh_all()
+    return {"started": len(due), "added": added}

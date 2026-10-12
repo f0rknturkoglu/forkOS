@@ -32961,7 +32961,7 @@
     },
     "/api/rss/refresh-all": {
       "post": {
-        "description": "Suresi gelmis tum feed'leri arka planda ceker; yanit hemen doner.\n\nCekim bir kez kuyruklanir; tekrar tiklamak suresi gelmemis feed bulamaz.",
+        "description": "Acknowledge completion before the UI invalidates RSS data.\n\nThe existing bounded per-feed fetch records source_run health. A successful\nresponse means the refresh finished, not that every source is healthy.",
         "operationId": "refresh_all_api_rss_refresh_all_post",
         "responses": {
           "200": {
