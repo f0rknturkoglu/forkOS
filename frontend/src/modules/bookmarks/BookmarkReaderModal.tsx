@@ -23,7 +23,7 @@ import { invalidateAfter } from "@/core/invalidation";
 import { openObsidianUri, type VaultItem } from "@/core/obsidian";
 import { createTask, invalidateTaskWrite } from "@/core/tasks";
 import type { Bookmark, BookmarkFullText, BookmarkHighlight, Collection } from "@/core/types";
-import { Button, Chip, Empty, IconButton, Input, Select, cx, hostOf, useToast } from "@/core/ui";
+import { Button, Chip, Empty, IconButton, Input, Select, cx, hostOf, useToast, useDialogFocus } from "@/core/ui";
 
 interface BookmarkReaderModalProps {
   open: boolean;
@@ -86,6 +86,7 @@ function safeSetStorage(key: string, value: string): void {
 export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated }: BookmarkReaderModalProps) {
   const toast = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [fontFamily, setFontFamily] = useState<FontFamilyChoice>(() => {
@@ -136,21 +137,10 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
     safeSetStorage("forkos_reader_width", columnWidth);
   }, [columnWidth]);
 
-  // ESC ile kapatma
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (selectionPopup) {
-          setSelectionPopup(null);
-        } else {
-          onClose();
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, selectionPopup, onClose]);
+  useDialogFocus(open && Boolean(bookmark), dialogRef, () => {
+    if (selectionPopup) setSelectionPopup(null);
+    else onClose();
+  });
 
   // Tam metin ve vurgulari getir
   const {
@@ -397,6 +387,8 @@ export function BookmarkReaderModal({ open, bookmark, onClose, onBookmarkUpdated
 
   return (
     <div
+      ref={dialogRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label={bookmark.title || "Okuma Modu"}

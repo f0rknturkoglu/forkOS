@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { Button, cx } from "./ui";
+import { useEffect, useRef, useState } from "react";
+import { Button, Modal } from "./ui";
 
 /**
  * Onay diyalogu.
@@ -33,56 +33,46 @@ export function confirmDialog(options: ConfirmOptions): Promise<boolean> {
 
 export function DialogHost() {
   const [pending, setPending] = useState<Pending | null>(null);
+  const active = useRef<Pending | null>(null);
 
   useEffect(() => {
-    show = setPending;
+    show = (next) => {
+      // A second request cannot replace an unanswered confirmation promise.
+      if (active.current) return next.resolve(false);
+      active.current = next;
+      setPending(next);
+    };
     return () => {
       show = null;
+      active.current?.resolve(false);
+      active.current = null;
     };
   }, []);
 
-  useEffect(() => {
-    if (!pending) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        close(false);
-      }
-    };
-    document.addEventListener("keydown", onKey, true);
-    return () => document.removeEventListener("keydown", onKey, true);
-  });
-
   function close(ok: boolean) {
-    pending?.resolve(ok);
+    active.current?.resolve(ok);
+    active.current = null;
     setPending(null);
   }
 
   if (!pending) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-modal flex items-center justify-center bg-[color:var(--overlay-scrim)] p-6"
-      onClick={() => close(false)}
-    >
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-label={pending.title}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-overlay border border-strong bg-surface p-6 shadow-overlay"
-      >
-        <h2 className={cx(" text-title", pending.tone === "danger" ? "text-danger" : "text-primary")}>
-          {pending.title}
-        </h2>
-        {pending.body && <div className="mt-2 text-body text-secondary">{pending.body}</div>}
-        <div className="mt-5 flex justify-end gap-2">
+    <Modal
+      open
+      role="alertdialog"
+      title={pending.title}
+      onClose={() => close(false)}
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
           <Button onClick={() => close(false)}>{pending.cancelLabel ?? "Vazgeç"}</Button>
-          <Button autoFocus variant={pending.tone === "danger" ? "danger" : "primary"} onClick={() => close(true)}>
+          <Button variant={pending.tone === "danger" ? "danger" : "primary"} onClick={() => close(true)}>
             {pending.confirmLabel}
           </Button>
         </div>
-      </div>
-    </div>
+      }
+    >
+      {pending.body && <div className="text-body text-secondary">{pending.body}</div>}
+    </Modal>
   );
 }

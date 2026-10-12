@@ -1392,6 +1392,7 @@ export function Popover({
     <div
       ref={panelRef}
       role={role}
+      aria-modal={isDialog ? true : undefined}
       aria-label={ariaLabel}
       tabIndex={isDialog ? -1 : undefined}
       className={cx(
@@ -1408,7 +1409,7 @@ export function Popover({
  * Modal ve Drawer'in ortak odak yonetimi: ilk odak, Tab dongusu, Escape,
  * kapaninca odagin tetikleyiciye donmesi.
  */
-function useDialogFocus(open: boolean, dialogRef: RefObject<HTMLDivElement | null>, onClose: () => void) {
+export function useDialogFocus(open: boolean, dialogRef: RefObject<HTMLDivElement | null>, onClose: () => void) {
   // Cagiranlar genelde satir ici ok fonksiyonu gecer; onClose kimligi her
   // render'da degisir. Efekt onu ref'ten okur, boylece odak yalnizca panel
   // acilip kapanirken kurulur -- yazarken odak ilk alana geri sicramaz.
@@ -1420,33 +1421,37 @@ function useDialogFocus(open: boolean, dialogRef: RefObject<HTMLDivElement | nul
     if (!open) return;
     const opener = document.activeElement as HTMLElement | null;
     const node = dialogRef.current;
-    // Odaklanabilir ogeler: gizli/disabled olanlar atlanir (gorunurluk kontrolu
-    // jsdom'da guvenilir olmadigi icin yalnizca acik isaretlere bakilir).
+    const visible = (el: HTMLElement) =>
+      !el.closest('[hidden], [inert], [aria-hidden="true"], .hidden') &&
+      getComputedStyle(el).display !== "none" &&
+      getComputedStyle(el).visibility !== "hidden";
+    // Only the top rendered dialog owns keyboard/focus, including nested dialogs.
+    const isTop = () =>
+      Array.from(document.querySelectorAll<HTMLElement>('[aria-modal="true"]')).filter(visible).at(-1) === node;
     const focusables = () =>
       node
         ? Array.from(
             node.querySelectorAll<HTMLElement>(
               'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
             ),
-          ).filter((el) => !el.hasAttribute("hidden"))
+          ).filter((el) => visible(el) && el.tabIndex >= 0 && !el.matches('input[type="hidden"]'))
         : [];
     // Ilk odak: isaretli alan > govdedeki ilk alan > ilk odaklanabilir oge >
     // diyalogun kendisi. (Basliktaki kapatma dugmesi odagi kapmasin diye
     // govde tercih edilir -- klavye kullanicisi dogrudan icerige girer.)
+    const items = focusables();
     const firstField =
-      node?.querySelector<HTMLElement>("[data-autofocus]") ??
-      node
-        ?.querySelector<HTMLElement>("[data-modal-body]")
-        ?.querySelector<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ) ??
-      focusables()[0] ??
+      items.find((el) => el.hasAttribute("data-autofocus")) ??
+      items.find((el) => el.closest("[data-modal-body]")) ??
+      items[0] ??
       node;
     firstField?.focus();
 
     const onKey = (event: KeyboardEvent) => {
+      if (!isTop()) return;
       if (event.key === "Escape") {
-        event.stopPropagation();
+        event.preventDefault();
+        event.stopImmediatePropagation();
         onCloseRef.current();
         return;
       }
@@ -1469,10 +1474,15 @@ function useDialogFocus(open: boolean, dialogRef: RefObject<HTMLDivElement | nul
     };
     // Capture fazinda: icerdeki bir alan Escape'i yutsa bile modal kapanir.
     document.addEventListener("keydown", onKey, true);
+    const onFocus = (event: FocusEvent) => {
+      if (isTop() && event.target instanceof Node && !node?.contains(event.target)) firstField?.focus();
+    };
+    document.addEventListener("focusin", onFocus);
     return () => {
       document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("focusin", onFocus);
       // Kapaninca odak tetikleyiciye doner (klavye kullanicisi kaybolmaz).
-      opener?.focus?.();
+      if (opener?.isConnected) opener.focus();
     };
   }, [open, dialogRef]);
 }
@@ -1561,6 +1571,7 @@ export function Modal({
   footer,
   ariaLabel,
   className,
+  role = "dialog",
 }: {
   open: boolean;
   onClose: () => void;
@@ -1571,6 +1582,7 @@ export function Modal({
   /** Baslik gorsel degilse ekran okuyucu adi. */
   ariaLabel?: string;
   className?: string;
+  role?: "dialog" | "alertdialog";
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogFocus(open, dialogRef, onClose);
@@ -1585,7 +1597,7 @@ export function Modal({
     >
       <div
         ref={dialogRef}
-        role="dialog"
+        role={role}
         aria-modal="true"
         tabIndex={-1}
         aria-label={ariaLabel ?? (typeof title === "string" ? title : undefined)}

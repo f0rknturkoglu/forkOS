@@ -271,4 +271,20 @@ describe("CaptureDialog (Faz 22/29)", () => {
     // Mutation reject eder; dialog acik kalir ve daha sonra yeniden denenebilir.
     await waitFor(() => expect(harness.apiPost).toHaveBeenCalled());
   });
+  it("traps keyboard focus and restores opener without capturing on Escape", () => {
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    openAs({ kind: "task" });
+    const dialog = screen.getByRole("dialog", { name: "Hızlı yakala" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    screen.getByRole("button", { name: "Görev" }).focus();
+    fireEvent.keyDown(document.activeElement!, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(screen.getByLabelText("Etiket"));
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(harness.apiPost).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
 });

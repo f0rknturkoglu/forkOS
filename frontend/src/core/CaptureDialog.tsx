@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Layers, Link2, ListChecks, StickyNote, X } from "lucide-react";
 import { api, qs } from "@/core/api";
 import { capture, readCaptureKindPreference, writeCaptureKindPreference, type CaptureKind } from "@/core/capture";
 import { openObsidianUri } from "@/core/obsidian";
-import { Chip, Checkbox, Input, Select, Button, Kbd, cx, useToast } from "@/core/ui";
+import { Chip, Checkbox, Input, Select, Button, Kbd, cx, useDialogFocus, useToast } from "@/core/ui";
 import { entityRoute, typeLabel } from "@/core/entityRegistry";
 import { readPlanTodayPreference, writePlanTodayPreference } from "@/core/tasks";
 import { useDebounced, useOnline } from "@/lib/hooks";
@@ -58,6 +58,7 @@ function isHttpUrl(value: string): boolean {
  * koleksiyon + etiketler. Secilen tur gonderimden once gorunur.
  */
 export function CaptureDialog() {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
   const online = useOnline();
   const [open, setOpen] = useState(false);
@@ -117,9 +118,11 @@ export function CaptureDialog() {
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
   }, []);
 
+  useDialogFocus(open, dialogRef, close);
+
   useEffect(() => {
     if (open) {
-      const field = document.querySelector<HTMLInputElement>('[role="dialog"] input');
+      const field = dialogRef.current?.querySelector<HTMLInputElement>("input");
       field?.focus();
     }
   }, [open, kind]);
@@ -284,20 +287,20 @@ export function CaptureDialog() {
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
+      aria-modal="true"
+      tabIndex={-1}
       aria-label="Hızlı yakala"
-      className="fixed inset-0 z-modal flex items-start justify-center bg-[color:var(--overlay-scrim)] px-4 pt-[12vh]"
+      className="fixed inset-0 z-modal flex items-start justify-center bg-[color:var(--overlay-scrim)] overflow-y-auto px-4 py-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) close();
       }}
     >
       <form
-        className="w-full max-w-md overflow-hidden rounded-overlay border border-strong bg-surface shadow-overlay"
+        className="w-full max-w-md overflow-y-auto rounded-overlay border border-strong bg-surface shadow-overlay"
         onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            close();
-          } else if (event.key === "Enter") {
+          if (event.key === "Enter") {
             // Enter gonderir (tag input'u kendi Enter'ini stopPropagation ile
             // yakalar ve buraya ulasmaz). Implicit submission onlenir.
             event.preventDefault();

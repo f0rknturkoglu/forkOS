@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bookmark, BookmarkFullText } from "@/core/types";
 import { BookmarkReaderModal } from "./BookmarkReaderModal";
+afterEach(cleanup);
 
 type MutationOptions = {
   mutationFn?: (...args: unknown[]) => unknown;
@@ -99,6 +100,30 @@ const mockFullText: BookmarkFullText = {
 };
 
 describe("BookmarkReaderModal", () => {
+  it("keeps keyboard focus in the reader and restores its opener on Escape", () => {
+    function Reader() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Okumayı aç</button>
+          <BookmarkReaderModal open={open} bookmark={mockBookmark} onClose={() => setOpen(false)} />
+        </>
+      );
+    }
+    render(<Reader />);
+    const opener = screen.getByRole("button", { name: "Okumayı aç" });
+    opener.focus();
+    fireEvent.click(opener);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    const first = document.activeElement;
+    fireEvent.keyDown(first!, { key: "Tab", shiftKey: true });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(first);
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     harness.mutations = [];
@@ -217,3 +242,6 @@ describe("BookmarkReaderModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";

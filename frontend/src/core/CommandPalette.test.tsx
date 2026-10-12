@@ -131,4 +131,19 @@ describe("CommandPalette v2", () => {
       expect(screen.getByText("forkOS Yeniden Tasarım")).toBeTruthy();
     });
   });
+  it("has modal semantics and restores keyboard focus to opener", () => {
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    renderPalette();
+    act(() => openCommandPalette());
+    const dialog = screen.getByRole("dialog", { name: "Komut paleti" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    fireEvent.keyDown(document.activeElement!, { key: "Tab", shiftKey: true });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
 });

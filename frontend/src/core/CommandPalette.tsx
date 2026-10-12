@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Command } from "cmdk";
 import { ArrowUpRight, Compass, LayoutGrid, Moon, Search, Settings, Sun } from "lucide-react";
 import { allCommands, enabledModules } from "./registry";
 import { areasAt, areaRows } from "./navigation";
 import type { Command as AppCommand } from "./types";
-import { Kbd, useTheme } from "./ui";
+import { Kbd, useDialogFocus, useTheme } from "./ui";
 import { entityRoute, useGlobalSearch } from "./GlobalSearch";
 import { typeLabel } from "./entityRegistry";
 import { navigate } from "@/app/router";
@@ -29,6 +29,7 @@ const ITEM =
  * Gruplar: Gezin (Ürün alanları ve sayfalar), Arama Sonuçları (/api/search), Komutlar ve Eylemler.
  */
 export function CommandPalette() {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [, setTheme] = useTheme();
@@ -82,13 +83,6 @@ export function CommandPalette() {
         navigate("/settings");
         setOpen(false);
       }
-      if (event.key === "Escape") {
-        setAsking((current: AppCommand | null) => {
-          if (current) return null;
-          setOpen(false);
-          return null;
-        });
-      }
     };
     const onOpen = () => setOpen(true);
     document.addEventListener("keydown", onKey);
@@ -125,6 +119,15 @@ export function CommandPalette() {
     setOpen(false);
   };
 
+  useDialogFocus(open, dialogRef, () => {
+    if (asking) setAsking(null);
+    else setOpen(false);
+  });
+
+  useEffect(() => {
+    if (open) dialogRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+  }, [open, asking]);
+
   if (!open) return null;
 
   const needle = query.trim().toLocaleLowerCase("tr");
@@ -150,10 +153,18 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-modal flex items-start justify-center bg-[color:var(--overlay-scrim)] px-3 pt-20 sm:pt-28"
+      className="fixed inset-0 z-modal flex items-start justify-center bg-[color:var(--overlay-scrim)] overflow-y-auto px-3 py-6 sm:items-center"
       onClick={() => setOpen(false)}
     >
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Komut paleti"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[92vh] w-full max-w-xl overflow-y-auto outline-none"
+      >
         <Command
           label="Komut paleti"
           shouldFilter={false}
@@ -171,7 +182,6 @@ export function CommandPalette() {
                 {asking.label}
               </span>
               <input
-                autoFocus
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder={asking.ask?.placeholder ?? asking.ask?.label}
@@ -195,7 +205,6 @@ export function CommandPalette() {
             <div className="flex items-center gap-2.5 border-b border-subtle px-4">
               <Search size={16} className="shrink-0 text-icon" />
               <Command.Input
-                autoFocus
                 value={query}
                 onValueChange={setQuery}
                 placeholder="Komut, sayfa veya arama…"
