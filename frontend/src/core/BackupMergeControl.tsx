@@ -28,7 +28,6 @@ export function BackupMergeControl({ className }: { className?: string }) {
     mutationFn: (value: File) => inspectBackup(value),
     onSuccess: (report) => {
       setInspection(report);
-      setFile(fileRef.current?.files?.[0] ?? null);
     },
     onError: (error: Error) => toast.push(`Yedek incelenemedi: ${error.message}`, { tone: "danger" }),
   });

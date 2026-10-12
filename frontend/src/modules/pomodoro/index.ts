@@ -10,7 +10,7 @@ const PomodoroPage = lazy(() => import("./PomodoroPage").then((module) => ({ def
 registerModule({
   id: "pomodoro",
   title: "Odak",
-  description: "Odak seanslarını başlat, zamanını incele ve çalışma bahçeni büyüt.",
+  description: "Odak seanslarını başlat ve çalışma süreni incele.",
   icon: Timer,
   routes: [{ path: "/pomodoro", element: PomodoroPage }],
   todayWidgets: [

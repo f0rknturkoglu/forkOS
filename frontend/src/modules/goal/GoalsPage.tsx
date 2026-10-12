@@ -261,7 +261,7 @@ export function GoalsPage() {
                     <div key={i} className="border-l-2 border-warn-border pl-3">
                       <p className="text-body">{f.observed_facts}</p>
                       <p className="text-meta text-muted">
-                        {f.code} · {day(f.window_start)}–{day(f.window_end)}
+                        {day(f.window_start)}–{day(f.window_end)}
                       </p>
                       <details className="text-meta">
                         <summary>Kanıt referansları</summary>
@@ -316,12 +316,23 @@ export function GoalsPage() {
                     ))}
                   </div>
                   <div id="goal-editor" hidden={!selected && !createOpen}>
-                    <GoalEditor
-                      key={selected ?? "new"}
-                      goal={detail.data ?? objective?.goal}
-                      data={data}
-                      onSaved={setSelected}
-                    />
+                    {selected && !(detail.data ?? objective?.goal) ? (
+                      detail.isError ? (
+                        <div role="alert">
+                          Hedef yüklenemedi.
+                          <Button onClick={() => void detail.refetch()}>Yeniden dene</Button>
+                        </div>
+                      ) : (
+                        <p role="status">Hedef yükleniyor…</p>
+                      )
+                    ) : (
+                      <GoalEditor
+                        key={selected ?? "new"}
+                        goal={detail.data ?? objective?.goal}
+                        data={data}
+                        onSaved={setSelected}
+                      />
+                    )}
                   </div>
                   {objective && (
                     <ContextualHelp
@@ -519,7 +530,7 @@ function ObjectiveDetail({ objective: o, providers }: { objective: Objective; pr
       </MetricStrip>
       {o.reasons.map((r, i) => (
         <p key={i} className="text-meta text-muted">
-          {r.code}: {r.explanation}
+          {r.explanation}
         </p>
       ))}
       <h3 data-onboarding="goal-keyresults" className="text-heading">
@@ -745,7 +756,13 @@ function PlanEditor({ data, requested }: { data: Overview; requested: string | n
           </option>
         ))}
       </Select>
-      <PlanForm key={id || "new"} plan={plan} onSaved={setId} />
+      {id && !plan ? (
+        <p role="status" className="text-meta text-muted">
+          Plan yükleniyor…
+        </p>
+      ) : (
+        <PlanForm key={id || "new"} plan={plan} onSaved={setId} />
+      )}
       {plan && <Pillars plan={plan} data={data} />}
     </div>
   );

@@ -98,7 +98,7 @@ export function FlashcardPage() {
         rail={
           decks.length ? (
             <WorkspaceRailContent className="max-h-56 lg:max-h-workspace-body">
-              <WorkspaceRailGroup label="Destekler" hint={decks.length}>
+              <WorkspaceRailGroup label="Desteler" hint={decks.length}>
                 {decks.map((deck) => (
                   <WorkspaceRailButton
                     key={deck.id}

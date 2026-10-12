@@ -84,6 +84,13 @@ export function ProjectsPage() {
       setSelected(focusId);
       return;
     }
+    const milestoneOwner =
+      focusId && projects.find((project) => project.milestones.some((item) => item.id === focusId));
+    if (milestoneOwner) {
+      setSelected(milestoneOwner.id);
+      setView("work");
+      return;
+    }
     if (focusId) {
       navigate(`/projects?focus=${encodeURIComponent(projects[0].id)}`, { replace: true });
     }

@@ -98,7 +98,7 @@ export function DeckDetail({ deckId, onBack }: { deckId: string; onBack: () => v
   const [renameValue, setRenameValue] = useState("");
   const query = useDebounced(search.trim(), 250);
 
-  // Tek destek ucu yok; baslik/ozet destek listesi uzerinden gelir.
+  // Tek deste ucu yok; baslik/ozet deste listesi uzerinden gelir.
   const { data: decks = [] } = useQuery({ queryKey: ["flashcard", "decks"], queryFn: () => listDecks() });
   const deck = decks.find((item) => item.id === deckId);
 
@@ -148,9 +148,9 @@ export function DeckDetail({ deckId, onBack }: { deckId: string; onBack: () => v
     onSuccess: () => {
       setRenaming(false);
       refreshFlashcards();
-      toast.push("Destek adı güncellendi.", { tone: "ok" });
+      toast.push("Deste adı güncellendi.", { tone: "ok" });
     },
-    onError: () => toast.push("Destek adı güncellenemedi.", { tone: "danger" }),
+    onError: () => toast.push("Deste adı güncellenemedi.", { tone: "danger" }),
   });
 
   const confirmRemove = async (card: FlashcardCard) => {
@@ -171,7 +171,7 @@ export function DeckDetail({ deckId, onBack }: { deckId: string; onBack: () => v
 
   const closeReview = () => {
     setReviewQueue(null);
-    // Tekrar sonrasi destek ozeti (due/new) ve kart listesi tazelenir.
+    // Tekrar sonrasi deste ozeti (due/new) ve kart listesi tazelenir.
     refreshFlashcards();
   };
 
@@ -179,7 +179,7 @@ export function DeckDetail({ deckId, onBack }: { deckId: string; onBack: () => v
     <div className="stack-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <IconButton title="Desteklere dön" onClick={onBack}>
+          <IconButton title="Destelere dön" onClick={onBack}>
             <ChevronLeft size={16} />
           </IconButton>
           {renaming ? (
@@ -187,7 +187,7 @@ export function DeckDetail({ deckId, onBack }: { deckId: string; onBack: () => v
               <Input
                 value={renameValue}
                 onChange={setRenameValue}
-                ariaLabel="Destek adı"
+                ariaLabel="Deste adı"
                 className="min-w-52"
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && renameValue.trim() && online) rename.mutate(renameValue.trim());
@@ -206,7 +206,7 @@ export function DeckDetail({ deckId, onBack }: { deckId: string; onBack: () => v
             <>
               <h1 className="min-w-0 truncate text-title text-primary">{deck?.title ?? "Kartlar"}</h1>
               <IconButton
-                title="Destek adını değiştir"
+                title="Deste adını değiştir"
                 onClick={() => {
                   setRenameValue(deck?.title ?? "");
                   setRenaming(true);
@@ -304,7 +304,7 @@ export function DeckDetail({ deckId, onBack }: { deckId: string; onBack: () => v
             ) : visible.length === 0 ? (
               <Empty title="Kart yok">
                 {filter === "all" && !query
-                  ? "İlk kartı yukarıdaki formla ekle ya da destek listesinden CSV/Anki dosyası içe aktar."
+                  ? "İlk kartı yukarıdaki formla ekle ya da deste listesinden CSV/Anki dosyası içe aktar."
                   : "Bu filtreye uyan kart yok."}
               </Empty>
             ) : (

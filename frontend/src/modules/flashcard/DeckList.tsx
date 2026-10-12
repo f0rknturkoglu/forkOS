@@ -71,18 +71,18 @@ export function DeckList({ onOpen, showDecks = true }: { onOpen: (deckId: string
     onSuccess: () => {
       setTitle("");
       refreshFlashcards();
-      toast.push("Destek oluşturuldu.", { tone: "ok" });
+      toast.push("Deste oluşturuldu.", { tone: "ok" });
     },
-    onError: () => toast.push("Destek oluşturulamadı.", { tone: "danger" }),
+    onError: () => toast.push("Deste oluşturulamadı.", { tone: "danger" }),
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => deleteDeck(id),
     onSuccess: () => {
       refreshFlashcards();
-      toast.push("Destek silindi.", { tone: "ok" });
+      toast.push("Deste silindi.", { tone: "ok" });
     },
-    onError: () => toast.push("Destek silinemedi.", { tone: "danger" }),
+    onError: () => toast.push("Deste silinemedi.", { tone: "danger" }),
   });
 
   const doImport = useMutation({
@@ -116,11 +116,11 @@ export function DeckList({ onOpen, showDecks = true }: { onOpen: (deckId: string
   return (
     <div className="stack-y-5">
       {showDecks ? (
-        <Section title="Destekler" hint={decks.length ? `${decks.length} destek` : undefined}>
+        <Section title="Desteler" hint={decks.length ? `${decks.length} deste` : undefined}>
           {isLoading ? (
             <SkeletonRows rows={5} className="h-12" />
           ) : decks.length === 0 ? (
-            <Empty title="Henüz destek yok">İlk kart desteni oluştur ya da Anki (.apkg) / CSV dosyası içe aktar.</Empty>
+            <Empty title="Henüz deste yok">İlk kart desteni oluştur ya da Anki (.apkg) / CSV dosyası içe aktar.</Empty>
           ) : (
             <RowList as="ul">
               {decks.map((deck) => (
@@ -131,13 +131,13 @@ export function DeckList({ onOpen, showDecks = true }: { onOpen: (deckId: string
         </Section>
       ) : null}
 
-      <Section title="Yeni destek" flat>
+      <Section title="Yeni deste" flat>
         <div className="flex flex-wrap items-center gap-2">
           <Input
             value={title}
             onChange={setTitle}
-            placeholder="Destek adı (örn. Almanca)"
-            ariaLabel="Yeni destek adı"
+            placeholder="Deste adı (örn. Almanca)"
+            ariaLabel="Yeni deste adı"
             className="min-w-56 flex-1"
             onKeyDown={(event) => {
               if (event.key === "Enter" && title.trim() && online) create.mutate();
@@ -155,15 +155,15 @@ export function DeckList({ onOpen, showDecks = true }: { onOpen: (deckId: string
 
       <Section title="İçe aktar" flat>
         <p className="mb-2.5 text-meta text-muted">
-          Anki paketi (.apkg) ya da CSV/TXT (front,back veya sekme ayraçlı) dosyası. Aynı isimli destek varsa kartlar
+          Anki paketi (.apkg) ya da CSV/TXT (front,back veya sekme ayraçlı) dosyası. Aynı isimli deste varsa kartlar
           oraya eklenir; medya dosyaları atlanır.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Input
             value={importDeckName}
             onChange={setImportDeckName}
-            placeholder="Destek adı (opsiyonel)"
-            ariaLabel="İçe aktarılacak destek adı"
+            placeholder="Deste adı (opsiyonel)"
+            ariaLabel="İçe aktarılacak deste adı"
             className="min-w-44 flex-1"
           />
           <FileInput

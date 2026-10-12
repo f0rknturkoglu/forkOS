@@ -162,6 +162,15 @@ describe("ProjectsPage", () => {
     expect(screen.queryByRole("heading", { name: "Zaman çizelgesi" })).toBeNull();
   });
 
+  it("opens the owning project work view for a milestone deep link instead of the first project", async () => {
+    harness.focus = "focus=m4";
+    render(<ProjectsPage />);
+    expect(await screen.findByRole("heading", { name: "Beta" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "İşler" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText("Beta 4. adım")).toBeTruthy();
+    expect(harness.navigate).not.toHaveBeenCalled();
+  });
+
   it("secili proje silinince listeye (ilk projeye) doner", async () => {
     harness.focus = "focus=p2";
     const view = render(<ProjectsPage />);

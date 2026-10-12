@@ -136,14 +136,14 @@ describe("FlashcardPage", () => {
     expect(screen.queryByText("Kuyruk boş")).toBeNull();
   });
 
-  it("destek listeler, yenisini olusturur ve tazeler", async () => {
+  it("deste listeler, yenisini olusturur ve tazeler", async () => {
     renderPage();
 
     expect(await screen.findByText("Almanca")).toBeTruthy();
-    // Destek satirinda sayaclar (1 tekrar / 1 kart).
+    // Deste satirinda sayaclar (1 tekrar / 1 kart).
     expect(screen.getByText("1 tekrar")).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText("Yeni destek adı"), { target: { value: "İspanyolca" } });
+    fireEvent.change(screen.getByLabelText("Yeni deste adı"), { target: { value: "İspanyolca" } });
     fireEvent.click(screen.getByRole("button", { name: /Oluştur/ }));
 
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith("/flashcard/decks", { title: "İspanyolca" }));

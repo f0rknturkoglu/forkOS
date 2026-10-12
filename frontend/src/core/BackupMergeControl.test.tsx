@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BackupMergeControl } from "./BackupMergeControl";
 
@@ -16,6 +16,7 @@ const harness = vi.hoisted(() => ({
   inspectResult: {} as Record<string, unknown>,
   mergeResult: {} as Record<string, unknown>,
   mutations: [] as MutationOptions[],
+  deferInspection: false,
 }));
 
 vi.mock("@/core/api", () => ({ api: { upload: harness.apiUpload } }));
@@ -37,6 +38,7 @@ vi.mock("@tanstack/react-query", () => ({
       mutate: (variables: never) => {
         void options.mutationFn?.(variables);
         const key = String(options.mutationKey?.[0]);
+        if (key === "backup-inspect" && harness.deferInspection) return;
         options.onSuccess?.(key === "backup-inspect" ? harness.inspectResult : harness.mergeResult);
       },
     };
@@ -56,6 +58,7 @@ describe("BackupMergeControl (Faz 16)", () => {
     harness.invalidate.mockReset();
     harness.confirm.mockReset();
     harness.mutations.length = 0;
+    harness.deferInspection = false;
     harness.inspectResult = {
       version: 2,
       app: "forkos",
@@ -101,5 +104,19 @@ describe("BackupMergeControl (Faz 16)", () => {
     expect(screen.getByText(/Bütünlük bozuk/)).toBeTruthy();
     const merge = screen.getByRole("button", { name: "Evet, birleştir" }) as HTMLButtonElement;
     expect(merge.disabled).toBe(true);
+  });
+
+  it("keeps the selected File after the native input clears and async inspection completes", async () => {
+    harness.deferInspection = true;
+    render(<BackupMergeControl />);
+    pickFile();
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    // Browsers clear FileList when onChange resets input.value for same-file retries.
+    Object.defineProperty(input, "files", { configurable: true, value: [] });
+    const inspection = harness.mutations.find((entry) => entry.mutationKey?.[0] === "backup-inspect")!;
+    act(() => inspection.onSuccess?.(harness.inspectResult));
+    fireEvent.click(screen.getByRole("button", { name: "Evet, birleştir" }));
+    await waitFor(() => expect(harness.apiUpload).toHaveBeenCalledWith("/backup/restore", file));
+    expect(harness.invalidate).toHaveBeenCalledWith("backup.write");
   });
 });
