@@ -1,9 +1,12 @@
-import { ContextualHelp } from "@/core/ContextualHelp";
+import { GoalLivingWorkspace } from "./GoalLivingWorkspace";
+import { GoalWorkArea } from "./GoalWorkArea";
+import { ArrowLeft, Pencil, Plus } from "lucide-react";
+import { appLocalToUtc, formatAppDate, localDateKey } from "@/lib/date";
 import { GoalStudio } from "./GoalStudio";
-import { useHashRoute } from "@/app/router";
+import { navigate, useHashRoute } from "@/app/router";
 import { RelatedPanel } from "@/core/RelatedPanel";
-import { useEffect, useState, type ComponentProps } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useState, useCallback, type ComponentProps } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import {
@@ -17,11 +20,13 @@ import {
   Textarea as BaseTextarea,
   PageFrame,
   Tabs,
+  Modal,
   MetricStrip,
   Metric,
   useToast,
 } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
+import { useOnline } from "@/lib/hooks";
 import type { components } from "@/generated/api-schema";
 
 function Textarea(props: ComponentProps<typeof BaseTextarea>) {
@@ -59,12 +64,13 @@ const pace: Record<string, string> = {
   not_applicable: "Rota uygulanmıyor",
 };
 const confidence: Record<string, string> = { high: "Yüksek", medium: "Orta", low: "Düşük" };
-const day = (date: string | null | undefined) => date?.slice(0, 10) ?? "";
-const instant = (value: string) => (value ? new Date(value + "T00:00:00Z").toISOString() : null);
+const day = (date: string | null | undefined) => (date ? localDateKey(new Date(date)) : "");
+const instant = (value: string) => (value ? appLocalToUtc(value, 0, 0) : null);
 
 function useSave(after?: () => void) {
   const toast = useToast();
-  return useMutation({
+  const online = useOnline();
+  const mutation = useMutation({
     mutationFn: (fn: () => Promise<unknown>) => fn(),
     onSuccess: () => {
       invalidateAfter("goal.write");
@@ -72,32 +78,64 @@ function useSave(after?: () => void) {
     },
     onError: (error: Error) => toast.push(error.message || "Kaydedilemedi", { tone: "danger" }),
   });
+  return { ...mutation, isPending: mutation.isPending || !online };
 }
 
 export function GoalsPage() {
+  const online = useOnline();
+  const queryClient = useQueryClient();
   const { params } = useHashRoute();
   const requested = params.get("entity");
-  const [studioOpen, setStudioOpen] = useState(true);
-  const [studioGoalId, setStudioGoalId] = useState<string | null>(null);
-  const [view, setView] = useState(params.get("view") ?? "overview");
-  useEffect(() => {
-    const next = params.get("view");
-    if (next) setView(next);
-  }, [params]);
-  const [days, setDays] = useState<7 | 30 | 90>(30);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(requested);
   const [createOpen, setCreateOpen] = useState(false);
+  const [composer, setComposer] = useState("");
+  const [longTerm, setLongTerm] = useState(false);
+  const [initialRequest, setInitialRequest] = useState("");
+  const [scopeCounts, setScopeCounts] = useState<{ completed: number; total: number } | null>(null);
+  const updateProgress = useCallback((pct: number | null, counts: { completed: number; total: number }) => {
+    setRoadmapPercent(pct);
+    setScopeCounts(counts);
+  }, []);
+  const [roadmapPercent, setRoadmapPercent] = useState<number | null | undefined>(undefined);
+  const [manual, setManual] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(["plans", "history", "overview"].includes(params.get("view") ?? ""));
+  const [view, setView] = useState(params.get("view") ?? "plans");
   const read = useQuery({
-    queryKey: ["strategy-overview", days],
-    queryFn: () => api.get<Overview>(`/goals/strategy/overview?days=${days}`),
+    queryKey: ["strategy-overview", 30],
+    queryFn: () => api.get<Overview>("/goals/strategy/overview?days=30"),
   });
   const history = useQuery({
     queryKey: ["strategy-history"],
     queryFn: () => api.get<S["StrategyHistory"]>("/goals/strategy/history"),
-    enabled: view === "history",
+    enabled: advancedOpen && view === "history",
   });
   const data = read.data;
   const objective = data?.objectives.find((o) => o.goal.id === selected);
+  const detail = useQuery({
+    queryKey: ["career-goal", selected],
+    queryFn: () => api.get<Goal>(`/goals/${selected}`),
+    enabled: Boolean(selected) && !objective,
+  });
+  const owner = useQuery({
+    queryKey: ["goal-node-owner", requested],
+    queryFn: () => api.get<{ goal_id: string }>(`/goals/roadmap-nodes/${requested}`),
+    enabled: Boolean(requested) && detail.isError && !objective,
+    retry: false,
+  });
+  useEffect(() => {
+    if (owner.data) setSelected(owner.data.goal_id);
+  }, [owner.data]);
+  const goal = objective?.goal ?? detail.data;
+  useEffect(() => {
+    setRoadmapPercent(undefined);
+    setScopeCounts(null);
+  }, [selected]);
+  useEffect(() => {
+    setCreateOpen(false);
+  }, [requested]);
   useEffect(() => {
     if (!requested || !data) return;
     const found = data.objectives.find(
@@ -106,301 +144,372 @@ export function GoalsPage() {
         o.goal.milestones.some((m) => m.id === requested) ||
         o.key_results.some((k) => k.id === requested),
     );
-    if (found) {
-      setSelected(found.goal.id);
-      setView("objectives");
-    } else if (data.plans.some((p) => p.id === requested) || data.pillars.some((p) => p.id === requested))
+    if (found) setSelected(found.goal.id);
+    else if (data.plans.some((p) => p.id === requested) || data.pillars.some((p) => p.id === requested)) {
+      setAdvancedOpen(true);
       setView("plans");
-  }, [requested, data?.objectives.length, data?.plans.length]);
-  const detail = useQuery({
-    queryKey: ["career-goal", selected],
-    queryFn: () => api.get<Goal>(`/goals/${selected}`),
-    enabled: Boolean(selected) && view === "objectives",
-  });
-
+    }
+  }, [requested, data]);
   return (
     <PageFrame>
       <Workspace>
-        <WorkspacePaneHeader eyebrow="Hedefler" title="Hedefler & Strateji">
-          <Tabs
-            value={view}
-            onChange={setView}
-            ariaLabel="Strateji görünümü"
-            items={[
-              { id: "overview", label: "Genel Bakış" },
-              { id: "objectives", label: "Hedefler" },
-              { id: "plans", label: "Stratejik plan" },
-              { id: "history", label: "Geçmiş" },
-            ]}
-          />
-        </WorkspacePaneHeader>
-        <WorkspaceScrollArea className="min-w-0 stack-y-4 p-4">
-          <div className="flex flex-wrap gap-2">
-            {!studioOpen && (
-              <Button
-                onClick={() => {
-                  setStudioGoalId(null);
-                  setStudioOpen(true);
-                }}
-              >
-                Hermes ile hedef ve plan hazırla
+        <WorkspacePaneHeader
+          title="Hedefler"
+          hint="Bir hedef seç, sıradaki adımını tamamla."
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => setAdvancedOpen(true)}>
+                Geçmiş ve gelişmiş ayarlar
               </Button>
-            )}
-            {selected && (
-              <Button
-                onClick={() => {
-                  setStudioGoalId(selected);
-                  setStudioOpen(true);
-                }}
-              >
-                Hermes ile Geliştir
-              </Button>
-            )}
-          </div>
-          {studioOpen && (
-            <GoalStudio
-              key={studioGoalId ?? "new"}
-              goalId={studioGoalId}
-              goals={data?.objectives.map((o) => o.goal) ?? []}
-              onClose={() => setStudioOpen(false)}
-            />
-          )}
-          {read.isPending && <p role="status">Strateji yükleniyor…</p>}
-          {read.isError && (
-            <div role="alert">
-              Strateji yüklenemedi. <Button onClick={() => read.refetch()}>Yeniden dene</Button>
+              <span data-onboarding="goal-create">
+                <Button variant="primary" disabled={!online} onClick={() => setCreateOpen(true)}>
+                  <Plus size={14} /> Yeni hedef
+                </Button>
+              </span>
             </div>
-          )}
-          {data && (
-            <>
-              {data.warnings.map((r) => (
-                <p key={r.code} role="status" className="text-meta text-warn">
-                  {r.explanation}
-                </p>
-              ))}
-              {view === "overview" && (
-                <>
-                  {!data.objectives.length && (
-                    <Empty title="İlk hedefini tanımla">
-                      <Button
-                        onClick={() => {
-                          setSelected(null);
-                          setCreateOpen(true);
-                          setView("objectives");
-                        }}
-                      >
-                        Hedef oluştur
-                      </Button>
-                    </Empty>
-                  )}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="flex-1 text-heading">Sonuç ve yürütme</h2>
-                    <Select
-                      value={String(days)}
-                      onChange={(v) => setDays(Number(v) as 7 | 30 | 90)}
-                      ariaLabel="Uyum penceresi"
+          }
+        />
+        <WorkspaceScrollArea className="p-4">
+          <div className="mx-auto max-w-4xl stack-y-5">
+            {read.isPending && <p role="status">Hedefler yükleniyor…</p>}
+            {read.isError && (
+              <div role="alert">
+                Hedefler alınamadı.{" "}
+                <Button
+                  onClick={async () => {
+                    await queryClient.refetchQueries({ queryKey: ["entity-types"] });
+                    await read.refetch();
+                  }}
+                >
+                  Yeniden dene
+                </Button>
+              </div>
+            )}
+            {data && (
+              <>
+                {!selected ? (
+                  <div className="stack-y-5">
+                    <section
+                      className="rounded-card border border-subtle bg-surface p-5 stack-y-3"
+                      aria-label="Hedefini anlat"
                     >
-                      <option value="7">Son 7 gün</option>
-                      <option value="30">Son 30 gün</option>
-                      <option value="90">Son 90 gün</option>
-                    </Select>
-                  </div>
-                  <div
-                    aria-label="Strateji özeti"
-                    className="flex w-fit flex-wrap items-center gap-x-5 gap-y-2 rounded-control border border-subtle px-3 py-2 text-meta text-secondary"
-                  >
-                    <span>
-                      <strong className="text-primary">{percent(data.alignment.percent)}</strong> uyum
-                    </span>
-                    <span>
-                      <strong className="text-primary">{data.alignment.unaligned_count}</strong> bağlanmamış hareket
-                    </span>
-                    <span>
-                      <strong className="text-primary">
-                        {data.objectives.filter((o) => o.measurable_count > 0).length}/{data.objectives.length}
-                      </strong>{" "}
-                      ölçülebilir hedef
-                    </span>
-                  </div>
-                  {data.alignment.warnings.map((r) => (
-                    <p key={r.code} className="text-meta text-warn">
-                      {r.explanation}
-                    </p>
-                  ))}
-                  {data.plans
-                    .filter((p) => p.status === "active")
-                    .map((p) => {
-                      const agg = data.plan_progress.find((a) => a.id === p.id);
-                      return (
-                        <div key={p.id} className="rounded-card border border-subtle p-3">
-                          <h3 className="text-heading">
-                            {p.title} · revizyon {p.revision}
-                          </h3>
-                          <p className="text-meta">
-                            Sonuç: {percent(agg?.progress_percent)} · kapsam {agg?.measurable_objectives}/
-                            {agg?.active_objectives} · kanıt {confidence[agg?.confidence ?? "low"]}
-                          </p>
-                          {p.summary && <p className="mt-2 text-body">{p.summary}</p>}
-                        </div>
-                      );
-                    })}
-                  {data.pillars.map((p) => {
-                    const agg = data.pillar_progress.find((a) => a.id === p.id);
-                    const allocation = data.alignment.pillars.find((a) => a.entity_id === p.id);
-                    return (
-                      <p key={p.id} className="text-body">
-                        {p.title} · sonuç {percent(agg?.progress_percent)} · yürütme payı %
-                        {allocation?.share_percent ?? 0}
+                      <h2 className="text-title font-semibold">Neyi başarmak istiyorsun?</h2>
+                      <p className="text-body text-secondary">
+                        Hedefini ve ayırabileceğin zamanı anlat. Hermes yapılabilir bir yol haritası, görevler ve
+                        öğrenme planı hazırlasın.
                       </p>
-                    );
-                  })}
-                  <h2 className="text-heading">Stratejik inceleme</h2>
-                  {!data.findings.length && (
-                    <p className="text-meta text-muted">Bu pencerede desteklenen bir risk saptanmadı.</p>
-                  )}
-                  {data.findings.map((f, i) => (
-                    <div key={i} className="border-l-2 border-warn-border pl-3">
-                      <p className="text-body">{f.observed_facts}</p>
-                      <p className="text-meta text-muted">
-                        {day(f.window_start)}–{day(f.window_end)}
-                      </p>
-                      <details className="text-meta">
-                        <summary>Kanıt referansları</summary>
-                        {[...f.entity_refs, ...f.evidence_refs].join(" · ")}
-                      </details>
-                    </div>
-                  ))}
-                  <div className="stack-divide-y divide-subtle">
-                    {data.objectives.map((o) => (
-                      <button
-                        type="button"
-                        key={o.goal.id}
-                        onClick={() => {
-                          setSelected(o.goal.id);
-                          setView("objectives");
-                        }}
-                        className="flex w-full flex-wrap items-center gap-2 py-3 text-left"
-                      >
-                        <span className="min-w-0 flex-1 break-words">{o.goal.title}</span>
-                        <span className="text-meta">
-                          Sonuç {percent(o.strategic_progress_percent)} · adımlar{" "}
-                          {percent(o.milestone_progress_percent)} · {pace[o.trajectory]}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-              {view === "objectives" && (
-                <>
-                  <div className="flex flex-wrap gap-2">
-                    <span data-onboarding="goal-create" className="inline-flex">
-                      <Button
-                        ariaExpanded={!selected && createOpen}
-                        ariaControls="goal-editor"
-                        onClick={() => {
-                          setCreateOpen(selected ? true : !createOpen);
-                          setSelected(null);
-                        }}
-                      >
-                        Kendim oluştur
-                      </Button>
-                    </span>
-                    {data.objectives.map((o) => (
-                      <Button
-                        key={o.goal.id}
-                        variant={selected === o.goal.id ? "primary" : "ghost"}
-                        onClick={() => setSelected(o.goal.id)}
-                      >
-                        {o.goal.title}
-                      </Button>
-                    ))}
-                  </div>
-                  <div id="goal-editor" hidden={!selected && !createOpen}>
-                    {selected && !(detail.data ?? objective?.goal) ? (
-                      detail.isError ? (
-                        <div role="alert">
-                          Hedef yüklenemedi.
-                          <Button onClick={() => void detail.refetch()}>Yeniden dene</Button>
-                        </div>
-                      ) : (
-                        <p role="status">Hedef yükleniyor…</p>
-                      )
+                      <Textarea
+                        ariaLabel="Yeni hedef isteği"
+                        value={composer}
+                        onChange={setComposer}
+                        rows={4}
+                        placeholder="Örneğin: YDS’den en az 55 almak istiyorum. Günde iki saat çalışabilirim."
+                      />
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Checkbox label="Uzun vadeli" checked={longTerm} onChange={setLongTerm} />
+                        <Button
+                          variant="primary"
+                          disabled={!online || !composer.trim()}
+                          onClick={() => {
+                            setInitialRequest(composer.trim());
+                            setCreateOpen(true);
+                            setManual(false);
+                          }}
+                        >
+                          Hedef planımı hazırla
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          disabled={!online}
+                          onClick={() => {
+                            setManual(true);
+                            setCreateOpen(true);
+                          }}
+                        >
+                          Kendim oluştur
+                        </Button>
+                      </div>
+                    </section>
+                    {data.objectives.length ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {data.objectives
+                          .filter((o) => !o.goal.parent_goal_id)
+                          .map((o) => (
+                            <button
+                              key={o.goal.id}
+                              type="button"
+                              onClick={() => {
+                                setSelected(o.goal.id);
+                                navigate(`/goals?entity=${encodeURIComponent(o.goal.id)}`);
+                              }}
+                              className="rounded-card border border-subtle bg-surface p-4 text-left transition hover:border-strong stack-y-3"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <h2 className="text-heading">{o.goal.title}</h2>
+                                <span className="font-sans text-title font-bold tabular-nums">
+                                  {(o.roadmap_progress_percent !== undefined
+                                    ? o.roadmap_progress_percent
+                                    : o.work?.progress_percent) == null
+                                    ? "—"
+                                    : `%${o.roadmap_progress_percent !== undefined ? o.roadmap_progress_percent : o.work?.progress_percent}`}
+                                </span>
+                              </div>
+                              <WorkProgress
+                                work={
+                                  o.roadmap_progress_percent !== undefined
+                                    ? { ...o.work, progress_percent: o.roadmap_progress_percent }
+                                    : o.work
+                                }
+                              />
+                              <p className="text-meta text-muted">
+                                {(o.roadmap_scope_count ?? o.work?.total_count)
+                                  ? `${o.roadmap_completed_scope_count ?? o.work?.completed_count}/${o.roadmap_scope_count ?? o.work?.total_count} ana adım tamamlandı`
+                                  : "İlk adımını ekle"}
+                                {o.goal.target_at
+                                  ? ` · ${formatAppDate(o.goal.target_at, { day: "numeric", month: "long", year: "numeric" })}`
+                                  : ""}
+                              </p>
+                            </button>
+                          ))}
+                      </div>
                     ) : (
+                      <Empty title="İlk hedefini oluştur">
+                        <span>Ne başarmak istediğini Hermes’e anlat; birlikte yapılabilir adımlara ayırın.</span>
+                        <Button variant="primary" disabled={!online} onClick={() => setCreateOpen(true)}>
+                          Hedef oluştur
+                        </Button>
+                      </Empty>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSelected(null);
+                        navigate("/goals");
+                      }}
+                    >
+                      <ArrowLeft size={14} /> Tüm hedefler
+                    </Button>
+                    {goal ? (
+                      <div className="rounded-card border border-subtle p-4 stack-y-3">
+                        <div className="flex flex-wrap items-start gap-3">
+                          <div className="min-w-0 flex-1">
+                            <h2 className="text-title font-semibold break-words">{goal.title}</h2>
+                            {goal.target_at && (
+                              <p className="mt-1 text-meta text-secondary">
+                                Hedef tarihi:{" "}
+                                {formatAppDate(goal.target_at, { day: "numeric", month: "long", year: "numeric" })}
+                              </p>
+                            )}
+                          </div>
+                          <Button size="sm" disabled={!online} onClick={() => setEditOpen(true)}>
+                            <Pencil size={13} /> Düzenle
+                          </Button>
+                        </div>
+                        {goal.description && (
+                          <Disclosure summary="Çalışma planını oku">
+                            <p className="whitespace-pre-wrap text-body text-secondary">{goal.description}</p>
+                          </Disclosure>
+                        )}
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-body text-secondary">Çalışma ilerlemesi</span>
+                          <strong className="font-sans text-display font-bold tabular-nums">
+                            {roadmapPercent === undefined
+                              ? objective?.work?.progress_percent == null
+                                ? "—"
+                                : `%${objective.work.progress_percent}`
+                              : roadmapPercent == null
+                                ? "—"
+                                : `%${roadmapPercent}`}
+                          </strong>
+                        </div>
+                        <WorkProgress
+                          work={
+                            roadmapPercent === undefined
+                              ? objective?.work
+                              : { ...objective?.work, progress_percent: roadmapPercent }
+                          }
+                        />
+                        <p className="text-meta text-secondary">
+                          Gerçek sonuç:{" "}
+                          {objective?.strategic_progress_percent == null
+                            ? "Henüz ölçülmedi"
+                            : `%${objective.strategic_progress_percent}`}{" "}
+                          · Hazırlık ilerlemesinden ayrı ölçülür.
+                        </p>
+                        <p className="text-meta text-muted">
+                          {(scopeCounts?.total ?? objective?.work?.total_count)
+                            ? `${scopeCounts?.completed ?? objective?.work?.completed_count}/${scopeCounts?.total ?? objective?.work?.total_count} ana adım tamamlandı`
+                            : "Adım ekleyerek başlayabilirsin."}
+                        </p>
+                      </div>
+                    ) : detail.isError ? (
+                      <div role="alert">
+                        Hedef alınamadı. <Button onClick={() => void detail.refetch()}>Yeniden dene</Button>
+                      </div>
+                    ) : (
+                      <p role="status">Hedef yükleniyor…</p>
+                    )}
+                    {goal && (
+                      <GoalLivingWorkspace
+                        key={goal.id}
+                        goalId={goal.id}
+                        title={goal.title}
+                        nodeId={requested}
+                        onProgress={updateProgress}
+                      />
+                    )}
+                    {objective && (
+                      <Disclosure summary="Adımlar ve manuel ekleme">
+                        <GoalWorkArea objective={objective} />
+                      </Disclosure>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={() => setChatOpen(!chatOpen)} ariaExpanded={chatOpen}>
+                        <img src="/brands/nous.png" alt="" className="h-5 w-5 rounded-full" /> Hermes’e ilerlememi sor
+                      </Button>
+                      <Button variant="ghost" onClick={() => setEvidenceOpen(true)}>
+                        Ölçümler ve ayrıntılar
+                      </Button>
+                    </div>
+                    {chatOpen && goal && (
+                      <GoalStudio
+                        key={`feedback:${goal.id}`}
+                        goalId={goal.id}
+                        goals={[]}
+                        living
+                        onClose={() => setChatOpen(false)}
+                      />
+                    )}
+                  </>
+                )}
+                <Modal
+                  open={createOpen}
+                  onClose={() => setCreateOpen(false)}
+                  title="Yeni hedef"
+                  className="sm:max-w-2xl"
+                >
+                  <div className="stack-y-3">
+                    <Button size="sm" variant="ghost" onClick={() => setManual(!manual)} ariaExpanded={manual}>
+                      {manual ? "Hermes ile hazırla" : "Kendim oluştur"}
+                    </Button>
+                    {manual ? (
                       <GoalEditor
-                        key={selected ?? "new"}
-                        goal={detail.data ?? objective?.goal}
                         data={data}
-                        onSaved={setSelected}
+                        onSaved={(id) => {
+                          setSelected(id);
+                          navigate(`/goals?entity=${encodeURIComponent(id)}`);
+                          setCreateOpen(false);
+                        }}
+                      />
+                    ) : (
+                      <GoalStudio
+                        goalId={null}
+                        goals={[]}
+                        living
+                        longTerm={longTerm}
+                        initialMessage={initialRequest || undefined}
+                        onApplied={(id) => {
+                          setSelected(id);
+                          navigate(`/goals?entity=${encodeURIComponent(id)}`);
+                          setCreateOpen(false);
+                          setComposer("");
+                        }}
+                        onClose={() => setCreateOpen(false)}
                       />
                     )}
                   </div>
-                  {objective && (
-                    <ContextualHelp
-                      key={`help:${objective.goal.id}`}
-                      context={{ kind: "goal", entity_id: objective.goal.id }}
-                      label="Bu hedefte ilerliyor muyum?"
+                </Modal>
+                <Modal open={editOpen && Boolean(goal)} onClose={() => setEditOpen(false)} title="Hedefi düzenle">
+                  {goal && <GoalEditor key={goal.id} goal={goal} data={data} onSaved={() => setEditOpen(false)} />}
+                </Modal>
+                <Modal
+                  open={evidenceOpen && Boolean(objective)}
+                  onClose={() => setEvidenceOpen(false)}
+                  title="Ölçümler ve ayrıntılar"
+                  className="sm:max-w-3xl"
+                >
+                  {objective && <ObjectiveEvidence objective={objective} providers={data.providers} />}
+                </Modal>
+                <Modal
+                  open={advancedOpen}
+                  onClose={() => setAdvancedOpen(false)}
+                  title="Geçmiş ve gelişmiş ayarlar"
+                  className="sm:max-w-3xl"
+                >
+                  <div className="stack-y-4">
+                    <Tabs
+                      value={view}
+                      onChange={setView}
+                      ariaLabel="Plan ayrıntıları"
+                      items={[
+                        { id: "plans", label: "Planlar" },
+                        { id: "history", label: "Geçmiş" },
+                        { id: "overview", label: "Strateji ayrıntıları" },
+                      ]}
                     />
-                  )}
-                  {objective && (
-                    <ObjectiveDetail
-                      key={`detail:${objective.goal.id}`}
-                      objective={objective}
-                      providers={data.providers}
-                    />
-                  )}
-                  {data.objectives.some((o) => !o.goal.strategic_plan_id) && (
-                    <p className="text-meta text-muted">
-                      Plana atanmamış hedefler geçerlidir; mevcut kayıtlara otomatik anlam atanmaz.
-                    </p>
-                  )}
-                </>
-              )}
-              {view === "plans" && <PlanEditor data={data} requested={requested} />}
-            </>
-          )}
-          {view === "history" && (
-            <>
-              {history.isPending && <p role="status">Geçmiş yükleniyor…</p>}
-              {history.isError && <p role="alert">Geçmiş yüklenemedi.</p>}
-              {history.data && (
-                <>
-                  <p className="text-meta">
-                    {history.data.comparison_reason}
-                    {history.data.truncated ? " · Geçmiş liste sınırına ulaşıldı." : ""}
-                  </p>
-                  {history.data.comparable && (
-                    <p>
-                      Uyum değişimi: {history.data.alignment_delta ?? "Ölçüm yok"} puan · Hedef değişimleri:{" "}
-                      {Object.entries(history.data.progress_deltas ?? {})
-                        .map(
-                          ([id, v]) => `${data?.objectives.find((o) => o.goal.id === id)?.goal.title ?? id}: ${v} puan`,
-                        )
-                        .join(" · ")}
-                    </p>
-                  )}
-                  {!history.data.items.length && (
-                    <Empty title="Henüz stratejik geçmiş yok">
-                      Plan revizyonları ve kabul edilmiş Review kayıtları burada görünür.
-                    </Empty>
-                  )}
-                  {history.data.items.map((item) => (
-                    <details key={item.id} className="rounded-card border border-subtle p-3">
-                      <summary>
-                        {item.title} · {day(item.occurred_at)}
-                      </summary>
-                      <pre className="mt-2 whitespace-pre-wrap break-all text-meta">
-                        {JSON.stringify(item.state, null, 2)}
-                      </pre>
-                    </details>
-                  ))}
-                </>
-              )}
-            </>
-          )}
+                    {view === "plans" && <PlanEditor data={data} requested={requested} />}
+                    {view === "history" && (
+                      <>
+                        {history.isPending && <p role="status">Geçmiş yükleniyor…</p>}
+                        {history.isError && <p role="alert">Geçmiş alınamadı.</p>}
+                        {history.data && (
+                          <>
+                            <p className="text-meta text-secondary">{history.data.comparison_reason}</p>
+                            {history.data.items.map((item) => (
+                              <Disclosure key={item.id} summary={item.title}>
+                                <pre className="overflow-auto text-meta">{JSON.stringify(item.state, null, 2)}</pre>
+                              </Disclosure>
+                            ))}
+                          </>
+                        )}
+                      </>
+                    )}
+                    {view === "overview" && (
+                      <>
+                        <p className="text-body">Uyum: {percent(data.alignment.percent)}</p>
+                        {data.warnings.map((r) => (
+                          <p key={r.code} className="text-meta text-warn">
+                            {r.explanation}
+                          </p>
+                        ))}
+                        {data.findings.map((finding, i) => (
+                          <Disclosure key={i} summary={finding.observed_facts}>
+                            <p className="break-words text-meta">{finding.evidence_refs.join(" · ")}</p>
+                          </Disclosure>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </Modal>
+              </>
+            )}
+          </div>
         </WorkspaceScrollArea>
       </Workspace>
     </PageFrame>
+  );
+}
+
+function WorkProgress({ work }: { work?: Partial<S["GoalWork"]> }) {
+  return (
+    <div
+      role="progressbar"
+      aria-label="Çalışma ilerlemesi"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={work?.progress_percent ?? undefined}
+      aria-valuetext={work?.progress_percent == null ? "Henüz adım yok" : `%${work.progress_percent}`}
+      className="h-2 overflow-hidden rounded-full bg-surface-sunken"
+    >
+      <div
+        className="h-full rounded-full bg-accent transition motion-reduce:transition-none"
+        style={{ width: `${work?.progress_percent ?? 0}%` }}
+      />
+    </div>
   );
 }
 
@@ -442,8 +551,8 @@ function GoalEditor({ goal, data, onSaved }: { goal?: Goal; data: Overview; onSa
       <h2 className="text-heading">{goal ? "Hedefi düzenle" : "Yeni hedef"}</h2>
       <Input value={title} onChange={setTitle} ariaLabel="Hedef başlığı" placeholder="Nereye ulaşmak istiyorum?" />
       <Textarea value={description} onChange={setDescription} ariaLabel="Hedef açıklaması" />
-      <details>
-        <summary className="text-meta">Plan, öncelik ve tarih</summary>
+      <Input type="date" value={date} onChange={setDate} ariaLabel="Hedef tarihi" />
+      <Disclosure summary="Diğer ayarlar">
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <Select value={status} onChange={(v) => setStatus(v as typeof status)} ariaLabel="Hedef durumu">
             <option value="active">Aktif</option>
@@ -457,7 +566,6 @@ function GoalEditor({ goal, data, onSaved }: { goal?: Goal; data: Overview; onSa
             <option value="year">Yıl</option>
             <option value="long_term">Uzun vade</option>
           </Select>
-          <Input type="date" value={date} onChange={setDate} ariaLabel="Hedef tarihi" />
           <Select value={priority} onChange={setPriority} ariaLabel="Hedef önceliği">
             <option value="1">Düşük öncelik</option>
             <option value="2">Normal öncelik</option>
@@ -500,7 +608,7 @@ function GoalEditor({ goal, data, onSaved }: { goal?: Goal; data: Overview; onSa
           </Select>
           <Input type="number" value={weight} onChange={setWeight} ariaLabel="Hedef ağırlığı" />
         </div>
-      </details>
+      </Disclosure>
       <Button type="submit" disabled={!title.trim() || save.isPending}>
         {goal ? "Hedefi kaydet" : "Hedef oluştur"}
       </Button>
@@ -508,8 +616,7 @@ function GoalEditor({ goal, data, onSaved }: { goal?: Goal; data: Overview; onSa
   );
 }
 
-function ObjectiveDetail({ objective: o, providers }: { objective: Objective; providers: Overview["providers"] }) {
-  const [milestone, setMilestone] = useState("");
+function ObjectiveEvidence({ objective: o, providers }: { objective: Objective; providers: Overview["providers"] }) {
   const [editKR, setEditKR] = useState<KR | null>(null);
   const [showKR, setShowKR] = useState(false);
   const save = useSave();
@@ -522,9 +629,9 @@ function ObjectiveDetail({ objective: o, providers }: { objective: Objective; pr
           hint={`${o.measurable_count}/${o.active_kr_count} ölçülebilir KR`}
         />
         <Metric
-          label="Milestone tamamlanması"
-          value={percent(o.milestone_progress_percent)}
-          hint="Sonuç ilerlemesi değildir"
+          label="Çalışma ilerlemesi"
+          value={percent(o.work?.progress_percent)}
+          hint={`${o.work?.completed_count ?? 0}/${o.work?.total_count ?? 0} adım tamamlandı`}
         />
         <Metric label="Rota" value={pace[o.trajectory]} hint={`Beklenen ${percent(o.expected_percent)}`} />
         <Metric label="Kanıt kalitesi" value={confidence[o.confidence]} hint="Kullanıcı/model puanı değil" />
@@ -592,36 +699,6 @@ function ObjectiveDetail({ objective: o, providers }: { objective: Objective; pr
           onSaved={() => setShowKR(false)}
         />
       )}
-      <h3 className="text-heading">Yürütme ve adımlar</h3>
-      {o.goal.milestones.map((m) => (
-        <details key={m.id}>
-          <summary className="text-meta">{m.title} bağlantıları</summary>
-          <RelatedPanel entityId={m.id} relation="advances_goal_milestone" incoming />
-        </details>
-      ))}
-      <form
-        data-onboarding="goal-milestone"
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          save.mutate(() =>
-            api.post(`/goals/${o.goal.id}/milestones`, { title: milestone }).then(() => setMilestone("")),
-          );
-        }}
-      >
-        <Input value={milestone} onChange={setMilestone} ariaLabel="Yeni hedef adımı" />
-        <Button type="submit" disabled={!milestone.trim()}>
-          Adım ekle
-        </Button>
-      </form>
-      {o.goal.milestones.map((m) => (
-        <Checkbox
-          key={m.id}
-          label={m.title}
-          checked={Boolean(m.completed_at)}
-          onChange={(completed) => save.mutate(() => api.patch(`/goal-milestones/${m.id}`, { completed }))}
-        />
-      ))}
       <RelatedPanel entityId={o.goal.id} title="Hedefi destekleyen kayıtlar" relation="advances_goal" incoming />
       <details className="text-meta">
         <summary>Yakın dönem kanıtları</summary>

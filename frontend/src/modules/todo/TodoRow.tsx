@@ -238,10 +238,10 @@ export function TodoRow({
         {nested && <CornerDownRight size={13} className="mt-1 shrink-0 text-icon" aria-hidden />}
         <button
           type="button"
-          disabled={!online || done}
-          onClick={() => complete.mutate()}
-          aria-label={done ? "Tamamlandı" : "Tamamla"}
-          title={done ? "Tamamlandı" : "Tamamla"}
+          disabled={!online || complete.isPending || patch.isPending}
+          onClick={() => (done ? patch.mutate({ status: "open" }) : complete.mutate())}
+          aria-label={done ? "Yeniden aç" : "Tamamla"}
+          title={done ? "Tamamlandı — yeniden aç" : "Tamamla"}
           className={cx(
             "mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border transition",
             done

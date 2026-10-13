@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import tags as tag_svc
@@ -449,6 +449,15 @@ async def update(
         todo.completed_at = datetime.now(UTC)
         await _log_completed(session, todo, entity.title)
         await _spawn_next_occurrence(session, todo)
+    elif previous_status == "done" and todo.status in ("open", "doing"):
+        todo.completed_at = None
+        await log_event(
+            session,
+            verb="todo.reopened",
+            entity_id=todo_id,
+            entity_type="todo",
+            payload={"status": todo.status},
+        )
     elif todo.status == "dropped" and previous_status != "dropped":
         await log_event(
             session, verb="todo.dropped", entity_id=todo_id, entity_type="todo", payload={}
@@ -578,6 +587,7 @@ async def carry_over(session: AsyncSession, day: date, target: date) -> int:
 
 
 async def schedule(session: AsyncSession, data: PlanSlotIn, *, commit: bool = True) -> PlanSlotOut:
+    await session.execute(text("SELECT pg_advisory_xact_lock(8010081)"))
     entity = await session.get(Entity, data.entity_id)
     if entity is None:
         raise ValueError("entity bulunamadi")
@@ -619,6 +629,7 @@ async def schedule(session: AsyncSession, data: PlanSlotIn, *, commit: bool = Tr
 async def update_slot(
     session: AsyncSession, slot_id: uuid.UUID, data: PlanSlotUpdate
 ) -> PlanSlotOut | None:
+    await session.execute(text("SELECT pg_advisory_xact_lock(8010081)"))
     slot = await session.get(PlanSlot, slot_id)
     if slot is None:
         return None
@@ -662,6 +673,7 @@ async def update_slot(
 
 
 async def delete_slot(session: AsyncSession, slot_id: uuid.UUID) -> bool:
+    await session.execute(text("SELECT pg_advisory_xact_lock(8010081)"))
     slot = await session.get(PlanSlot, slot_id)
     if slot is None:
         return False

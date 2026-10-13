@@ -389,6 +389,7 @@ export function Input({
   autoFocus,
   onKeyDown,
   onBlur,
+  onInput,
   ariaLabel,
   max,
   step,
@@ -403,6 +404,7 @@ export function Input({
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   /** Alandan cikinca kaydeden formlar icin -- ayri bir "kaydet" dugmesi gerekmesin. */
   onBlur?: (value: string) => void;
+  onInput?: (value: string) => void;
   ariaLabel?: string;
   max?: string;
   step?: string;
@@ -415,6 +417,7 @@ export function Input({
       autoFocus={autoFocus}
       onKeyDown={onKeyDown}
       onBlur={(e) => onBlur?.(e.target.value)}
+      onInput={(e) => onInput?.(e.currentTarget.value)}
       aria-label={ariaLabel ?? placeholder}
       max={max}
       step={step}

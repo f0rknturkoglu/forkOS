@@ -70,7 +70,8 @@ export default defineConfig({
                     // disa aktarma ve yedek yanitlari buyuk/tek kullanimlik,
                     // digerleri binary dosya.
                     const excluded = [
-                      /^\/api\/goals\/studio\//, // run state and approval revisions must never be served stale
+                      /^\/api\/goals\/studio\//,
+                      /^\/api\/goals\/[^/]+\/conversation$/, // run state and approval revisions must never be served stale
                       /^\/api\/export\//,
                       /^\/api\/backup\//,
                       /^\/api\/documents\/[^/]+\/file$/,

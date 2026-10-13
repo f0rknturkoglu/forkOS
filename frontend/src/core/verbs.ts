@@ -82,6 +82,7 @@ export const VERB_LABELS: Record<string, string> = {
   // Görevler ve plan
   "todo.created": "Görev oluşturuldu",
   "todo.completed": "Görev tamamlandı",
+  "todo.reopened": "Görev yeniden açıldı",
   "todo.dropped": "Görev bırakıldı",
   "todo.rescheduled": "Görev yeniden planlandı",
   "plan.scheduled": "Haftalık plana eklendi",
@@ -106,6 +107,9 @@ export const VERB_LABELS: Record<string, string> = {
   "key_result.manual_value_updated": "Elle ölçüm kaydedildi",
   "goal.created": "Hedef oluşturuldu",
   "goal.updated": "Hedef güncellendi",
+  "goal.task_updated": "Hedefe bağlı görev düzenlendi",
+  "goal.roadmap_created": "Yol haritası adımı oluşturuldu",
+  "goal.roadmap_updated": "Yol haritası adımı düzenlendi",
   "goal.milestone_added": "Hedef kilometre taşı eklendi",
   "goal.milestone_updated": "Hedef kilometre taşı güncellendi",
   "career_proposal.created": "Kariyer önerisi hazırlandı",

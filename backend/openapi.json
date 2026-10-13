@@ -1,6 +1,45 @@
 {
   "components": {
     "schemas": {
+      "AcceptedRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "constraints": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanningConstraints"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "fingerprint",
+          "constraints",
+          "assumptions"
+        ],
+        "title": "AcceptedRevision",
+        "type": "object"
+      },
       "ActivityEventOut": {
         "description": "Akis kaydi + sunucu tarafi uyari bayragi.\n\nUyari kurali istemcide TEKRARLANMAZ: hangi fiilin uyari oldugu tek\nkaynaktan (core/events.ALERT_VERBS + payload kurali) burada isaretlenir.",
         "properties": {
@@ -60,6 +99,39 @@
           "occurred_at"
         ],
         "title": "ActivityEventOut",
+        "type": "object"
+      },
+      "ActivityWindow": {
+        "additionalProperties": false,
+        "properties": {
+          "completed_todos": {
+            "title": "Completed Todos",
+            "type": "integer"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "count",
+          "completed_todos",
+          "evidence_ids",
+          "truncated"
+        ],
+        "title": "ActivityWindow",
         "type": "object"
       },
       "AgendaRow": {
@@ -1068,6 +1140,22 @@
           }
         },
         "title": "ApplyIn",
+        "type": "object"
+      },
+      "AreaData": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "AreaData",
         "type": "object"
       },
       "AreaIn": {
@@ -3727,6 +3815,43 @@
         "title": "CompletedTodo",
         "type": "object"
       },
+      "ConnectRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/LinkData"
+          },
+          "from_ref": {
+            "maxLength": 64,
+            "title": "From Ref",
+            "type": "string"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "to_ref": {
+            "maxLength": 64,
+            "title": "To Ref",
+            "type": "string"
+          },
+          "type": {
+            "const": "record.link",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "data",
+          "from_ref",
+          "to_ref"
+        ],
+        "title": "ConnectRecord",
+        "type": "object"
+      },
       "ContextFact": {
         "properties": {
           "status": {
@@ -5120,6 +5245,163 @@
           "data"
         ],
         "title": "EditMilestone",
+        "type": "object"
+      },
+      "EditNode-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/NodeData-Input"
+          },
+          "depends_on": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 12,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depends On"
+          },
+          "detached": {
+            "default": false,
+            "title": "Detached",
+            "type": "boolean"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "parent_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Ref"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "roadmap.update",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "target_id",
+          "data"
+        ],
+        "title": "EditNode",
+        "type": "object"
+      },
+      "EditNode-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/NodeData-Output"
+          },
+          "depends_on": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 12,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depends On"
+          },
+          "detached": {
+            "default": false,
+            "title": "Detached",
+            "type": "boolean"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "parent_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Ref"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "roadmap.update",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "target_id",
+          "data"
+        ],
+        "title": "EditNode",
+        "type": "object"
+      },
+      "EditTask": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TaskPatch"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "type": {
+            "const": "todo.update",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "target_id",
+          "data"
+        ],
+        "title": "EditTask",
         "type": "object"
       },
       "EnsureManagedNoteIn": {
@@ -6855,6 +7137,101 @@
         "title": "GithubReviewStats",
         "type": "object"
       },
+      "GoalActionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "area_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Id"
+          },
+          "client_uuid": {
+            "format": "uuid",
+            "title": "Client Uuid",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "todo",
+              "study_topic"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "milestone_id": {
+            "format": "uuid",
+            "title": "Milestone Id",
+            "type": "string"
+          },
+          "new_area_title": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Area Title"
+          },
+          "plan_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Day"
+          }
+        },
+        "required": [
+          "client_uuid",
+          "kind",
+          "milestone_id"
+        ],
+        "title": "GoalActionIn",
+        "type": "object"
+      },
+      "GoalActionOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "todo",
+              "study_topic"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title"
+        ],
+        "title": "GoalActionOut",
+        "type": "object"
+      },
       "GoalContext": {
         "additionalProperties": false,
         "properties": {
@@ -6874,6 +7251,201 @@
           "entity_id"
         ],
         "title": "GoalContext",
+        "type": "object"
+      },
+      "GoalContextSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_revisions": {
+            "items": {
+              "$ref": "#/components/schemas/AcceptedRevision"
+            },
+            "maxItems": 5,
+            "title": "Accepted Revisions",
+            "type": "array"
+          },
+          "activity_windows": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ActivityWindow"
+            },
+            "propertyNames": {
+              "enum": [
+                "7",
+                "30",
+                "90"
+              ]
+            },
+            "title": "Activity Windows",
+            "type": "object"
+          },
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "goal": {
+            "$ref": "#/components/schemas/GoalIdentity"
+          },
+          "learning": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotTopic"
+            },
+            "maxItems": 100,
+            "title": "Learning",
+            "type": "array"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/SnapshotOutcome"
+          },
+          "planned_slots": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotSlot"
+            },
+            "maxItems": 100,
+            "title": "Planned Slots",
+            "type": "array"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotProject"
+            },
+            "maxItems": 100,
+            "title": "Projects",
+            "type": "array"
+          },
+          "recorded_constraints": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanningConstraints"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotResource"
+            },
+            "maxItems": 50,
+            "title": "Resources",
+            "type": "array"
+          },
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotReview"
+            },
+            "maxItems": 5,
+            "title": "Reviews",
+            "type": "array"
+          },
+          "roadmap": {
+            "$ref": "#/components/schemas/SnapshotRoadmap"
+          },
+          "schema_version": {
+            "const": 2,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "todos": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotTask"
+            },
+            "maxItems": 100,
+            "title": "Todos",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "collected_at",
+          "goal",
+          "roadmap",
+          "todos",
+          "learning",
+          "resources",
+          "planned_slots",
+          "projects",
+          "outcome",
+          "activity_windows",
+          "accepted_revisions",
+          "reviews",
+          "truncated",
+          "warnings",
+          "scope"
+        ],
+        "title": "GoalContextSnapshot",
+        "type": "object"
+      },
+      "GoalIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "horizon": {
+            "title": "Horizon",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "parent_goal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Goal Id"
+          },
+          "target_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "target_at",
+          "parent_goal_id",
+          "horizon"
+        ],
+        "title": "GoalIdentity",
         "type": "object"
       },
       "GoalIn": {
@@ -7544,6 +8116,52 @@
           "evidence_refs"
         ],
         "title": "GoalProgress",
+        "type": "object"
+      },
+      "GoalWork": {
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/WorkAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "completed_count": {
+            "default": 0,
+            "title": "Completed Count",
+            "type": "integer"
+          },
+          "milestones": {
+            "items": {
+              "$ref": "#/components/schemas/WorkMilestone"
+            },
+            "title": "Milestones",
+            "type": "array"
+          },
+          "progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Percent"
+          },
+          "total_count": {
+            "default": 0,
+            "title": "Total Count",
+            "type": "integer"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "title": "GoalWork",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -9246,6 +9864,28 @@
         "title": "LifecycleStatusOut",
         "type": "object"
       },
+      "LinkData": {
+        "additionalProperties": false,
+        "properties": {
+          "relation": {
+            "enum": [
+              "advances_goal",
+              "advances_goal_milestone",
+              "belongs_to",
+              "prepares_for",
+              "learns_from",
+              "references"
+            ],
+            "title": "Relation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "relation"
+        ],
+        "title": "LinkData",
+        "type": "object"
+      },
       "LinkIn": {
         "properties": {
           "from_id": {
@@ -9733,6 +10373,31 @@
         "title": "MonthlyPoint",
         "type": "object"
       },
+      "NewArea": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AreaData"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "type": {
+            "const": "learning.area",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "data"
+        ],
+        "title": "NewArea",
+        "type": "object"
+      },
       "NewGoal-Input": {
         "additionalProperties": false,
         "properties": {
@@ -9886,6 +10551,132 @@
         "title": "NewMilestone",
         "type": "object"
       },
+      "NewNode-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/NodeData-Input"
+          },
+          "depends_on": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Depends On",
+            "type": "array"
+          },
+          "goal_ref": {
+            "maxLength": 64,
+            "title": "Goal Ref",
+            "type": "string"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "parent_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Ref"
+          },
+          "target_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Ref"
+          },
+          "type": {
+            "const": "roadmap.create",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "data",
+          "goal_ref"
+        ],
+        "title": "NewNode",
+        "type": "object"
+      },
+      "NewNode-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/NodeData-Output"
+          },
+          "depends_on": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Depends On",
+            "type": "array"
+          },
+          "goal_ref": {
+            "maxLength": 64,
+            "title": "Goal Ref",
+            "type": "string"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "parent_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Ref"
+          },
+          "target_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Ref"
+          },
+          "type": {
+            "const": "roadmap.create",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "data",
+          "goal_ref"
+        ],
+        "title": "NewNode",
+        "type": "object"
+      },
       "NewPillar-Input": {
         "additionalProperties": false,
         "properties": {
@@ -9971,6 +10762,264 @@
           "data"
         ],
         "title": "NewPlan",
+        "type": "object"
+      },
+      "NewResource": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ResourceData"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "topic_ref": {
+            "maxLength": 64,
+            "title": "Topic Ref",
+            "type": "string"
+          },
+          "type": {
+            "const": "learning.resource",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "data",
+          "topic_ref"
+        ],
+        "title": "NewResource",
+        "type": "object"
+      },
+      "NewTask": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TaskData"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "project_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Ref"
+          },
+          "topic_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Ref"
+          },
+          "type": {
+            "const": "todo.create",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "data"
+        ],
+        "title": "NewTask",
+        "type": "object"
+      },
+      "NewTopic": {
+        "additionalProperties": false,
+        "properties": {
+          "area_ref": {
+            "maxLength": 64,
+            "title": "Area Ref",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TopicData"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "parent_ref": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Ref"
+          },
+          "type": {
+            "const": "learning.topic",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "data",
+          "area_ref"
+        ],
+        "title": "NewTopic",
+        "type": "object"
+      },
+      "NodeData-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "completion_gate": {
+            "default": false,
+            "title": "Completion Gate",
+            "type": "boolean"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 3000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "kind": {
+            "enum": [
+              "period",
+              "phase",
+              "milestone",
+              "record",
+              "child_goal"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "position": {
+            "default": 0,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "progress_bearing": {
+            "default": true,
+            "title": "Progress Bearing",
+            "type": "boolean"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 100.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+                "type": "string"
+              }
+            ],
+            "default": "1",
+            "title": "Weight"
+          }
+        },
+        "required": [
+          "title",
+          "kind"
+        ],
+        "title": "NodeData",
+        "type": "object"
+      },
+      "NodeData-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "completion_gate": {
+            "default": false,
+            "title": "Completion Gate",
+            "type": "boolean"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 3000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "kind": {
+            "enum": [
+              "period",
+              "phase",
+              "milestone",
+              "record",
+              "child_goal"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "position": {
+            "default": 0,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "progress_bearing": {
+            "default": true,
+            "title": "Progress Bearing",
+            "type": "boolean"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "weight": {
+            "default": "1",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,17}0*$)\\d{0,12}\\.\\d{0,4}0*$)",
+            "title": "Weight",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "kind"
+        ],
+        "title": "NodeData",
         "type": "object"
       },
       "NotificationOut": {
@@ -10129,6 +11178,32 @@
             "title": "Reasons",
             "type": "array"
           },
+          "roadmap_completed_scope_count": {
+            "default": 0,
+            "title": "Roadmap Completed Scope Count",
+            "type": "integer"
+          },
+          "roadmap_present": {
+            "default": false,
+            "title": "Roadmap Present",
+            "type": "boolean"
+          },
+          "roadmap_progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roadmap Progress Percent"
+          },
+          "roadmap_scope_count": {
+            "default": 0,
+            "title": "Roadmap Scope Count",
+            "type": "integer"
+          },
           "strategic_progress_percent": {
             "anyOf": [
               {
@@ -10143,6 +11218,9 @@
           "trajectory": {
             "title": "Trajectory",
             "type": "string"
+          },
+          "work": {
+            "$ref": "#/components/schemas/GoalWork"
           }
         },
         "required": [
@@ -12507,6 +13585,69 @@
         "title": "PlanSlotUpdate",
         "type": "object"
       },
+      "PlanningConstraints": {
+        "additionalProperties": false,
+        "properties": {
+          "available_end_min": {
+            "anyOf": [
+              {
+                "maximum": 1440.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available End Min"
+          },
+          "available_start_min": {
+            "anyOf": [
+              {
+                "maximum": 1439.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Start Min"
+          },
+          "capacity_confirmed": {
+            "default": false,
+            "title": "Capacity Confirmed",
+            "type": "boolean"
+          },
+          "daily_capacity_min": {
+            "default": 30,
+            "maximum": 480.0,
+            "minimum": 1.0,
+            "title": "Daily Capacity Min",
+            "type": "integer"
+          },
+          "unavailable_days": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Unavailable Days",
+            "type": "array"
+          },
+          "weekdays": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 7,
+            "minItems": 1,
+            "title": "Weekdays",
+            "type": "array"
+          }
+        },
+        "title": "PlanningConstraints",
+        "type": "object"
+      },
       "PlanningContext": {
         "additionalProperties": false,
         "properties": {
@@ -14347,6 +15488,48 @@
         "title": "ResolveAnswerIn",
         "type": "object"
       },
+      "ResourceData": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "default": "exercise",
+            "enum": [
+              "link",
+              "video",
+              "article",
+              "course",
+              "book",
+              "doc",
+              "exercise"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ResourceData",
+        "type": "object"
+      },
       "ResourceIn": {
         "properties": {
           "estimated_min": {
@@ -15111,6 +16294,265 @@
         "title": "RiskSignalOut",
         "type": "object"
       },
+      "RoadmapNodeOut": {
+        "properties": {
+          "canonical_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Percent"
+          },
+          "completed": {
+            "default": false,
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "completion_gate": {
+            "default": false,
+            "title": "Completion Gate",
+            "type": "boolean"
+          },
+          "dependencies": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "missing": {
+            "default": false,
+            "title": "Missing",
+            "type": "boolean"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "persisted": {
+            "default": true,
+            "title": "Persisted",
+            "type": "boolean"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "progress_bearing": {
+            "default": true,
+            "title": "Progress Bearing",
+            "type": "boolean"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Title"
+          },
+          "target_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Type"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "weight": {
+            "default": 1,
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind"
+        ],
+        "title": "RoadmapNodeOut",
+        "type": "object"
+      },
+      "RoadmapOut": {
+        "properties": {
+          "completed_requirements": {
+            "default": 0,
+            "title": "Completed Requirements",
+            "type": "integer"
+          },
+          "completed_scope_count": {
+            "default": 0,
+            "title": "Completed Scope Count",
+            "type": "integer"
+          },
+          "goal_id": {
+            "format": "uuid",
+            "title": "Goal Id",
+            "type": "string"
+          },
+          "known_requirements": {
+            "default": 0,
+            "title": "Known Requirements",
+            "type": "integer"
+          },
+          "legacy": {
+            "default": false,
+            "title": "Legacy",
+            "type": "boolean"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/RoadmapNodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "scope_count": {
+            "default": 0,
+            "title": "Scope Count",
+            "type": "integer"
+          },
+          "total_requirements": {
+            "default": 0,
+            "title": "Total Requirements",
+            "type": "integer"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          },
+          "unplanned_count": {
+            "default": 0,
+            "title": "Unplanned Count",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "goal_id",
+          "nodes"
+        ],
+        "title": "RoadmapOut",
+        "type": "object"
+      },
+      "RoadmapOwner": {
+        "additionalProperties": false,
+        "properties": {
+          "goal_id": {
+            "format": "uuid",
+            "title": "Goal Id",
+            "type": "string"
+          },
+          "node_id": {
+            "format": "uuid",
+            "title": "Node Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "goal_id",
+          "node_id"
+        ],
+        "title": "RoadmapOwner",
+        "type": "object"
+      },
       "RssStats": {
         "properties": {
           "active_feeds": {
@@ -15469,6 +16911,96 @@
           }
         },
         "title": "SavedViewPatch",
+        "type": "object"
+      },
+      "ScheduleData": {
+        "additionalProperties": false,
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "duration_min": {
+            "default": 30,
+            "maximum": 480.0,
+            "minimum": 1.0,
+            "title": "Duration Min",
+            "type": "integer"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "start_min": {
+            "anyOf": [
+              {
+                "maximum": 1439.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Min"
+          }
+        },
+        "required": [
+          "day"
+        ],
+        "title": "ScheduleData",
+        "type": "object"
+      },
+      "ScheduleTask": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ScheduleData"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "replace_slot_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replace Slot Id"
+          },
+          "task_ref": {
+            "maxLength": 64,
+            "title": "Task Ref",
+            "type": "string"
+          },
+          "type": {
+            "const": "plan.schedule",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "data",
+          "task_ref"
+        ],
+        "title": "ScheduleTask",
         "type": "object"
       },
       "SemanticCandidateConfirmIn": {
@@ -16397,6 +17929,544 @@
           "available"
         ],
         "title": "SlotOut",
+        "type": "object"
+      },
+      "SnapshotMeasurement": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
+          },
+          "measurement": {
+            "$ref": "#/components/schemas/Measurement"
+          },
+          "source_key": {
+            "title": "Source Key",
+            "type": "string"
+          },
+          "target_value": {
+            "title": "Target Value",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "measurement",
+          "unit",
+          "target_value",
+          "measured_at",
+          "source_key"
+        ],
+        "title": "SnapshotMeasurement",
+        "type": "object"
+      },
+      "SnapshotNode": {
+        "properties": {
+          "canonical_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Percent"
+          },
+          "completed": {
+            "default": false,
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "completion_gate": {
+            "default": false,
+            "title": "Completion Gate",
+            "type": "boolean"
+          },
+          "dependencies": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "missing": {
+            "default": false,
+            "title": "Missing",
+            "type": "boolean"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "persisted": {
+            "default": true,
+            "title": "Persisted",
+            "type": "boolean"
+          },
+          "position": {
+            "default": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "progress_bearing": {
+            "default": true,
+            "title": "Progress Bearing",
+            "type": "boolean"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Title"
+          },
+          "target_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Type"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "weight": {
+            "default": 1,
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "index"
+        ],
+        "title": "SnapshotNode",
+        "type": "object"
+      },
+      "SnapshotOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "measurements": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotMeasurement"
+            },
+            "maxItems": 10,
+            "title": "Measurements",
+            "type": "array"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          }
+        },
+        "required": [
+          "percent",
+          "measurements"
+        ],
+        "title": "SnapshotOutcome",
+        "type": "object"
+      },
+      "SnapshotProject": {
+        "additionalProperties": false,
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "coverage": {
+            "title": "Coverage",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "percent",
+          "completed",
+          "total",
+          "coverage"
+        ],
+        "title": "SnapshotProject",
+        "type": "object"
+      },
+      "SnapshotResource": {
+        "additionalProperties": false,
+        "properties": {
+          "has_url": {
+            "title": "Has Url",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "missing_source": {
+            "default": false,
+            "title": "Missing Source",
+            "type": "boolean"
+          },
+          "pending_need": {
+            "default": false,
+            "title": "Pending Need",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "source",
+          "topic_id",
+          "has_url"
+        ],
+        "title": "SnapshotResource",
+        "type": "object"
+      },
+      "SnapshotReview": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "execution_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Percent"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "outcome_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Percent"
+          }
+        },
+        "required": [
+          "id",
+          "created_at"
+        ],
+        "title": "SnapshotReview",
+        "type": "object"
+      },
+      "SnapshotRoadmap": {
+        "additionalProperties": false,
+        "properties": {
+          "known": {
+            "title": "Known",
+            "type": "integer"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotNode"
+            },
+            "maxItems": 60,
+            "title": "Nodes",
+            "type": "array"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "requirements": {
+            "title": "Requirements",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "percent",
+          "requirements",
+          "known",
+          "truncated",
+          "nodes"
+        ],
+        "title": "SnapshotRoadmap",
+        "type": "object"
+      },
+      "SnapshotSlot": {
+        "additionalProperties": false,
+        "properties": {
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "duration_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Min"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "start_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Min"
+          }
+        },
+        "required": [
+          "id",
+          "entity_id",
+          "day",
+          "start_min",
+          "duration_min"
+        ],
+        "title": "SnapshotSlot",
+        "type": "object"
+      },
+      "SnapshotTask": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "recurring_template": {
+            "title": "Recurring Template",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "recurring_template"
+        ],
+        "title": "SnapshotTask",
+        "type": "object"
+      },
+      "SnapshotTopic": {
+        "additionalProperties": false,
+        "properties": {
+          "area_id": {
+            "format": "uuid",
+            "title": "Area Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "area_id"
+        ],
+        "title": "SnapshotTopic",
         "type": "object"
       },
       "SnoozeIn": {
@@ -17371,6 +19441,18 @@
             "title": "Id",
             "type": "string"
           },
+          "plan_slot_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Slot Id"
+          },
           "type": {
             "title": "Type",
             "type": "string"
@@ -18145,10 +20227,19 @@
                   "goal.create": "#/components/schemas/NewGoal-Input",
                   "goal.update": "#/components/schemas/EditGoal-Input",
                   "key_result.save": "#/components/schemas/SaveKR-Input",
+                  "learning.area": "#/components/schemas/NewArea",
+                  "learning.resource": "#/components/schemas/NewResource",
+                  "learning.topic": "#/components/schemas/NewTopic",
                   "milestone.create": "#/components/schemas/NewMilestone",
                   "milestone.update": "#/components/schemas/EditMilestone",
                   "pillar.create": "#/components/schemas/NewPillar-Input",
-                  "plan.create": "#/components/schemas/NewPlan"
+                  "plan.create": "#/components/schemas/NewPlan",
+                  "plan.schedule": "#/components/schemas/ScheduleTask",
+                  "record.link": "#/components/schemas/ConnectRecord",
+                  "roadmap.create": "#/components/schemas/NewNode-Input",
+                  "roadmap.update": "#/components/schemas/EditNode-Input",
+                  "todo.create": "#/components/schemas/NewTask",
+                  "todo.update": "#/components/schemas/EditTask"
                 },
                 "propertyName": "type"
               },
@@ -18173,13 +20264,50 @@
                 },
                 {
                   "$ref": "#/components/schemas/EditMilestone"
+                },
+                {
+                  "$ref": "#/components/schemas/NewNode-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/EditNode-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/NewArea"
+                },
+                {
+                  "$ref": "#/components/schemas/NewTopic"
+                },
+                {
+                  "$ref": "#/components/schemas/NewTask"
+                },
+                {
+                  "$ref": "#/components/schemas/ScheduleTask"
+                },
+                {
+                  "$ref": "#/components/schemas/ConnectRecord"
+                },
+                {
+                  "$ref": "#/components/schemas/NewResource"
+                },
+                {
+                  "$ref": "#/components/schemas/EditTask"
                 }
               ]
             },
-            "maxItems": 20,
+            "maxItems": 160,
             "minItems": 1,
             "title": "Operations",
             "type": "array"
+          },
+          "planning": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanningConstraints"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "rationale": {
             "maxLength": 3000,
@@ -18188,8 +20316,11 @@
             "type": "string"
           },
           "schema_version": {
-            "const": 1,
             "default": 1,
+            "enum": [
+              1,
+              2
+            ],
             "title": "Schema Version",
             "type": "integer"
           },
@@ -18244,10 +20375,19 @@
                   "goal.create": "#/components/schemas/NewGoal-Output",
                   "goal.update": "#/components/schemas/EditGoal-Output",
                   "key_result.save": "#/components/schemas/SaveKR-Output",
+                  "learning.area": "#/components/schemas/NewArea",
+                  "learning.resource": "#/components/schemas/NewResource",
+                  "learning.topic": "#/components/schemas/NewTopic",
                   "milestone.create": "#/components/schemas/NewMilestone",
                   "milestone.update": "#/components/schemas/EditMilestone",
                   "pillar.create": "#/components/schemas/NewPillar-Output",
-                  "plan.create": "#/components/schemas/NewPlan"
+                  "plan.create": "#/components/schemas/NewPlan",
+                  "plan.schedule": "#/components/schemas/ScheduleTask",
+                  "record.link": "#/components/schemas/ConnectRecord",
+                  "roadmap.create": "#/components/schemas/NewNode-Output",
+                  "roadmap.update": "#/components/schemas/EditNode-Output",
+                  "todo.create": "#/components/schemas/NewTask",
+                  "todo.update": "#/components/schemas/EditTask"
                 },
                 "propertyName": "type"
               },
@@ -18272,13 +20412,50 @@
                 },
                 {
                   "$ref": "#/components/schemas/EditMilestone"
+                },
+                {
+                  "$ref": "#/components/schemas/NewNode-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/EditNode-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/NewArea"
+                },
+                {
+                  "$ref": "#/components/schemas/NewTopic"
+                },
+                {
+                  "$ref": "#/components/schemas/NewTask"
+                },
+                {
+                  "$ref": "#/components/schemas/ScheduleTask"
+                },
+                {
+                  "$ref": "#/components/schemas/ConnectRecord"
+                },
+                {
+                  "$ref": "#/components/schemas/NewResource"
+                },
+                {
+                  "$ref": "#/components/schemas/EditTask"
                 }
               ]
             },
-            "maxItems": 20,
+            "maxItems": 160,
             "minItems": 1,
             "title": "Operations",
             "type": "array"
+          },
+          "planning": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanningConstraints"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "rationale": {
             "maxLength": 3000,
@@ -18287,8 +20464,11 @@
             "type": "string"
           },
           "schema_version": {
-            "const": 1,
             "default": 1,
+            "enum": [
+              1,
+              2
+            ],
             "title": "Schema Version",
             "type": "integer"
           },
@@ -18454,6 +20634,21 @@
               }
             ],
             "title": "Goal Id"
+          },
+          "long_term": {
+            "default": false,
+            "title": "Long Term",
+            "type": "boolean"
+          },
+          "mode": {
+            "default": "draft",
+            "enum": [
+              "draft",
+              "feedback",
+              "living"
+            ],
+            "title": "Mode",
+            "type": "string"
           }
         },
         "required": [
@@ -18517,6 +20712,18 @@
             ],
             "title": "Error"
           },
+          "goal_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Id"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -18529,6 +20736,16 @@
             },
             "title": "Messages",
             "type": "array"
+          },
+          "mode": {
+            "default": "draft",
+            "enum": [
+              "draft",
+              "feedback",
+              "living"
+            ],
+            "title": "Mode",
+            "type": "string"
           },
           "pending_turn": {
             "anyOf": [
@@ -19492,6 +21709,110 @@
         "title": "TagOut",
         "type": "object"
       },
+      "TaskData": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "priority": {
+            "default": 2,
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "TaskData",
+        "type": "object"
+      },
+      "TaskPatch": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "maximum": 3.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "TaskPatch",
+        "type": "object"
+      },
       "TimelineEntryOut": {
         "description": "Basvuru zaman cizelgesi -- event/history kayitlarindan deterministik uretilir.",
         "properties": {
@@ -20151,6 +22472,34 @@
           }
         },
         "title": "TodoUpdate",
+        "type": "object"
+      },
+      "TopicData": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "TopicData",
         "type": "object"
       },
       "TopicImpactOut": {
@@ -21256,6 +23605,89 @@
           "conflicts"
         ],
         "title": "VaultStatus",
+        "type": "object"
+      },
+      "WorkAction": {
+        "properties": {
+          "completed": {
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "milestone_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Milestone Ids",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "todo",
+              "study_topic"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "completed"
+        ],
+        "title": "WorkAction",
+        "type": "object"
+      },
+      "WorkMilestone": {
+        "properties": {
+          "action_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Action Ids",
+            "type": "array"
+          },
+          "completed": {
+            "title": "Completed",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "manual_completed": {
+            "title": "Manual Completed",
+            "type": "boolean"
+          },
+          "progress_percent": {
+            "title": "Progress Percent",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "manual_completed",
+          "completed",
+          "progress_percent"
+        ],
+        "title": "WorkMilestone",
         "type": "object"
       },
       "app__modules__flashcard__schemas__ReviewIn": {
@@ -26473,6 +28905,49 @@
         ]
       }
     },
+    "/api/goals/roadmap-nodes/{node_id}": {
+      "get": {
+        "operationId": "roadmap_owner_api_goals_roadmap_nodes__node_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Node Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoadmapOwner"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Roadmap Owner",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
     "/api/goals/strategy/history": {
       "get": {
         "operationId": "strategy_history_api_goals_strategy_history_get",
@@ -27311,6 +29786,102 @@
         ]
       }
     },
+    "/api/goals/{goal_id}/actions": {
+      "post": {
+        "operationId": "add_goal_action_api_goals__goal_id__actions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Goal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoalActionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Goal Action",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/{goal_id}/conversation": {
+      "get": {
+        "operationId": "living_conversation_api_goals__goal_id__conversation_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Goal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Living Conversation",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
     "/api/goals/{goal_id}/key-results": {
       "post": {
         "operationId": "kr_create_api_goals__goal_id__key_results_post",
@@ -27475,6 +30046,92 @@
           }
         },
         "summary": "Add Milestone",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/{goal_id}/roadmap": {
+      "get": {
+        "operationId": "roadmap_read_api_goals__goal_id__roadmap_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Goal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoadmapOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Roadmap Read",
+        "tags": [
+          "goals"
+        ]
+      }
+    },
+    "/api/goals/{goal_id}/workspace": {
+      "get": {
+        "operationId": "living_workspace_api_goals__goal_id__workspace_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Goal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalContextSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Living Workspace",
         "tags": [
           "goals"
         ]

@@ -1938,6 +1938,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/goals/roadmap-nodes/{node_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Roadmap Owner */
+        get: operations["roadmap_owner_api_goals_roadmap_nodes__node_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/goals/strategy/history": {
         parameters: {
             query?: never;
@@ -2228,6 +2245,40 @@ export interface paths {
         patch: operations["update_goal_api_goals__goal_id__patch"];
         trace?: never;
     };
+    "/api/goals/{goal_id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Goal Action */
+        post: operations["add_goal_action_api_goals__goal_id__actions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{goal_id}/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Living Conversation */
+        get: operations["living_conversation_api_goals__goal_id__conversation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/goals/{goal_id}/key-results": {
         parameters: {
             query?: never;
@@ -2273,6 +2324,40 @@ export interface paths {
         put?: never;
         /** Add Milestone */
         post: operations["add_milestone_api_goals__goal_id__milestones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{goal_id}/roadmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Roadmap Read */
+        get: operations["roadmap_read_api_goals__goal_id__roadmap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/goals/{goal_id}/workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Living Workspace */
+        get: operations["living_workspace_api_goals__goal_id__workspace_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5249,6 +5334,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AcceptedRevision */
+        AcceptedRevision: {
+            /** Assumptions */
+            assumptions: string[];
+            constraints: components["schemas"]["PlanningConstraints"] | null;
+            /** Fingerprint */
+            fingerprint: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
         /**
          * ActivityEventOut
          * @description Akis kaydi + sunucu tarafi uyari bayragi.
@@ -5279,6 +5377,17 @@ export interface components {
             };
             /** Verb */
             verb: string;
+        };
+        /** ActivityWindow */
+        ActivityWindow: {
+            /** Completed Todos */
+            completed_todos: number;
+            /** Count */
+            count: number;
+            /** Evidence Ids */
+            evidence_ids: string[];
+            /** Truncated */
+            truncated: boolean;
         };
         /** AgendaRow */
         AgendaRow: {
@@ -5653,6 +5762,11 @@ export interface components {
             note?: string | null;
             /** Salary Expectation */
             salary_expectation?: string | null;
+        };
+        /** AreaData */
+        AreaData: {
+            /** Title */
+            title: string;
         };
         /** AreaIn */
         AreaIn: {
@@ -6588,6 +6702,21 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** ConnectRecord */
+        ConnectRecord: {
+            data: components["schemas"]["LinkData"];
+            /** From Ref */
+            from_ref: string;
+            /** Key */
+            key: string;
+            /** To Ref */
+            to_ref: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "record.link";
+        };
         /** ContextFact */
         ContextFact: {
             /**
@@ -7117,6 +7246,72 @@ export interface components {
              * @enum {string}
              */
             type: "milestone.update";
+        };
+        /** EditNode */
+        "EditNode-Input": {
+            data: components["schemas"]["NodeData-Input"];
+            /** Depends On */
+            depends_on?: string[] | null;
+            /**
+             * Detached
+             * @default false
+             */
+            detached: boolean;
+            /** Key */
+            key: string;
+            /** Parent Ref */
+            parent_ref?: string | null;
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "roadmap.update";
+        };
+        /** EditNode */
+        "EditNode-Output": {
+            data: components["schemas"]["NodeData-Output"];
+            /** Depends On */
+            depends_on?: string[] | null;
+            /**
+             * Detached
+             * @default false
+             */
+            detached: boolean;
+            /** Key */
+            key: string;
+            /** Parent Ref */
+            parent_ref?: string | null;
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "roadmap.update";
+        };
+        /** EditTask */
+        EditTask: {
+            data: components["schemas"]["TaskPatch"];
+            /** Key */
+            key: string;
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "todo.update";
         };
         /**
          * EnsureManagedNoteIn
@@ -7775,6 +7970,45 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** GoalActionIn */
+        GoalActionIn: {
+            /** Area Id */
+            area_id?: string | null;
+            /**
+             * Client Uuid
+             * Format: uuid
+             */
+            client_uuid: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "todo" | "study_topic";
+            /**
+             * Milestone Id
+             * Format: uuid
+             */
+            milestone_id: string;
+            /** New Area Title */
+            new_area_title?: string | null;
+            /** Plan Day */
+            plan_day?: string | null;
+        };
+        /** GoalActionOut */
+        GoalActionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "todo" | "study_topic";
+        };
         /** GoalContext */
         GoalContext: {
             /**
@@ -7787,6 +8021,65 @@ export interface components {
              * @enum {string}
              */
             kind: "goal";
+        };
+        /** GoalContextSnapshot */
+        GoalContextSnapshot: {
+            /** Accepted Revisions */
+            accepted_revisions: components["schemas"]["AcceptedRevision"][];
+            /** Activity Windows */
+            activity_windows: {
+                [key: string]: components["schemas"]["ActivityWindow"];
+            };
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            goal: components["schemas"]["GoalIdentity"];
+            /** Learning */
+            learning: components["schemas"]["SnapshotTopic"][];
+            outcome: components["schemas"]["SnapshotOutcome"];
+            /** Planned Slots */
+            planned_slots: components["schemas"]["SnapshotSlot"][];
+            /** Projects */
+            projects: components["schemas"]["SnapshotProject"][];
+            recorded_constraints?: components["schemas"]["PlanningConstraints"] | null;
+            /** Resources */
+            resources: components["schemas"]["SnapshotResource"][];
+            /** Reviews */
+            reviews: components["schemas"]["SnapshotReview"][];
+            roadmap: components["schemas"]["SnapshotRoadmap"];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 2;
+            /** Scope */
+            scope: string;
+            /** Todos */
+            todos: components["schemas"]["SnapshotTask"][];
+            /** Truncated */
+            truncated: boolean;
+            /** Warnings */
+            warnings: string[];
+        };
+        /** GoalIdentity */
+        GoalIdentity: {
+            /** Description */
+            description: string;
+            /** Horizon */
+            horizon: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Parent Goal Id */
+            parent_goal_id: string | null;
+            /** Target At */
+            target_at: string | null;
+            /** Title */
+            title: string;
         };
         /** GoalIn */
         GoalIn: {
@@ -7989,6 +8282,30 @@ export interface components {
             status: string;
             /** Title */
             title: string;
+        };
+        /** GoalWork */
+        GoalWork: {
+            /** Actions */
+            actions?: components["schemas"]["WorkAction"][];
+            /**
+             * Completed Count
+             * @default 0
+             */
+            completed_count: number;
+            /** Milestones */
+            milestones?: components["schemas"]["WorkMilestone"][];
+            /** Progress Percent */
+            progress_percent?: number | null;
+            /**
+             * Total Count
+             * @default 0
+             */
+            total_count: number;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -8684,6 +9001,14 @@ export interface components {
             /** Last Harness */
             last_harness: string | null;
         };
+        /** LinkData */
+        LinkData: {
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "advances_goal" | "advances_goal_milestone" | "belongs_to" | "prepares_for" | "learns_from" | "references";
+        };
         /** LinkIn */
         LinkIn: {
             /**
@@ -8871,6 +9196,17 @@ export interface components {
             /** Todos */
             todos: number;
         };
+        /** NewArea */
+        NewArea: {
+            data: components["schemas"]["AreaData"];
+            /** Key */
+            key: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "learning.area";
+        };
         /** NewGoal */
         "NewGoal-Input": {
             data: components["schemas"]["StudioGoalIn-Input"];
@@ -8918,6 +9254,44 @@ export interface components {
              */
             type: "milestone.create";
         };
+        /** NewNode */
+        "NewNode-Input": {
+            data: components["schemas"]["NodeData-Input"];
+            /** Depends On */
+            depends_on?: string[];
+            /** Goal Ref */
+            goal_ref: string;
+            /** Key */
+            key: string;
+            /** Parent Ref */
+            parent_ref?: string | null;
+            /** Target Ref */
+            target_ref?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "roadmap.create";
+        };
+        /** NewNode */
+        "NewNode-Output": {
+            data: components["schemas"]["NodeData-Output"];
+            /** Depends On */
+            depends_on?: string[];
+            /** Goal Ref */
+            goal_ref: string;
+            /** Key */
+            key: string;
+            /** Parent Ref */
+            parent_ref?: string | null;
+            /** Target Ref */
+            target_ref?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "roadmap.create";
+        };
         /** NewPillar */
         "NewPillar-Input": {
             data: components["schemas"]["PillarIn-Input"];
@@ -8954,6 +9328,113 @@ export interface components {
              * @enum {string}
              */
             type: "plan.create";
+        };
+        /** NewResource */
+        NewResource: {
+            data: components["schemas"]["ResourceData"];
+            /** Key */
+            key: string;
+            /** Topic Ref */
+            topic_ref: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "learning.resource";
+        };
+        /** NewTask */
+        NewTask: {
+            data: components["schemas"]["TaskData"];
+            /** Key */
+            key: string;
+            /** Project Ref */
+            project_ref?: string | null;
+            /** Topic Ref */
+            topic_ref?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "todo.create";
+        };
+        /** NewTopic */
+        NewTopic: {
+            /** Area Ref */
+            area_ref: string;
+            data: components["schemas"]["TopicData"];
+            /** Key */
+            key: string;
+            /** Parent Ref */
+            parent_ref?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "learning.topic";
+        };
+        /** NodeData */
+        "NodeData-Input": {
+            /**
+             * Completion Gate
+             * @default false
+             */
+            completion_gate: boolean;
+            /** Description */
+            description?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "period" | "phase" | "milestone" | "record" | "child_goal";
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Progress Bearing
+             * @default true
+             */
+            progress_bearing: boolean;
+            /** Title */
+            title: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number | string;
+        };
+        /** NodeData */
+        "NodeData-Output": {
+            /**
+             * Completion Gate
+             * @default false
+             */
+            completion_gate: boolean;
+            /** Description */
+            description?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "period" | "phase" | "milestone" | "record" | "child_goal";
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Progress Bearing
+             * @default true
+             */
+            progress_bearing: boolean;
+            /** Title */
+            title: string;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: string;
         };
         /** NotificationOut */
         NotificationOut: {
@@ -9003,10 +9484,28 @@ export interface components {
             milestone_progress_percent: number | null;
             /** Reasons */
             reasons: components["schemas"]["Reason"][];
+            /**
+             * Roadmap Completed Scope Count
+             * @default 0
+             */
+            roadmap_completed_scope_count: number;
+            /**
+             * Roadmap Present
+             * @default false
+             */
+            roadmap_present: boolean;
+            /** Roadmap Progress Percent */
+            roadmap_progress_percent?: number | null;
+            /**
+             * Roadmap Scope Count
+             * @default 0
+             */
+            roadmap_scope_count: number;
             /** Strategic Progress Percent */
             strategic_progress_percent: number | null;
             /** Trajectory */
             trajectory: string;
+            work?: components["schemas"]["GoalWork"];
         };
         /** ObservationLivenessOut */
         ObservationLivenessOut: {
@@ -9726,6 +10225,27 @@ export interface components {
             /** Start Min */
             start_min?: number | null;
         };
+        /** PlanningConstraints */
+        PlanningConstraints: {
+            /** Available End Min */
+            available_end_min?: number | null;
+            /** Available Start Min */
+            available_start_min?: number | null;
+            /**
+             * Capacity Confirmed
+             * @default false
+             */
+            capacity_confirmed: boolean;
+            /**
+             * Daily Capacity Min
+             * @default 30
+             */
+            daily_capacity_min: number;
+            /** Unavailable Days */
+            unavailable_days?: string[];
+            /** Weekdays */
+            weekdays?: number[];
+        };
         /** PlanningContext */
         PlanningContext: {
             /**
@@ -10392,6 +10912,19 @@ export interface components {
             /** Question */
             question: string;
         };
+        /** ResourceData */
+        ResourceData: {
+            /**
+             * Kind
+             * @default exercise
+             * @enum {string}
+             */
+            kind: "link" | "video" | "article" | "course" | "book" | "doc" | "exercise";
+            /** Note */
+            note?: string | null;
+            /** Title */
+            title: string;
+        };
         /** ResourceIn */
         ResourceIn: {
             /** Estimated Min */
@@ -10665,6 +11198,138 @@ export interface components {
              */
             severity: "neutral" | "warn" | "danger";
         };
+        /** RoadmapNodeOut */
+        RoadmapNodeOut: {
+            /** Canonical Percent */
+            canonical_percent?: number | null;
+            /**
+             * Completed
+             * @default false
+             */
+            completed: boolean;
+            /**
+             * Completion Gate
+             * @default false
+             */
+            completion_gate: boolean;
+            /** Dependencies */
+            dependencies?: string[];
+            /** Description */
+            description?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Missing
+             * @default false
+             */
+            missing: boolean;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Percent */
+            percent?: number | null;
+            /**
+             * Persisted
+             * @default true
+             */
+            persisted: boolean;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Progress Bearing
+             * @default true
+             */
+            progress_bearing: boolean;
+            /** Target Id */
+            target_id?: string | null;
+            /** Target Title */
+            target_title?: string | null;
+            /** Target Type */
+            target_type?: string | null;
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number;
+        };
+        /** RoadmapOut */
+        RoadmapOut: {
+            /**
+             * Completed Requirements
+             * @default 0
+             */
+            completed_requirements: number;
+            /**
+             * Completed Scope Count
+             * @default 0
+             */
+            completed_scope_count: number;
+            /**
+             * Goal Id
+             * Format: uuid
+             */
+            goal_id: string;
+            /**
+             * Known Requirements
+             * @default 0
+             */
+            known_requirements: number;
+            /**
+             * Legacy
+             * @default false
+             */
+            legacy: boolean;
+            /** Nodes */
+            nodes: components["schemas"]["RoadmapNodeOut"][];
+            /** Percent */
+            percent?: number | null;
+            /**
+             * Scope Count
+             * @default 0
+             */
+            scope_count: number;
+            /**
+             * Total Requirements
+             * @default 0
+             */
+            total_requirements: number;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+            /**
+             * Unplanned Count
+             * @default 0
+             */
+            unplanned_count: number;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /** RoadmapOwner */
+        RoadmapOwner: {
+            /**
+             * Goal Id
+             * Format: uuid
+             */
+            goal_id: string;
+            /**
+             * Node Id
+             * Format: uuid
+             */
+            node_id: string;
+        };
         /** RssStats */
         RssStats: {
             /** Active Feeds */
@@ -10816,6 +11481,38 @@ export interface components {
             pinned?: boolean | null;
             /** Sort */
             sort?: string | null;
+        };
+        /** ScheduleData */
+        ScheduleData: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * Duration Min
+             * @default 30
+             */
+            duration_min: number;
+            /** Note */
+            note?: string | null;
+            /** Start Min */
+            start_min?: number | null;
+        };
+        /** ScheduleTask */
+        ScheduleTask: {
+            data: components["schemas"]["ScheduleData"];
+            /** Key */
+            key: string;
+            /** Replace Slot Id */
+            replace_slot_id?: string | null;
+            /** Task Ref */
+            task_ref: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "plan.schedule";
         };
         /** SemanticCandidateConfirmIn */
         SemanticCandidateConfirmIn: {
@@ -11182,6 +11879,229 @@ export interface components {
             available: boolean;
             /** Configured */
             configured: boolean;
+        };
+        /** SnapshotMeasurement */
+        SnapshotMeasurement: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Measured At */
+            measured_at: string | null;
+            measurement: components["schemas"]["Measurement"];
+            /** Source Key */
+            source_key: string;
+            /** Target Value */
+            target_value: string;
+            /** Title */
+            title: string;
+            /** Unit */
+            unit: string;
+        };
+        /** SnapshotNode */
+        SnapshotNode: {
+            /** Canonical Percent */
+            canonical_percent?: number | null;
+            /**
+             * Completed
+             * @default false
+             */
+            completed: boolean;
+            /**
+             * Completion Gate
+             * @default false
+             */
+            completion_gate: boolean;
+            /** Dependencies */
+            dependencies?: string[];
+            /** Description */
+            description?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Index */
+            index: number;
+            /** Kind */
+            kind: string;
+            /**
+             * Missing
+             * @default false
+             */
+            missing: boolean;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Percent */
+            percent?: number | null;
+            /**
+             * Persisted
+             * @default true
+             */
+            persisted: boolean;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+            /**
+             * Progress Bearing
+             * @default true
+             */
+            progress_bearing: boolean;
+            /** Target Id */
+            target_id?: string | null;
+            /** Target Title */
+            target_title?: string | null;
+            /** Target Type */
+            target_type?: string | null;
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Weight
+             * @default 1
+             */
+            weight: number;
+        };
+        /** SnapshotOutcome */
+        SnapshotOutcome: {
+            /** Measurements */
+            measurements: components["schemas"]["SnapshotMeasurement"][];
+            /** Percent */
+            percent: string | null;
+        };
+        /** SnapshotProject */
+        SnapshotProject: {
+            /** Completed */
+            completed: number;
+            /** Coverage */
+            coverage: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Percent */
+            percent: number | null;
+            /** Title */
+            title: string;
+            /** Total */
+            total: number;
+        };
+        /** SnapshotResource */
+        SnapshotResource: {
+            /** Has Url */
+            has_url: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Missing Source
+             * @default false
+             */
+            missing_source: boolean;
+            /**
+             * Pending Need
+             * @default false
+             */
+            pending_need: boolean;
+            /** Source */
+            source: string;
+            /** Title */
+            title: string;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+        };
+        /** SnapshotReview */
+        SnapshotReview: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Execution Percent */
+            execution_percent?: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Outcome Percent */
+            outcome_percent?: number | null;
+        };
+        /** SnapshotRoadmap */
+        SnapshotRoadmap: {
+            /** Known */
+            known: number;
+            /** Nodes */
+            nodes: components["schemas"]["SnapshotNode"][];
+            /** Percent */
+            percent: number | null;
+            /** Requirements */
+            requirements: number;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** SnapshotSlot */
+        SnapshotSlot: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Duration Min */
+            duration_min: number | null;
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Start Min */
+            start_min: number | null;
+        };
+        /** SnapshotTask */
+        SnapshotTask: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Recurring Template */
+            recurring_template: boolean;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+        };
+        /** SnapshotTopic */
+        SnapshotTopic: {
+            /**
+             * Area Id
+             * Format: uuid
+             */
+            area_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
         };
         /**
          * SnoozeIn
@@ -11596,6 +12516,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Plan Slot Id */
+            plan_slot_id?: string | null;
             /** Type */
             type: string;
         };
@@ -11817,15 +12739,16 @@ export interface components {
             /** Missing Information */
             missing_information?: string[];
             /** Operations */
-            operations: (components["schemas"]["NewPlan"] | components["schemas"]["NewPillar-Input"] | components["schemas"]["NewGoal-Input"] | components["schemas"]["EditGoal-Input"] | components["schemas"]["SaveKR-Input"] | components["schemas"]["NewMilestone"] | components["schemas"]["EditMilestone"])[];
+            operations: (components["schemas"]["NewPlan"] | components["schemas"]["NewPillar-Input"] | components["schemas"]["NewGoal-Input"] | components["schemas"]["EditGoal-Input"] | components["schemas"]["SaveKR-Input"] | components["schemas"]["NewMilestone"] | components["schemas"]["EditMilestone"] | components["schemas"]["NewNode-Input"] | components["schemas"]["EditNode-Input"] | components["schemas"]["NewArea"] | components["schemas"]["NewTopic"] | components["schemas"]["NewTask"] | components["schemas"]["ScheduleTask"] | components["schemas"]["ConnectRecord"] | components["schemas"]["NewResource"] | components["schemas"]["EditTask"])[];
+            planning?: components["schemas"]["PlanningConstraints"] | null;
             /** Rationale */
             rationale: string;
             /**
              * Schema Version
              * @default 1
-             * @constant
+             * @enum {integer}
              */
-            schema_version: 1;
+            schema_version: 1 | 2;
             /** Warnings */
             warnings?: string[];
         };
@@ -11838,15 +12761,16 @@ export interface components {
             /** Missing Information */
             missing_information?: string[];
             /** Operations */
-            operations: (components["schemas"]["NewPlan"] | components["schemas"]["NewPillar-Output"] | components["schemas"]["NewGoal-Output"] | components["schemas"]["EditGoal-Output"] | components["schemas"]["SaveKR-Output"] | components["schemas"]["NewMilestone"] | components["schemas"]["EditMilestone"])[];
+            operations: (components["schemas"]["NewPlan"] | components["schemas"]["NewPillar-Output"] | components["schemas"]["NewGoal-Output"] | components["schemas"]["EditGoal-Output"] | components["schemas"]["SaveKR-Output"] | components["schemas"]["NewMilestone"] | components["schemas"]["EditMilestone"] | components["schemas"]["NewNode-Output"] | components["schemas"]["EditNode-Output"] | components["schemas"]["NewArea"] | components["schemas"]["NewTopic"] | components["schemas"]["NewTask"] | components["schemas"]["ScheduleTask"] | components["schemas"]["ConnectRecord"] | components["schemas"]["NewResource"] | components["schemas"]["EditTask"])[];
+            planning?: components["schemas"]["PlanningConstraints"] | null;
             /** Rationale */
             rationale: string;
             /**
              * Schema Version
              * @default 1
-             * @constant
+             * @enum {integer}
              */
-            schema_version: 1;
+            schema_version: 1 | 2;
             /** Warnings */
             warnings?: string[];
         };
@@ -11899,6 +12823,17 @@ export interface components {
             context?: (components["schemas"]["ReviewContext"] | components["schemas"]["ProjectContext"] | components["schemas"]["GoalContext"] | components["schemas"]["CareerContext"] | components["schemas"]["LearningContext"] | components["schemas"]["PlanningContext"]) | null;
             /** Goal Id */
             goal_id?: string | null;
+            /**
+             * Long Term
+             * @default false
+             */
+            long_term: boolean;
+            /**
+             * Mode
+             * @default draft
+             * @enum {string}
+             */
+            mode: "draft" | "feedback" | "living";
         };
         /** StudioSessionOut */
         StudioSessionOut: {
@@ -11906,6 +12841,8 @@ export interface components {
             context?: (components["schemas"]["ReviewContext"] | components["schemas"]["ProjectContext"] | components["schemas"]["GoalContext"] | components["schemas"]["CareerContext"] | components["schemas"]["LearningContext"] | components["schemas"]["PlanningContext"]) | null;
             /** Error */
             error?: string | null;
+            /** Goal Id */
+            goal_id?: string | null;
             /**
              * Id
              * Format: uuid
@@ -11915,6 +12852,12 @@ export interface components {
             messages: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Mode
+             * @default draft
+             * @enum {string}
+             */
+            mode: "draft" | "feedback" | "living";
             pending_turn?: components["schemas"]["StudioTurnIn"] | null;
             /**
              * Progress
@@ -12369,6 +13312,31 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** TaskData */
+        TaskData: {
+            /** Description */
+            description?: string | null;
+            /** Due At */
+            due_at?: string | null;
+            /**
+             * Priority
+             * @default 2
+             */
+            priority: number;
+            /** Title */
+            title: string;
+        };
+        /** TaskPatch */
+        TaskPatch: {
+            /** Description */
+            description?: string | null;
+            /** Due At */
+            due_at?: string | null;
+            /** Priority */
+            priority?: number | null;
+            /** Title */
+            title?: string | null;
+        };
         /**
          * TimelineEntryOut
          * @description Basvuru zaman cizelgesi -- event/history kayitlarindan deterministik uretilir.
@@ -12556,6 +13524,13 @@ export interface components {
             tags?: string[] | null;
             /** Title */
             title?: string | null;
+        };
+        /** TopicData */
+        TopicData: {
+            /** Description */
+            description?: string | null;
+            /** Title */
+            title: string;
         };
         /** TopicImpactOut */
         TopicImpactOut: {
@@ -12987,6 +13962,43 @@ export interface components {
             vault_name: string;
             /** Writable */
             writable: boolean;
+        };
+        /** WorkAction */
+        WorkAction: {
+            /** Completed */
+            completed: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Milestone Ids */
+            milestone_ids?: string[];
+            /** Title */
+            title: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "todo" | "study_topic";
+        };
+        /** WorkMilestone */
+        WorkMilestone: {
+            /** Action Ids */
+            action_ids?: string[];
+            /** Completed */
+            completed: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Manual Completed */
+            manual_completed: boolean;
+            /** Progress Percent */
+            progress_percent: number;
+            /** Title */
+            title: string;
         };
         /** ReviewIn */
         app__modules__flashcard__schemas__ReviewIn: {
@@ -16563,6 +17575,37 @@ export interface operations {
             };
         };
     };
+    roadmap_owner_api_goals_roadmap_nodes__node_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoadmapOwner"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     strategy_history_api_goals_strategy_history_get: {
         parameters: {
             query?: never;
@@ -17136,6 +18179,72 @@ export interface operations {
             };
         };
     };
+    add_goal_action_api_goals__goal_id__actions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalActionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    living_conversation_api_goals__goal_id__conversation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioSessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     kr_create_api_goals__goal_id__key_results_post: {
         parameters: {
             query?: never;
@@ -17229,6 +18338,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GoalMilestoneOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    roadmap_read_api_goals__goal_id__roadmap_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoadmapOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    living_workspace_api_goals__goal_id__workspace_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalContextSnapshot"];
                 };
             };
             /** @description Validation Error */

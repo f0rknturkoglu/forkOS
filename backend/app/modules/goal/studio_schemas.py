@@ -9,6 +9,18 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from app.integrations.contextual_schemas import AssistanceContext
+from app.modules.goal.package_schemas import (
+    ConnectRecord,
+    EditNode,
+    EditTask,
+    NewArea,
+    NewNode,
+    NewResource,
+    NewTask,
+    NewTopic,
+    PlanningConstraints,
+    ScheduleTask,
+)
 from app.modules.goal.schemas import GoalIn, GoalMilestoneIn, GoalMilestonePatch, GoalPatch
 from app.modules.goal.strategy_schemas import KeyResultIn, PillarIn, PlanIn
 
@@ -91,19 +103,35 @@ class EditMilestone(Operation):
 
 
 StudioOperation = Annotated[
-    NewPlan | NewPillar | NewGoal | EditGoal | SaveKR | NewMilestone | EditMilestone,
+    NewPlan
+    | NewPillar
+    | NewGoal
+    | EditGoal
+    | SaveKR
+    | NewMilestone
+    | EditMilestone
+    | NewNode
+    | EditNode
+    | NewArea
+    | NewTopic
+    | NewTask
+    | ScheduleTask
+    | ConnectRecord
+    | NewResource
+    | EditTask,
     Field(discriminator="type"),
 ]
 
 
 class StudioProposal(Closed):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
+    planning: PlanningConstraints | None = None
     rationale: str = Field(min_length=1, max_length=3000)
     assumptions: list[str] = Field(default_factory=list, max_length=12)
     missing_information: list[str] = Field(default_factory=list, max_length=12)
     warnings: list[str] = Field(default_factory=list, max_length=12)
     evidence_refs: list[UUID] = Field(default_factory=list, max_length=30)
-    operations: list[StudioOperation] = Field(min_length=1, max_length=20)
+    operations: list[StudioOperation] = Field(min_length=1, max_length=160)
 
     @model_validator(mode="after")
     def bounded(self):
@@ -113,9 +141,39 @@ class StudioProposal(Closed):
             for v in values
         ):
             raise ValueError("Açıklamalar en fazla 500 karakter olabilir")
+        if self.schema_version == 1 and (
+            len(self.operations) > 20
+            or any(
+                isinstance(
+                    op,
+                    (
+                        NewNode,
+                        EditNode,
+                        NewArea,
+                        NewTopic,
+                        NewTask,
+                        ScheduleTask,
+                        ConnectRecord,
+                        NewResource,
+                        EditTask,
+                    ),
+                )
+                for op in self.operations
+            )
+        ):
+            raise ValueError("V1 yalnız tarihsel hedef işlemlerini destekler")
+        if len(self.model_dump_json().encode()) > 120000:
+            raise ValueError("Paket boyutu 120 KB sınırını aşıyor")
         keys = [op.key for op in self.operations]
         if len(set(keys)) != len(keys):
             raise ValueError("İşlem anahtarları tekrarlanamaz")
+        new_titles = [
+            (op.type, op.data.title.strip().casefold())
+            for op in self.operations
+            if isinstance(op, (NewArea, NewTopic, NewTask))
+        ]
+        if len(new_titles) != len(set(new_titles)):
+            raise ValueError("Paket içinde aynı tür ve başlıkla mükerrer kayıt oluşturulamaz")
         targets = [str(op.target_id) for op in self.operations if getattr(op, "target_id", None)]
         if len(set(targets)) != len(targets):
             raise ValueError("Aynı kayıt bir revizyonda iki kez düzenlenemez")
@@ -139,12 +197,16 @@ class StudioProposal(Closed):
 
 
 class StudioSessionIn(Closed):
+    mode: Literal["draft", "feedback", "living"] = "draft"
+    long_term: bool = False
     client_uuid: UUID
     goal_id: UUID | None = None
     context: AssistanceContext | None = None
 
     @model_validator(mode="after")
     def one_context(self):
+        if self.mode == "feedback" and not self.goal_id:
+            raise ValueError("İlerleme görüşmesi bir hedefe bağlı olmalı")
         if self.context is not None and self.goal_id is not None:
             raise ValueError("Tek bir görüşme bağlamı seçilmeli")
         return self
@@ -194,6 +256,7 @@ class StudioStatus(Closed):
 
 
 class StudioApplied(Closed):
+    plan_slot_id: UUID | None = None
     id: UUID
     type: str
 
@@ -210,6 +273,8 @@ class StudioRevisionOut(Closed):
 
 
 class StudioSessionOut(Closed):
+    goal_id: UUID | None = None
+    mode: Literal["draft", "feedback", "living"] = "draft"
     runtime: StudioRuntime | None = None
     id: UUID
     state: str

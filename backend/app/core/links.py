@@ -40,6 +40,7 @@ RELATIONS: dict[str, tuple[str, str]] = {
     "advances_goal": ("İlerletilen hedef", "Hedefe katkı"),
     "advances_goal_milestone": ("İlerletilen hedef adımı", "Adıma katkı"),
     "originated_from": ("Kaynak öneri", "Öneriden oluştu"),
+    "roadmap_requires": ("Ön koşul", "Sonraki adım"),
     "targets": ("Hedeflenen kayıt", "Bu kaydı hedefleyen öneri"),
 }
 

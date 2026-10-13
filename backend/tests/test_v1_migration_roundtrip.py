@@ -76,7 +76,7 @@ async def test_real_0080_noop_downgrade_upgrade_and_backup_restore_preserve_work
     async with SessionLocal() as db:
         assert (
             await db.scalar(text("SELECT version_num FROM alembic_version"))
-            == "0080_goal_studio_capture"
+            == "0081_goal_roadmap"
         )
         before = (await db.get(GoalStudioSession, item.id)).data
         assert before["runtime"]["model"] == "sentinel"

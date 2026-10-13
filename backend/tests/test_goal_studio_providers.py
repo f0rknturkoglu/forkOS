@@ -490,3 +490,63 @@ async def test_correction_is_bounded_if_model_repeats_invalid_fields(profile, ap
         result = await studio.reconcile(db, await studio.get_session(db, item.id))
         assert result.state == "drafting" and result.error and result.revision is None
         assert len(calls) <= 2
+
+
+async def test_feedback_refreshes_completion_each_turn_and_never_prepares_mutations(profile, api, monkeypatch):
+    from app.modules.goal import service
+    from app.modules.goal.schemas import GoalIn, GoalMilestoneIn, GoalMilestonePatch
+    choose(profile, "custom")
+    original = transport.request
+    calls = []
+    async def reply(method, path, **kwargs):
+        if path == "/v1/runs":
+            calls.append(kwargs["body"])
+            return {"run_id": f"feedback-{len(calls)}"}
+        if path.startswith("/v1/runs/feedback-"):
+            return {"status":"completed", "runtime":{"provider":"custom","model":"fixture-model"},"output":json.dumps({"discussion":"İlk adımını bitirdin. Sıradaki çalışmana geçebilirsin.","proposal":None})}
+        return await original(method, path, **kwargs)
+    monkeypatch.setattr(transport, "request", reply)
+    async with SessionLocal() as db:
+        goal = await service.create_goal(db, GoalIn(title="Sınav hazırlığı"))
+        milestone = await service.add_goal_milestone(db, goal.id, GoalMilestoneIn(title="İlk deneme"))
+        session = await studio.start(db, StudioSessionIn(client_uuid=uuid4(), goal_id=goal.id, mode="feedback"))
+        message = StudioTurnIn(client_uuid=uuid4(), message="Nasıl gidiyorum?")
+        await studio.turn(db, await studio.get_session(db, session.id), message)
+        result = await studio.turn(db, await studio.get_session(db, session.id), message)
+        assert result.revision is None
+        assert '"progress_percent": 0' in calls[0]["input"]
+        await service.update_goal_milestone(db, milestone.id, GoalMilestonePatch(completed=True))
+        await studio.turn(db, await studio.get_session(db, session.id), StudioTurnIn(client_uuid=uuid4(), message="Şimdi nasıl gidiyorum?"))
+        assert '"progress_percent": 100' in calls[1]["input"]
+        assert "proposal: null" in calls[1]["instructions"]
+        assert "Do not create or edit a draft" in calls[1]["instructions"]
+
+
+async def test_feedback_draft_is_rejected_and_corrected_as_feedback_only(profile, api, monkeypatch):
+    from sqlalchemy import func, select
+
+    from app.modules.goal import service
+    from app.modules.goal.models import Goal
+    from app.modules.goal.schemas import GoalIn
+    choose(profile, "custom")
+    original = transport.request
+    calls = []
+    async def reply(method, path, **kwargs):
+        if path == "/v1/runs":
+            calls.append(kwargs["body"])
+            return {"run_id": f"feedback-repair-{len(calls)}"}
+        if path.startswith("/v1/runs/feedback-repair-"):
+            output = {"discussion":"İlk adımını seç.","proposal":{"kind":"goal","title":"İstenmeyen yeni hedef"} if len(calls)==1 else None}
+            return {"status":"completed","runtime":{"provider":"custom","model":"fixture-model"},"output":json.dumps(output)}
+        return await original(method,path,**kwargs)
+    monkeypatch.setattr(transport,"request",reply)
+    async with SessionLocal() as db:
+        goal = await service.create_goal(db, GoalIn(title="Mevcut hedef"))
+        session = await studio.start(db, StudioSessionIn(client_uuid=uuid4(),goal_id=goal.id,mode="feedback"))
+        body = StudioTurnIn(client_uuid=uuid4(),message="İlerlemem nasıl?")
+        await studio.turn(db,await studio.get_session(db,session.id),body)
+        await studio.turn(db,await studio.get_session(db,session.id),body)
+        result = await studio.turn(db,await studio.get_session(db,session.id),body)
+        assert result.revision is None and result.state == "drafting"
+        assert "A feedback conversation cannot create a draft" in calls[1]["input"]
+        assert await db.scalar(select(func.count()).select_from(Goal)) == 1

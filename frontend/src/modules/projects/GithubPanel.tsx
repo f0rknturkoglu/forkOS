@@ -162,9 +162,7 @@ export function GithubPanel({ project }: { project: Project }) {
   if (!project.github_repo) {
     return (
       <Section title="GitHub">
-        <Empty>
-          Depoyu proje ayarlarındaki “GitHub deposu” alanından bağlayabilirsin.
-        </Empty>
+        <Empty>Depoyu proje ayarlarındaki “GitHub deposu” alanından bağlayabilirsin.</Empty>
       </Section>
     );
   }

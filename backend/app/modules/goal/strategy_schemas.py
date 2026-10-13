@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.modules.goal.schemas import GoalOut, _title
+from app.modules.goal.work import GoalWork
 
 Number = Decimal
 ProviderKey = Literal[
@@ -140,6 +141,11 @@ class KeyResultOut(KeyResultIn):
 
 
 class ObjectiveState(BaseModel):
+    roadmap_progress_percent: int | None = None
+    roadmap_present: bool = False
+    roadmap_scope_count: int = 0
+    roadmap_completed_scope_count: int = 0
+    work: GoalWork = Field(default_factory=GoalWork)
     goal: GoalOut
     key_results: list[KeyResultOut]
     strategic_progress_percent: int | None

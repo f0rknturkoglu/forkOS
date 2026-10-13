@@ -258,6 +258,8 @@ async def related(entity_id: uuid.UUID, session: AsyncSession = Depends(get_sess
 
 @router.post("/links", status_code=201)
 async def create_link(body: LinkIn, session: AsyncSession = Depends(get_session)):
+    if body.relation == "roadmap_requires":
+        raise HTTPException(422, "Yol haritası ön koşulları hedef paketi onayıyla düzenlenir")
     await link_svc.link(session, body.from_id, body.to_id, body.relation)
     await log_event(
         session,
@@ -271,6 +273,8 @@ async def create_link(body: LinkIn, session: AsyncSession = Depends(get_session)
 
 @router.delete("/links", status_code=204)
 async def delete_link(body: LinkIn, session: AsyncSession = Depends(get_session)):
+    if body.relation == "roadmap_requires":
+        raise HTTPException(422, "Yol haritası ön koşulları hedef paketi onayıyla düzenlenir")
     await link_svc.unlink(session, body.from_id, body.to_id, body.relation)
     await session.commit()
 

@@ -409,6 +409,9 @@ def weighted(values):
 async def overview(session, *, days=30, now=None):
     now = now or clock()
     goals = await service.list_goals(session)
+    from app.modules.goal.work import load_work
+
+    work = await load_work(session, goals)
     plan_rows, pillar_rows = await plans(session), await pillars(session)
     goal_ids = [g.id for g in goals]
     rows = list(
@@ -467,6 +470,9 @@ async def overview(session, *, days=30, now=None):
                 **{key: getattr(kr, key) for key in KeyResultIn.model_fields if key != "title"},
             )
         )
+    from app.modules.goal.roadmap import read_many
+
+    roadmaps = await read_many(session, goals)
     objectives = []
     for goal in goals:
         krs = grouped[goal.id]
@@ -512,7 +518,12 @@ async def overview(session, *, days=30, now=None):
             pace = "ahead" if gap > 10 else "behind" if gap < -10 else "on_track"
         objectives.append(
             ObjectiveState(
+                roadmap_progress_percent=roadmaps[goal.id].percent,
+                roadmap_present=not roadmaps[goal.id].legacy,
+                roadmap_scope_count=roadmaps[goal.id].scope_count,
+                roadmap_completed_scope_count=roadmaps[goal.id].completed_scope_count,
                 goal=goal,
+                work=work[goal.id],
                 key_results=krs,
                 strategic_progress_percent=progress,
                 milestone_progress_percent=goal.progress_percent,

@@ -31,6 +31,7 @@ async def project_out(
     project: Project,
     entity_activity_at: datetime,
     todo_activity_at: datetime | None = None,
+    progress: dict | None = None,
 ) -> dict:
     title = (
         await session.execute(select(Entity.title).where(Entity.id == project.id))
@@ -44,7 +45,11 @@ async def project_out(
             )
         ).scalars()
     )
+    if progress is None:
+        from app.core.progress import project_progress
+        progress = (await project_progress(session, [project.id]))[project.id]
     return {
+        "execution_progress": progress,
         "id": project.id,
         "title": title,
         "status": project.status,
@@ -81,8 +86,10 @@ async def list_projects(session: AsyncSession, status: str | None = None) -> lis
         stmt = stmt.where(Project.status == status)
     rows = (await session.execute(stmt.order_by(Project.position))).all()
     activity = await _todo_activity_by_project(session, [project.id for project, _ in rows])
+    from app.core.progress import project_progress
+    progress = await project_progress(session, [project.id for project, _ in rows])
     return [
-        await project_out(session, project, entity_activity_at, activity.get(project.id))
+        await project_out(session, project, entity_activity_at, activity.get(project.id), progress.get(project.id))
         for project, entity_activity_at in rows
     ]
 

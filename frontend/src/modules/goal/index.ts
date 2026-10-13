@@ -5,8 +5,8 @@ import { navigate } from "@/app/router";
 const GoalsPage = lazy(() => import("./GoalsPage").then((m) => ({ default: m.GoalsPage })));
 registerModule({
   id: "goal",
-  title: "Hedefler & Strateji",
-  description: "Ölçülebilir sonuç, rota ve stratejik uyum.",
+  title: "Hedefler",
+  description: "Hedeflerini adımlara ayır; görevlerini ve öğrenme çalışmalarını ilerlet.",
   icon: Target,
   routes: [{ path: "/goals", element: GoalsPage }],
   commands: [{ id: "goal.open", label: "Hedefleri aç", run: () => navigate("/goals") }],

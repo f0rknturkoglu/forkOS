@@ -91,7 +91,7 @@ const steps: TourStep[] = [
     search: { view: "objectives" },
     target: "goal-create",
     title: "Bir yön belirle",
-    text: "Bir hedef oluştur veya mevcut hedefini aç. İlerlemeni ölçülebilir sonuçlarla izle.",
+    text: "Bir hedef oluştur veya mevcut hedefini aç. Küçük adımlarla ilerle.",
     actionType: "goal",
   },
   {
@@ -101,7 +101,7 @@ const steps: TourStep[] = [
     search: { view: "objectives" },
     target: "goal-milestone",
     title: "Hedefi adımlara ayır",
-    text: "Mevcut hedefini aç ve gerçek bir adım ekle. Adım tamamlamak ile sonucu ölçmek ayrı işlerdir.",
+    text: "Bir hedef seç ve Adım ekle ile yapılabilir bir iş yaz. İstersen görevlere veya öğrenmeye ekle.",
   },
   {
     id: "goal-keyresults",
@@ -110,7 +110,7 @@ const steps: TourStep[] = [
     search: { view: "objectives" },
     target: "goal-keyresults",
     title: "Sonucu ölç",
-    text: "Hedefinde KR ekle ile başlangıç, hedef ve güncel değerini tanımla.",
+    text: "İstersen Ölçümler ve ayrıntılar bölümünü açıp sınav puanı gibi bir sonuç kaydet.",
   },
   {
     id: "planning",

@@ -9,8 +9,33 @@
 import { queryClient } from "./queryClient";
 
 export const AFTER = {
+  "goal-package.write": [
+    "goal-roadmap",
+    "goal-workspace",
+    "strategy-overview",
+    "strategy-history",
+    "career-goals",
+    "career-goal",
+    "todos",
+    "projects",
+    "project-todos",
+    "plan",
+    "calendar-events",
+    "today-agenda",
+    "study-tree",
+    "study-areas",
+    "study-topics",
+    "study-topic",
+    "topic-resources",
+    "topic-progress",
+    "related",
+    "activity",
+    "review-preview",
+  ],
   "goal-studio.consent": ["goal-studio-status"],
   "todo.write": [
+    "goal-roadmap",
+    "goal-workspace",
     "onboarding-evidence",
     "strategy-overview",
     "career-strategy",
@@ -74,7 +99,23 @@ export const AFTER = {
     "opportunity",
     "activity",
   ],
+  "goal-action.write": [
+    "goal-roadmap",
+    "goal-workspace",
+    "strategy-overview",
+    "career-goal",
+    "todos",
+    "plan",
+    "today-agenda",
+    "study-areas",
+    "study-topics",
+    "study-topic",
+    "related",
+    "activity",
+  ],
   "goal.write": [
+    "goal-roadmap",
+    "goal-workspace",
     "onboarding-evidence",
     "strategy-overview",
     "strategy-history",
@@ -110,6 +151,8 @@ export const AFTER = {
   ],
   "project-resource.write": ["project-resources", "bookmarks", "bookmark-stats", "related", "projects", "activity"],
   "project.write": [
+    "goal-roadmap",
+    "goal-workspace",
     "onboarding-evidence",
     "strategy-overview",
     "career-strategy",
@@ -124,11 +167,13 @@ export const AFTER = {
     "activity",
     "tags",
   ],
-  "plan.write": ["plan", "today-agenda", "calendar-events", "activity", "todos"],
+  "plan.write": ["goal-roadmap", "goal-workspace", "plan", "today-agenda", "calendar-events", "activity", "todos"],
   // Kart tekrari/add: Today, Istatistik, Etkinlik ve Degerlendirme panelleri
   // de bu veriden beslenir -- yalnizca "flashcard" tazelemek onlari bayat birakir.
   "flashcard.write": ["flashcard", "activity", "statistics", "today-agenda", "review-preview"],
   "study.write": [
+    "goal-roadmap",
+    "goal-workspace",
     "onboarding-evidence",
     "strategy-overview",
     "career-strategy",
@@ -175,6 +220,8 @@ export const AFTER = {
     "study-stats",
   ],
   "learning.write": [
+    "goal-roadmap",
+    "goal-workspace",
     "onboarding-evidence",
     "courses",
     "bookmarks",
@@ -190,11 +237,21 @@ export const AFTER = {
     "today-agenda",
   ],
   "document.write": ["documents", "activity"],
-  "calendar.write": ["calendar-events", "plan", "today-agenda", "activity"],
+  "calendar.write": ["goal-roadmap", "goal-workspace", "calendar-events", "plan", "today-agenda", "activity"],
   // Degerlendirme kararlari gorev yazar: devredilen gorev plan slotu alir,
   // oncelikler yeni gorev uretir. Home ajandasi kendi ucuyla ("today-agenda")
   // okundugu icin yalniz todos/plan tazelemek onu bayat birakiyordu.
-  "review.write": ["strategy-history", "review-preview", "reviews", "todos", "plan", "today-agenda", "activity"],
+  "review.write": [
+    "goal-roadmap",
+    "goal-workspace",
+    "strategy-history",
+    "review-preview",
+    "reviews",
+    "todos",
+    "plan",
+    "today-agenda",
+    "activity",
+  ],
   // H6 kontrol yuzeyi (Ayarlar > Proaktivite + bildirim panelindeki erteleme)
   // bu yazma olayindan beslenir: ana anahtar, esik ve erteleme durum/kural/
   // gecmis sorgularinin ucunu de tazeler.
@@ -233,7 +290,17 @@ export const AFTER = {
     "source-coverage",
     "source-cache",
   ],
-  "link.write": ["strategy-overview", "related", "backlinks", "activity", "project-resources"],
+  "link.write": [
+    "goal-roadmap",
+    "goal-workspace",
+    "projects",
+    "project-todos",
+    "strategy-overview",
+    "related",
+    "backlinks",
+    "activity",
+    "project-resources",
+  ],
   // Bilgi artık Vault'ta yaşar: Vault yazması forkOS veritabanını
   // DEĞİŞTİRMEZ, bu yüzden yalnız Vault sorguları tazelenir.
   "obsidian.write": ["vault-status", "vault-item"],

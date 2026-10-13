@@ -95,6 +95,12 @@ beforeEach(() => {
   apiPatch.mockResolvedValue({} as never);
 });
 
+it("tamamlanan görev aynı kanonik kayıtta yeniden açılabilir", async () => {
+  renderRow(baseTodo({ id: "completed-work", status: "done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Yeniden aç" }));
+  await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/todos/completed-work", { status: "open" }));
+});
+
 describe("rutin kontrolleri (Faz 24)", () => {
   // Rutin tek yol: satirdaki rutin etiketi duzenleyiciyi acar. Ayri bir
   // "rutini durdur" ikonu kaldirildi -- ayni isi iki yerden yapmak

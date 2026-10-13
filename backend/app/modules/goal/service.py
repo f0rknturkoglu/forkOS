@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity, touch_entity
@@ -186,8 +186,14 @@ async def update_goal(
 async def add_goal_milestone(
     session: AsyncSession, goal_id: uuid.UUID, data: GoalMilestoneIn, *, commit: bool = True
 ) -> GoalMilestoneOut | None:
-    if await session.get(Goal, goal_id) is None:
+    if await session.scalar(select(Goal).where(Goal.id == goal_id).with_for_update()) is None:
         return None
+    position = data.position
+    if "position" not in data.model_fields_set:
+        last = await session.scalar(
+            select(func.max(GoalMilestone.position)).where(GoalMilestone.goal_id == goal_id)
+        )
+        position = last + 1 if last is not None else 0
     entity = await create_entity(
         session, type=GoalMilestone.ENTITY_TYPE, title=data.title, search_text=data.title
     )
@@ -196,7 +202,7 @@ async def add_goal_milestone(
         goal_id=goal_id,
         title=data.title,
         due_at=data.due_at,
-        position=data.position,
+        position=position,
     )
     session.add(item)
     await log_event(

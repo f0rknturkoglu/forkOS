@@ -590,7 +590,7 @@ async def delete_course(session: AsyncSession, course_id: UUID) -> bool:
 # ---------------------------------------------------------------------------
 
 
-async def create_area(session: AsyncSession, data) -> dict:
+async def create_area(session: AsyncSession, data, *, commit: bool = True) -> dict:
     entity = await create_entity(
         session, type="study_area", title=data.title, search_text=_area_search_text(data.title)
     )
@@ -603,7 +603,10 @@ async def create_area(session: AsyncSession, data) -> dict:
         entity_type="study_area",
         payload={"area_id": str(area.id), "title": data.title},
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return {
         "id": area.id,
         "title": data.title,
@@ -1196,8 +1199,12 @@ async def _load_area_graph(session: AsyncSession, area_id: UUID) -> dict | None:
         resources.setdefault(out["topic_id"], []).append(out)
 
     topic_context = func.coalesce(
-        select(LearningResource.topic_id).where(LearningResource.id == PomodoroSession.context_entity_id)
-        .correlate(PomodoroSession).scalar_subquery(), PomodoroSession.context_entity_id)
+        select(LearningResource.topic_id)
+        .where(LearningResource.id == PomodoroSession.context_entity_id)
+        .correlate(PomodoroSession)
+        .scalar_subquery(),
+        PomodoroSession.context_entity_id,
+    )
     focus: dict[UUID, tuple[int, int]] = {
         context_entity_id: (int(minutes), int(sessions))
         for context_entity_id, minutes, sessions in (
@@ -1210,9 +1217,7 @@ async def _load_area_graph(session: AsyncSession, area_id: UUID) -> dict | None:
                 .where(
                     PomodoroSession.kind == "focus",
                     PomodoroSession.ended_at.is_not(None),
-                    topic_context.in_(
-                        select(StudyTopic.id).where(StudyTopic.area_id == area_id)
-                    ),
+                    topic_context.in_(select(StudyTopic.id).where(StudyTopic.area_id == area_id)),
                 )
                 .group_by(topic_context)
             )
@@ -1710,8 +1715,12 @@ async def study_stats(session: AsyncSession, *, value: str = "week") -> dict:
         return int((await session.execute(stmt)).scalar_one())
 
     topic_context = func.coalesce(
-        select(LearningResource.topic_id).where(LearningResource.id == PomodoroSession.context_entity_id)
-        .correlate(PomodoroSession).scalar_subquery(), PomodoroSession.context_entity_id)
+        select(LearningResource.topic_id)
+        .where(LearningResource.id == PomodoroSession.context_entity_id)
+        .correlate(PomodoroSession)
+        .scalar_subquery(),
+        PomodoroSession.context_entity_id,
+    )
     by_area = [
         {"area_id": area_id, "title": title, "minutes": int(minutes)}
         for area_id, title, minutes in (
@@ -1841,7 +1850,9 @@ async def _next_position(session: AsyncSession, topic_id: UUID) -> int:
     )
 
 
-async def create_resource(session: AsyncSession, topic_id: UUID, data) -> dict:
+async def create_resource(
+    session: AsyncSession, topic_id: UUID, data, *, commit: bool = True
+) -> dict:
     if await session.get(StudyTopic, topic_id) is None:
         raise LearningNotFoundError("konu bulunamadi")
     values = data.model_dump()
@@ -1870,11 +1881,16 @@ async def create_resource(session: AsyncSession, topic_id: UUID, data) -> dict:
             "source": item.source,
         },
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return resource_out(item, title)
 
 
-async def attach_bookmark(session: AsyncSession, topic_id: UUID, bookmark_id: UUID) -> dict:
+async def attach_bookmark(
+    session: AsyncSession, topic_id: UUID, bookmark_id: UUID, *, commit: bool = True
+) -> dict:
     """Yer imini KOPYALAMADAN ogrenme kaynagina baglar (partial unique ile idempotent)."""
     topic = await session.get(StudyTopic, topic_id)
     if topic is None:
@@ -1922,7 +1938,10 @@ async def attach_bookmark(session: AsyncSession, topic_id: UUID, bookmark_id: UU
             "source": "bookmark",
         },
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     row = (await session.execute(_resource_select().where(LearningResource.id == item.id))).first()
     return _resource_row_out(row)
 

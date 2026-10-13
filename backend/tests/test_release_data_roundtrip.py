@@ -129,7 +129,7 @@ async def test_second_database_restore_and_migration_preserve_all_content(tmp_pa
         await migrate("upgrade", "head")
         async with sessions() as db:
             assert fingerprint(await export.full_json(db)) == expected
-            assert await db.scalar(text("select version_num from alembic_version")) == "0080_goal_studio_capture"
+            assert await db.scalar(text("select version_num from alembic_version")) == "0081_goal_roadmap"
         # Binary corruption remains an explicit preflight failure.
         payload["attachments"][next(iter(payload["attachments"]))] = base64.b64encode(b"corrupt").decode()
         assert restore.inspect_payload(payload)["integrity_ok"] is False

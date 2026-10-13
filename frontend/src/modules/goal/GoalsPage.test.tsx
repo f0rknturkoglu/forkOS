@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "@/core/api";
 import { queryClient } from "@/core/queryClient";
 import { GoalsPage } from "./GoalsPage";
-vi.mock("@/core/api", () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+vi.mock("@/core/api", () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), put: vi.fn() } }));
 const empty = {
   warnings: [],
   plans: [],
@@ -17,6 +17,76 @@ const empty = {
   providers: [],
   alignment: { percent: null, eligible_count: 0, linked_count: 0, unaligned_count: 0, warnings: [], pillars: [] },
 };
+const goal = {
+  id: "g1",
+  title: "YDS 60+",
+  description: "Günde dört saat çalış.",
+  status: "active",
+  horizon: "quarter",
+  priority: 2,
+  weight: "1",
+  target_at: null,
+  milestones: [{ id: "m1", title: "İlk denemeyi çöz", completed_at: null }],
+};
+const objective = {
+  goal,
+  key_results: [],
+  reasons: [],
+  confidence: "low",
+  trajectory: "unknown",
+  evidence_refs: [],
+  work: {
+    progress_percent: 0,
+    completed_count: 0,
+    total_count: 1,
+    milestones: [
+      {
+        id: "m1",
+        title: "İlk denemeyi çöz",
+        manual_completed: false,
+        completed: false,
+        progress_percent: 0,
+        action_ids: [],
+      },
+    ],
+    actions: [],
+  },
+};
+const graph = {
+  goal_id: "g1",
+  nodes: [
+    {
+      id: "m1",
+      title: "İlk denemeyi çöz",
+      kind: "milestone",
+      target_id: "m1",
+      target_type: "goal_milestone",
+      percent: 0,
+      position: 0,
+      persisted: false,
+      dependencies: [],
+    },
+  ],
+  percent: 0,
+  legacy: true,
+  warnings: [],
+};
+const workspace = {
+  todos: [],
+  learning: [],
+  resources: [],
+  planned_slots: [],
+  projects: [],
+  activity_windows: { "7": { count: 0, completed_todos: 0 }, "30": { count: 0 }, "90": { count: 0 } },
+  outcome: { percent: null },
+  accepted_revisions: [],
+};
+function response(path: string, overview: unknown = empty) {
+  if (path.endsWith("/roadmap")) return graph;
+  if (path.endsWith("/workspace")) return workspace;
+  if (path.endsWith("/conversation")) throw new Error("Henüz görüşme yok");
+  return overview;
+}
 function show() {
   return render(
     <QueryClientProvider client={queryClient()}>
@@ -27,143 +97,119 @@ function show() {
 beforeEach(() => {
   queryClient().setDefaultOptions({ queries: { retry: false } });
   location.hash = "#/goals";
-  vi.mocked(api.get).mockResolvedValue(empty);
+  vi.mocked(api.get).mockImplementation(async (path) => response(path));
+  localStorage.clear();
 });
 afterEach(() => {
   cleanup();
   queryClient().clear();
   vi.resetAllMocks();
 });
-it("offers a plan-free objective and keeps an empty denominator unknown", async () => {
+
+it("starts with goal cards and offers creation without visible technical metrics", async () => {
   show();
-  await screen.findByText("İlk hedefini tanımla");
-  expect(screen.getByText("Ölçüm yok")).toBeTruthy();
-  expect(screen.getByRole("tab", { name: "Stratejik plan" })).toBeTruthy();
+  await screen.findByText("İlk hedefini oluştur");
+  expect(screen.queryByText("Kanıt kalitesi")).toBeNull();
+  expect(screen.queryByRole("tab", { name: "Stratejik plan" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Hedef oluştur" }));
-  expect(await screen.findByLabelText("Hedef başlığı")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Hedef oluştur" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "Yeni hedef" })).getByRole("button", { name: "Kendim oluştur" }),
+  );
+  expect(screen.getByLabelText("Hedef başlığı")).toBeTruthy();
 });
-it("shows a recoverable error instead of fake zeros", async () => {
+it("shows a recoverable read error instead of an empty list", async () => {
   vi.mocked(api.get).mockRejectedValue(new Error("offline"));
   show();
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Yeniden dene" })).toBeTruthy();
-  expect(screen.queryByText("0/0 anlamlı hareket")).toBeNull();
+  expect(screen.queryByText("İlk hedefini oluştur")).toBeNull();
 });
-it("keeps missing measurement evidence readable without exposing internal finding codes", async () => {
+it("opens a plain work view and keeps editing and evidence behind explicit buttons", async () => {
+  vi.mocked(api.get).mockImplementation(async (path) => response(path, { ...empty, objectives: [objective] }));
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: /YDS 60/ }));
+  expect(await screen.findByRole("heading", { name: "Yol haritası" })).toBeTruthy();
+  fireEvent.click(screen.getByText("Adımlar ve manuel ekleme"));
+  expect(screen.getByRole("heading", { name: "Sıradaki adımlar" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "İlk denemeyi çöz: Göreve ekle" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "İlk denemeyi çöz: Öğrenmeye ekle" })).toBeTruthy();
+  expect(screen.queryByLabelText("Hedef başlığı")).toBeNull();
+  expect(screen.queryByText("Kanıt kalitesi")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Düzenle" }));
+  expect((screen.getByLabelText("Hedef başlığı") as HTMLInputElement).value).toBe(goal.title);
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "Hedefi düzenle" })).getByRole("button", { name: "Kapat" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Ölçümler ve ayrıntılar" }));
+  expect(screen.getByText("Kanıt kalitesi")).toBeTruthy();
+});
+it("hydrates a newly created goal without automatically reopening its editor", async () => {
+  let resolveDetail!: (value: unknown) => void;
+  const pending = new Promise((resolve) => {
+    resolveDetail = resolve;
+  });
+  vi.mocked(api.get).mockImplementation((path) => (path === "/goals/g1" ? pending : Promise.resolve(response(path))));
+  vi.mocked(api.post).mockResolvedValue({ id: "g1" });
+  show();
+  fireEvent.click(await screen.findByRole("button", { name: "Hedef oluştur" }));
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "Yeni hedef" })).getByRole("button", { name: "Kendim oluştur" }),
+  );
+  fireEvent.change(screen.getByLabelText("Hedef başlığı"), { target: { value: goal.title } });
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "Yeni hedef" })).getByRole("button", { name: "Hedef oluştur" }),
+  );
+  await waitFor(() => expect(api.get).toHaveBeenCalledWith("/goals/g1"));
+  await act(async () => resolveDetail(goal));
+  expect(await screen.findByRole("heading", { name: goal.title })).toBeTruthy();
+  expect(screen.queryByLabelText("Hedef başlığı")).toBeNull();
+});
+it("keeps technical findings out of the main view and exposes them on request", async () => {
   vi.mocked(api.get).mockResolvedValue({
     ...empty,
-    findings: [
-      {
-        code: "MISSING_MEASUREMENT",
-        observed_facts: "Etkin hedef için ölçülebilir stratejik sonuç yok.",
-        window_start: "2026-09-12",
-        window_end: "2026-10-12",
-        entity_refs: [],
-        evidence_refs: [],
-      },
-    ],
+    findings: [{ observed_facts: "Etkin hedef için ölçülebilir sonuç yok.", evidence_refs: [], entity_refs: [] }],
   });
   show();
-  expect(await screen.findByText("Etkin hedef için ölçülebilir stratejik sonuç yok.")).toBeTruthy();
-  expect(screen.queryByText(/MISSING_MEASUREMENT/)).toBeNull();
+  await screen.findByText("İlk hedefini oluştur");
+  expect(screen.queryByText("Etkin hedef için ölçülebilir sonuç yok.")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Geçmiş ve gelişmiş ayarlar" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Strateji ayrıntıları" }));
+  expect(screen.getByText("Etkin hedef için ölçülebilir sonuç yok.")).toBeTruthy();
 });
-it("keeps plan revision history inspectable with comparison explanation", async () => {
+it("keeps plan revision history accessible", async () => {
   vi.mocked(api.get).mockImplementation(async (path) =>
     path.includes("history")
       ? {
-          items: [{ id: "r1", title: "Plan revizyonu 1", occurred_at: "2026-10-01T00:00:00Z", state: { revision: 1 } }],
-          comparable: false,
+          items: [{ id: "r1", title: "Plan revizyonu 1", state: { revision: 1 } }],
           comparison_reason: "Tanımlar farklı; delta hesaplanmadı.",
         }
       : empty,
   );
   show();
-  await screen.findByText("İlk hedefini tanımla");
+  fireEvent.click(await screen.findByRole("button", { name: "Geçmiş ve gelişmiş ayarlar" }));
   fireEvent.click(screen.getByRole("tab", { name: "Geçmiş" }));
   expect(await screen.findByText("Tanımlar farklı; delta hesaplanmadı.")).toBeTruthy();
-  expect(screen.getByText(/Plan revizyonu 1/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Plan revizyonu 1" })).toBeTruthy();
 });
-it("tutorial target toggles the new goal editor and preserves an unfinished title", async () => {
-  location.hash = "#/goals?view=objectives";
-  show();
-  const toggle = await screen.findByRole("button", { name: "Kendim oluştur" });
-  const title = screen.getByLabelText("Hedef başlığı") as HTMLInputElement;
-  expect(title.closest("[hidden]")).not.toBeNull();
-  fireEvent.click(toggle);
-  expect(toggle.getAttribute("aria-expanded")).toBe("true");
-  expect(title.closest("[hidden]")).toBeNull();
-  fireEvent.change(title, { target: { value: "Taslak hedef" } });
-  fireEvent.click(toggle);
-  expect(toggle.getAttribute("aria-expanded")).toBe("false");
-  expect(title.closest("[hidden]")).not.toBeNull();
-  fireEvent.click(toggle);
-  expect(title.value).toBe("Taslak hedef");
-  expect(toggle.closest('[data-onboarding="goal-create"]')).not.toBeNull();
-});
-
-it("hydrates the new goal editor when its first detail response arrives later", async () => {
-  location.hash = "#/goals?view=objectives";
-  let resolveDetail!: (value: unknown) => void;
-  const pending = new Promise((resolve) => {
-    resolveDetail = resolve;
-  });
-  vi.mocked(api.get).mockImplementation((path) => (path === "/goals/late-goal" ? pending : Promise.resolve(empty)));
-  vi.mocked(api.post).mockResolvedValue({ id: "late-goal" });
-  show();
-  fireEvent.click(await screen.findByRole("button", { name: "Kendim oluştur" }));
-  fireEvent.change(screen.getByLabelText("Hedef başlığı"), { target: { value: "Kalıcı hedef" } });
-  fireEvent.change(screen.getByLabelText("Hedef açıklaması"), { target: { value: "Korunacak açıklama" } });
-  fireEvent.click(screen.getByRole("button", { name: "Hedef oluştur" }));
-  await waitFor(() => expect(api.get).toHaveBeenCalledWith("/goals/late-goal"));
-  await act(async () =>
-    resolveDetail({
-      id: "late-goal",
-      title: "Kalıcı hedef",
-      description: "Korunacak açıklama",
-      status: "active",
-      horizon: "quarter",
-      priority: 2,
-      weight: "1",
-      milestones: [],
-    }),
+it("uses the bound goal in the persistent living conversation", async () => {
+  vi.mocked(api.get).mockImplementation(async (path) =>
+    path.includes("studio/status")
+      ? { state: "ready", local: true }
+      : response(path, { ...empty, objectives: [objective] }),
   );
-  await waitFor(() => expect((screen.getByLabelText("Hedef başlığı") as HTMLInputElement).value).toBe("Kalıcı hedef"));
-  expect((screen.getByLabelText("Hedef açıklaması") as HTMLTextAreaElement).value).toBe("Korunacak açıklama");
-});
-
-it("waits for the created plan before mounting its editor", async () => {
-  location.hash = "#/goals?view=plans";
-  const plan = {
-    id: "late-plan",
-    title: "Kalıcı plan",
-    summary: "Kalıcı özet",
-    start_at: "2026-10-01T00:00:00Z",
-    end_at: "2026-12-31T00:00:00Z",
-    status: "active",
-    revision: 1,
-  };
-  let created = false;
-  let resolveOverview!: (value: unknown) => void;
-  const pending = new Promise((resolve) => {
-    resolveOverview = resolve;
-  });
-  vi.mocked(api.get).mockImplementation(() => (created ? pending : Promise.resolve(empty)));
-  vi.mocked(api.post).mockImplementation(async () => {
-    created = true;
-    return plan;
-  });
+  vi.mocked(api.post).mockResolvedValue({ id: "s1", state: "drafting", context: null, messages: [], revision: null });
   show();
-  fireEvent.click(await screen.findByRole("button", { name: "Planı kendim oluştur" }));
-  fireEvent.change(await screen.findByLabelText("Plan başlığı"), { target: { value: plan.title } });
-  fireEvent.change(screen.getByLabelText("Plan özeti"), { target: { value: plan.summary } });
-  fireEvent.change(screen.getByLabelText("Plan başlangıcı"), { target: { value: "2026-10-01" } });
-  fireEvent.change(screen.getByLabelText("Plan bitişi"), { target: { value: "2026-12-31" } });
-  fireEvent.click(screen.getByRole("button", { name: "Planı kaydet" }));
-  expect(await screen.findByText("Plan yükleniyor…")).toBeTruthy();
-  expect(screen.queryByLabelText("Plan başlığı")).toBeNull();
-  await act(async () => resolveOverview({ ...empty, plans: [plan] }));
-  await waitFor(() => expect((screen.getByLabelText("Plan başlığı") as HTMLInputElement).value).toBe(plan.title));
-  expect((screen.getByLabelText("Plan özeti") as HTMLTextAreaElement).value).toBe(plan.summary);
-  expect((screen.getByLabelText("Plan başlangıcı") as HTMLInputElement).value).toBe("2026-10-01");
+  fireEvent.click(await screen.findByRole("button", { name: /YDS 60/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Hermes’e ilerlememi sor" }));
+  fireEvent.change(screen.getByLabelText("Hermes mesajı"), { target: { value: "Nasıl gidiyorum?" } });
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Hermes’e gönder" }).hasAttribute("disabled")).toBe(false),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Hermes’e gönder" }));
+  await waitFor(() =>
+    expect(api.post).toHaveBeenCalledWith(
+      "/goals/studio/sessions",
+      expect.objectContaining({ goal_id: "g1", mode: "living" }),
+    ),
+  );
 });

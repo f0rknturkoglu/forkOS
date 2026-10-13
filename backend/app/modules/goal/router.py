@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
 from app.modules.goal import service, strategy
+from app.modules.goal.context_schemas import GoalContextSnapshot, RoadmapOwner
 from app.modules.goal.schemas import (
     GoalIn,
     GoalMilestoneIn,
@@ -27,6 +28,7 @@ from app.modules.goal.strategy_schemas import (
     StrategyOverview,
 )
 from app.modules.goal.studio_router import router as studio_router
+from app.modules.goal.work import GoalActionIn, GoalActionOut, create_action
 
 
 class StrategyWindow(IntEnum):
@@ -155,3 +157,68 @@ async def update_milestone(
     if result is None:
         raise HTTPException(404, "Hedef kilometre taşı bulunamadı")
     return result
+
+
+@router.post("/goals/{goal_id}/actions", response_model=GoalActionOut, status_code=201)
+async def add_goal_action(
+    goal_id: UUID, body: GoalActionIn, session: AsyncSession = Depends(get_session)
+):
+    return await create_action(session, goal_id, body)
+
+
+from app.modules.goal.roadmap import RoadmapOut  # noqa: E402
+from app.modules.goal.studio_schemas import StudioSessionOut  # noqa: E402
+
+
+@router.get("/goals/{goal_id}/roadmap", response_model=RoadmapOut)
+async def roadmap_read(goal_id: UUID, session: AsyncSession = Depends(get_session)):
+    from app.modules.goal.roadmap import read
+
+    try:
+        return await read(session, goal_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/goals/roadmap-nodes/{node_id}", response_model=RoadmapOwner)
+async def roadmap_owner(node_id: UUID, session: AsyncSession = Depends(get_session)):
+    from app.modules.goal.roadmap_models import GoalRoadmapNode
+
+    node = await session.get(GoalRoadmapNode, node_id)
+    if not node:
+        raise HTTPException(404, "Yol haritası düğümü bulunamadı")
+    return {"goal_id": str(node.goal_id), "node_id": str(node.id)}
+
+
+@router.get("/goals/{goal_id}/workspace", response_model=GoalContextSnapshot)
+async def living_workspace(goal_id: UUID, session: AsyncSession = Depends(get_session)):
+    from app.modules.goal.context_snapshot import build
+
+    try:
+        return await build(session, goal_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/goals/{goal_id}/conversation", response_model=StudioSessionOut)
+async def living_conversation(goal_id: UUID, session: AsyncSession = Depends(get_session)):
+    from sqlalchemy import func, select
+
+    from app.core.models import Entity
+    from app.modules.goal.studio import out
+    from app.modules.goal.studio_models import GoalStudioSession
+
+    row = await session.scalar(
+        select(GoalStudioSession)
+        .join(Entity, Entity.id == GoalStudioSession.id)
+        .where(
+            func.jsonb_array_length(GoalStudioSession.data["messages"]) > 0,
+            GoalStudioSession.data["goal_id"].astext == str(goal_id),
+            GoalStudioSession.data["mode"].astext == "living",
+        )
+        .order_by(Entity.created_at.desc(), GoalStudioSession.id.desc())
+        .limit(1)
+    )
+    if not row:
+        raise HTTPException(404, "Henüz görüşme yok")
+    return await out(session, row)

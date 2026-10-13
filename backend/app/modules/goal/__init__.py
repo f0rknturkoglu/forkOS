@@ -1,5 +1,5 @@
 from app.modules import EntityTypeSpec, ModuleSpec
-from app.modules.goal import studio_models  # noqa: F401
+from app.modules.goal import roadmap_models, studio_models  # noqa: F401
 from app.modules.goal.router import router
 from app.modules.goal.service import deadline_provider
 
@@ -8,6 +8,13 @@ MODULE = ModuleSpec(
     title="Goals",
     router=router,
     entity_types=[
+        EntityTypeSpec(
+            "goal_roadmap_node",
+            "Yol haritası adımı",
+            "Yol haritası adımları",
+            "/goals?entity={id}",
+            "GitBranch",
+        ),
         EntityTypeSpec(
             "goal_studio_session",
             "Hedef görüşmesi",
@@ -62,6 +69,9 @@ MODULE = ModuleSpec(
         ),
     ],
     event_verbs=[
+        "goal.task_updated",
+        "goal.roadmap_created",
+        "goal.roadmap_updated",
         "goal_studio.started",
         "goal_studio.turn_requested",
         "goal_studio.turn_completed",

@@ -599,7 +599,17 @@ export function TopicDetail({
           </div>
         )}
 
-        {tab === "kaynaklar" && <ResourceList topicId={topicId} addSignal={addResourceSignal} />}
+        {tab === "kaynaklar" && (
+          <div className="stack-y-4">
+            <ResourceList topicId={topicId} addSignal={addResourceSignal} />
+            <RelatedPanel
+              entityId={topicId}
+              title="Diğer bağlı kaynaklar"
+              relation="learns_from"
+              excludeEntityIds={(detail.resources ?? []).map((resource) => resource.id)}
+            />
+          </div>
+        )}
 
         {tab === "notlar" && <TopicKnowledgeNote topicId={topicId} topicTitle={topic.title} />}
 

@@ -157,6 +157,15 @@ export function ProjectsPage() {
           />
           <WorkspaceScrollArea className="p-4">
             <div data-onboarding="project-create" id="project-view" className="mx-auto max-w-4xl stack-y-4">
+              {current.execution_progress && (
+                <p className="text-meta text-secondary">
+                  Çalışma ilerlemesi:{" "}
+                  {current.execution_progress.percent == null
+                    ? "Henüz hesaplanamıyor"
+                    : `%${current.execution_progress.percent}`}{" "}
+                  · {current.execution_progress.completed}/{current.execution_progress.total} iş birimi tamamlandı
+                </p>
+              )}
               <ContextualHelp
                 key={current.id}
                 context={{ kind: "project", entity_id: current.id }}

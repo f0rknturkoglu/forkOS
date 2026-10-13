@@ -337,6 +337,18 @@ async def build_summary(db, context: AssistanceContext) -> AssistanceSummary:
             overview = await strategy.overview(db)
             objective = next((o for o in overview.objectives if o.goal.id == entity.id), None)
             if objective:
+                work = objective.work
+                out.facts.append(ContextFact(
+                    text=f"Çalışma ilerlemesi: %{work.progress_percent if work.progress_percent is not None else 'bilinmiyor'}; {work.completed_count}/{work.total_count} adım tamamlandı.",
+                    support_refs=["entity:" + str(entity.id)],
+                ))
+                for step in work.milestones[:12]:
+                    out.facts.append(ContextFact(text=f"Adım: {step.title[:200]} — %{step.progress_percent} tamamlandı.", support_refs=["entity:" + str(step.id)]))
+                for action in work.actions[:20]:
+                    item = await db.get(Entity, action.id)
+                    if item:
+                        add_entity(out, item, schedulable=action.type == "todo" and not action.completed)
+                        out.facts.append(ContextFact(text=f"{action.title[:200]}: {'tamamlandı' if action.completed else 'devam ediyor'}.", support_refs=["entity:" + str(action.id)]))
                 progress = objective.strategic_progress_percent
                 out.facts.append(
                     ContextFact(

@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -89,6 +89,7 @@ async def sync_google(session: AsyncSession) -> int:
         token_row.sync_token = None
         raw_events, next_token = await list_events(token)
 
+    await session.execute(text("SELECT pg_advisory_xact_lock(8010081)"))
     now = datetime.now(UTC)
     changed = 0
     for raw in raw_events:

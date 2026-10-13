@@ -455,6 +455,7 @@ export interface Milestone {
 }
 
 export interface Project {
+  execution_progress?: { percent: number | null; completed: number; total: number; coverage: string };
   id: string;
   title: string;
   status: string;

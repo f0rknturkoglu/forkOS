@@ -1,5 +1,9 @@
 # Hedefler ve Strateji V1
 
+> Bu belge tarihsel V1 metrik/plan/Review sözleşmesidir. Güncel kullanıcı akışı
+> ve ayrı çalışma ilerlemesi [Goals 2.0](architecture/goals-2.0.md) belgesindedir.
+> Aşağıdaki V1 kapanış kanıtları kendi tarihleri için korunmuştur.
+
 ## Sahiplik ve uyumluluk
 
 `goal` modülü kanonik strateji sahibidir; `/goals` birincil Hedefler alanıdır.
