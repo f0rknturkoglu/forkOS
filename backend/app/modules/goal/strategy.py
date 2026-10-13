@@ -317,7 +317,14 @@ async def alignment(session, goals, milestones, *, days, now):
     )
     graph = defaultdict(set)
     supports = defaultdict(set)
+    from app.modules.goal.contributions import current_scope
+
+    scope = await current_scope(session, list(active), milestone_goals)
     for link in graph_rows[:10000]:
+        if link.relation in {"advances_goal", "advances_goal_milestone"} and not scope.allows(
+            link.from_id, link.to_id
+        ):
+            continue
         if link.relation == "advances_goal" and link.to_id in active:
             graph[link.from_id].add(link.to_id)
             supports[link.to_id].add(link.from_id)
@@ -361,7 +368,7 @@ async def alignment(session, goals, milestones, *, days, now):
                 if active[goal_id].pillar_id:
                     pillar_counts[active[goal_id].pillar_id] += share
     warnings = []
-    if truncated or len(graph_rows) > 10000:
+    if truncated or len(graph_rows) > 10000 or scope.truncated:
         warnings.append(
             reason(
                 "ALIGNMENT_TRUNCATED",

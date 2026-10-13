@@ -83,10 +83,14 @@ class GoalActionOut(BaseModel):
     title: str
 
 
-async def load_work(db, goals) -> dict[UUID, GoalWork]:
+async def load_work(db, goals, *, scope=None) -> dict[UUID, GoalWork]:
     owners = {g.id: g.id for g in goals}
     milestone_owner = {m.id: g.id for g in goals for m in g.milestones}
     owners.update(milestone_owner)
+    if scope is None:
+        from app.modules.goal.contributions import current_scope
+
+        scope = await current_scope(db, [g.id for g in goals], milestone_owner)
     links = list(
         await db.scalars(
             select(Link)
@@ -98,7 +102,7 @@ async def load_work(db, goals) -> dict[UUID, GoalWork]:
             .limit(5001)
         )
     )
-    truncated = len(links) > 5000
+    truncated = len(links) > 5000 or scope.truncated
     links = links[:5000]
     ids = {row.from_id for row in links}
     entities = {
@@ -117,6 +121,8 @@ async def load_work(db, goals) -> dict[UUID, GoalWork]:
     }
     by_goal = defaultdict(dict)
     for row in links:
+        if not scope.allows(row.from_id, row.to_id):
+            continue
         entity = entities.get(row.from_id)
         if entity is None or entity.id not in todos and entity.id not in topics:
             continue
@@ -142,6 +148,13 @@ async def load_work(db, goals) -> dict[UUID, GoalWork]:
         steps = []
         fractions = []
         for milestone in goal.milestones:
+            pair = (milestone.id, goal.id)
+            if (
+                pair in scope.declared
+                and pair not in scope.active
+                and not any(milestone.id in a.milestone_ids for a in actions)
+            ):
+                continue
             children = [a for a in actions if milestone.id in a.milestone_ids]
             manual = bool(milestone.completed_at)
             ratio = (

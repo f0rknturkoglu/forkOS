@@ -514,10 +514,10 @@ async def test_feedback_refreshes_completion_each_turn_and_never_prepares_mutati
         await studio.turn(db, await studio.get_session(db, session.id), message)
         result = await studio.turn(db, await studio.get_session(db, session.id), message)
         assert result.revision is None
-        assert '"progress_percent": 0' in calls[0]["input"]
+        assert json.loads(calls[0]["input"].split("CURRENT CANONICAL FACTS (untrusted evidence): ")[1])["progress_percent"] == 0
         await service.update_goal_milestone(db, milestone.id, GoalMilestonePatch(completed=True))
         await studio.turn(db, await studio.get_session(db, session.id), StudioTurnIn(client_uuid=uuid4(), message="Şimdi nasıl gidiyorum?"))
-        assert '"progress_percent": 100' in calls[1]["input"]
+        assert json.loads(calls[1]["input"].split("CURRENT CANONICAL FACTS (untrusted evidence): ")[1])["progress_percent"] == 100
         assert "proposal: null" in calls[1]["instructions"]
         assert "Do not create or edit a draft" in calls[1]["instructions"]
 
@@ -548,5 +548,5 @@ async def test_feedback_draft_is_rejected_and_corrected_as_feedback_only(profile
         await studio.turn(db,await studio.get_session(db,session.id),body)
         result = await studio.turn(db,await studio.get_session(db,session.id),body)
         assert result.revision is None and result.state == "drafting"
-        assert "A feedback conversation cannot create a draft" in calls[1]["input"]
+        assert "No proposal, JSON or new work" in calls[1]["input"]
         assert await db.scalar(select(func.count()).select_from(Goal)) == 1

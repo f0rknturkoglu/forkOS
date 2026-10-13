@@ -228,12 +228,18 @@ async def save_node(
         verb="goal.roadmap_updated" if node_id else "goal.roadmap_created",
         entity_id=node.id,
         entity_type=node.ENTITY_TYPE,
-        payload={"goal_id": str(goal_id), "detached": detached},
+        payload={
+            "goal_id": str(goal_id),
+            "target_id": str(target_id) if target_id else None,
+            "contribution_source": "roadmap",
+            "detached": detached,
+        },
     )
     return node
 
 
 async def prepare(db, goals):
+    from app.modules.goal.contributions import current_scope
     from app.modules.goal.work import load_work
 
     rows = (
@@ -250,7 +256,10 @@ async def prepare(db, goals):
     truncated = len(rows) > 10000
     rows = rows[:10000]
     targets = {n.target_id for n, _ in rows if n.target_id}
-    legacy = await load_work(db, goals)
+    scope = await current_scope(
+        db, [g.id for g in goals], {m.id: g.id for g in goals for m in g.milestones}
+    )
+    legacy = await load_work(db, goals, scope=scope)
     targets.update(a.id for work in legacy.values() for a in work.actions)
     targets.update(m.id for work in legacy.values() for m in work.milestones)
     entities, values = await canonical_evidence(db, targets)
@@ -293,11 +302,15 @@ async def prepare(db, goals):
     ).all()
     return {
         "rows": rows,
+        "contribution_scope": scope,
         "entities": entities,
         "values": values,
         "dependencies": dependencies[:20000],
         "preparation": preparation[:5000],
-        "truncated": truncated or len(dependencies) > 20000 or len(preparation) > 5000,
+        "truncated": truncated
+        or scope.truncated
+        or len(dependencies) > 20000
+        or len(preparation) > 5000,
         "goals": {g.id: g for g in goals},
         "legacy": legacy,
         "root_units": {},
@@ -338,7 +351,7 @@ async def read(db, goal_id, *, stack=(), _cache=None):
             break
         hidden = new_hidden
     rows = [(n, e) for n, e in all_rows if n.id not in hidden]
-    if not rows and all_rows:
+    if not rows and all_rows and not _cache["legacy"][goal_id].actions:
         result = RoadmapOut(goal_id=goal_id, nodes=[], legacy=False)
         _cache["computed"][goal_id] = result
         return result
@@ -407,6 +420,11 @@ async def read(db, goal_id, *, stack=(), _cache=None):
     # Manual V1 steps/links added after the package stay visible without bulk rewriting history.
     work = _cache["legacy"][goal_id]
     represented = {n.target_id for n, _ in all_rows if n.target_id}
+    represented -= {
+        target
+        for target, gid in _cache["contribution_scope"].independent
+        if gid == goal_id and target not in targets
+    }
     for step in work.milestones:
         if len(nodes) >= LIMIT:
             truncated = True

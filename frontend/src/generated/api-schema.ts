@@ -11485,6 +11485,11 @@ export interface components {
         /** ScheduleData */
         ScheduleData: {
             /**
+             * Calendar Override
+             * @default false
+             */
+            calendar_override: boolean;
+            /**
              * Day
              * Format: date
              */

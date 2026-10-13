@@ -16916,6 +16916,11 @@
       "ScheduleData": {
         "additionalProperties": false,
         "properties": {
+          "calendar_override": {
+            "default": false,
+            "title": "Calendar Override",
+            "type": "boolean"
+          },
           "day": {
             "format": "date",
             "title": "Day",

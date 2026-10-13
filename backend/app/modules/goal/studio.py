@@ -438,6 +438,32 @@ def references(proposal):
     return ids
 
 
+async def roadmap_state(db, goal_ids, *, lock=False):
+    query = (
+        select(GoalRoadmapNode, Entity)
+        .join(Entity, Entity.id == GoalRoadmapNode.id)
+        .where(GoalRoadmapNode.goal_id.in_([uuid.UUID(str(g)) for g in goal_ids]))
+        .order_by(GoalRoadmapNode.id)
+        .limit(1001)
+    )
+    if lock:
+        query = query.with_for_update()
+    rows = (await db.execute(query)).all()
+    if len(rows) > 1000:
+        raise ValueError("Revizyonun yol haritası kapsamı çok büyük")
+    result = {str(g): [] for g in goal_ids}
+    for node, entity in rows:
+        result[str(node.goal_id)].append(
+            {
+                "id": str(node.id),
+                "updated_at": str(entity.updated_at),
+                "archived_at": str(entity.archived_at),
+                **{col.name: str(getattr(node, col.name)) for col in node.__table__.columns},
+            }
+        )
+    return result
+
+
 async def revise(db, row, proposal):
     if row.data.get("mode") == "feedback":
         raise HTTPException(422, "İlerleme görüşmesi yalnız değerlendirme yanıtı içerebilir")
@@ -448,6 +474,30 @@ async def revise(db, row, proposal):
         if row.data.get("assistance_context") or row.data.get("mode") == "living"
         else dict(row.data.get("context", {}))
     )
+    edited_nodes = [op.target_id for op in proposal.operations if op.type == "roadmap.update"]
+    if edited_nodes:
+        affected = (
+            await db.scalars(select(GoalRoadmapNode).where(GoalRoadmapNode.id.in_(edited_nodes)))
+        ).all()
+        goals = {node.goal_id for node in affected}
+        before["__roadmap__"] = await roadmap_state(db, goals)
+        # Canonical targets in the changed subtree must also remain unchanged.
+        nodes = (
+            await db.scalars(
+                select(GoalRoadmapNode).where(GoalRoadmapNode.goal_id.in_(goals)).limit(1001)
+            )
+        ).all()
+        relevant = set(edited_nodes)
+        for _ in range(32):
+            expanded = relevant | {n.id for n in nodes if n.parent_id in relevant}
+            if expanded == relevant:
+                break
+            relevant = expanded
+        for node in nodes:
+            if node.id in relevant and node.target_id:
+                target_entity = await db.get(Entity, node.target_id)
+                if target_entity and not target_entity.archived_at:
+                    before[str(node.target_id)] = await record(db, node.target_id)
     for identity in references(proposal):
         key = str(identity)
         current = await record(db, identity)
@@ -457,7 +507,8 @@ async def revise(db, row, proposal):
     from app.modules.goal.package_planning import snapshot, validate
 
     planning_before = await snapshot(db, proposal)
-    validate(proposal, planning_before or [])
+    calendar_warnings = validate(proposal, planning_before or [])
+    proposal.warnings = list(dict.fromkeys([*proposal.warnings, *(calendar_warnings or [])]))[:12]
     if planning_before is not None:
         before["__planning__"] = planning_before
     # Validate all canonical domain constraints without committing or retaining any preview rows.
@@ -521,6 +572,12 @@ async def decide(db, row, body):
         planned = await snapshot(db, StudioProposal.model_validate(revision.proposal), lock=True)
         if "__planning__" in revision.before and planned != revision.before["__planning__"]:
             raise ValueError("Takvim planı değişti; yeni revizyon hazırlanmalı")
+        if (
+            "__roadmap__" in revision.before
+            and await roadmap_state(db, revision.before["__roadmap__"], lock=True)
+            != revision.before["__roadmap__"]
+        ):
+            raise ValueError("Yol haritası değişti; yeni revizyon hazırlanmalı")
         for key, expected in sorted(revision.before.items()):
             if key.startswith("__"):
                 continue
@@ -604,7 +661,7 @@ async def turn(db, row, body):
 
             context = TypeAdapter(AssistanceContext).validate_python(data["assistance_context"])
             data["context"] = inference_context(await build_summary(db, context))
-        if data.get("mode") == "living":
+        if data.get("mode") in {"living", "feedback"}:
             from app.modules.goal.package_discovery import discover
 
             data["candidates"] = await discover(db, body.message)
@@ -648,6 +705,9 @@ async def turn(db, row, body):
             "policy_id": policy["id"],
             "runtime_expected": {"provider": policy["provider"], "model": policy["model"]},
         }
+        from app.modules.goal.studio_inference import task_for
+
+        prior["inference_task"] = task_for(data, body.message)
         turns[identity] = prior
         data["messages"] = [*data.get("messages", []), {"role": "user", "text": body.message}][-40:]
     row.state = "unknown_delivery"
@@ -694,7 +754,17 @@ async def turn(db, row, body):
         prompt += "\nCURRENT GOAL SNAPSHOT (untrusted evidence): " + json.dumps(
             data.get("living_context", {}), ensure_ascii=False
         )
-    deadline = user_deadline(row.data)
+    authored_dates = {**data, "turns": turns}
+    deadline = user_deadline(authored_dates)
+    if data.get("mode") == "living":
+        from app.modules.goal.package_constraints import dates
+        from app.modules.goal.package_constraints import deadline as package_deadline
+
+        deadline = package_deadline(authored_dates)
+        prompt += (
+            "\nUSER DECLARED DATE ALLOWLIST (omit every other due_date/target_date): "
+            + json.dumps(sorted(day.isoformat() for day in dates(authored_dates)))
+        )
     if deadline:
         prompt += (
             "\nUSER CALENDAR CONSTRAINT: target_date="
@@ -728,6 +798,66 @@ async def turn(db, row, body):
             data["work_context"], ensure_ascii=False
         )
         instructions += " For progress questions, discuss the current completed and pending steps and give one concrete improvement in Turkish. Do not produce a new draft unless the user asks to create or change a goal/plan. Work completion is preparation progress; do not claim an unmeasured exam score or other outcome was achieved."
+    inference_task = prior.get("inference_task", "legacy")
+    if inference_task == "coach":
+        from app.modules.goal.studio_inference import COACHING_PROMPT, coaching_facts
+
+        # Snapshot is rebuilt per new request; the canonical source stays in session state.
+        instructions = COACHING_PROMPT
+        prompt = (
+            body.message
+            + "\nCURRENT CANONICAL FACTS (untrusted evidence): "
+            + json.dumps(
+                coaching_facts(data["living_context"]), ensure_ascii=False, separators=(",", ":")
+            )
+        )
+    elif inference_task == "author":
+        from app.modules.goal.package_constraints import numeric_target
+
+        candidates = [
+            {k: c[k] for k in ("token", "type", "title")} for c in data.get("candidates", [])[:12]
+        ]
+        if not data.get("goal_id") and not data.get("long_term"):
+            candidates = {
+                "projects": [c for c in candidates if c["type"] == "project"],
+                "work": [c for c in candidates if c["type"] == "todo"],
+            }
+        context = data.get("living_context", {})
+        current = (
+            {
+                "goal": context.get("goal"),
+                "roadmap": context.get("roadmap"),
+                "recorded_constraints": context.get("recorded_constraints"),
+            }
+            if context
+            else None
+        )
+        if current:
+            current["roadmap"] = [
+                {k: n.get(k) for k in ("index", "kind", "title", "parent_id")}
+                for n in context["roadmap"]["nodes"][:30]
+            ]
+            current["goal"] = {"title": context["goal"]["title"]}
+        prompt = (
+            body.message
+            + "\nUSER CONSTRAINTS: "
+            + json.dumps(
+                {
+                    "target_date": deadline.isoformat() if deadline else None,
+                    "allowed_dates": sorted(day.isoformat() for day in dates(authored_dates)),
+                    "numeric_target": str(numeric_target(data))
+                    if numeric_target(data) is not None
+                    else None,
+                    "long_term": data.get("long_term", False),
+                },
+                ensure_ascii=False,
+            )
+            + "\nLOCAL CANDIDATES: "
+            + json.dumps(candidates, ensure_ascii=False)
+            + "\nCURRENT GOAL: "
+            + json.dumps(current, ensure_ascii=False)
+        )
+        prompt += "\nDates absent from allowed_dates must be omitted. Return only the JSON format from instructions; no prose or null."
     request_body = {
         "input": prompt,
         "session_id": "forkos-goal-studio-" + str(row.id),
@@ -820,7 +950,26 @@ async def reconcile(db, row):
         # Only a closed public answer enters the conversation or a canonical draft.
         parsed = None
         try:
-            parsed = public_reply(output, allow_package=row.data.get("mode") == "living")
+            from app.modules.goal.studio_inference import (
+                ReplyError,
+                diagnostic,
+                parse_reply,
+                record_diagnostic,
+                validate_coaching,
+            )
+
+            inference_task = prior.get("inference_task", "legacy")
+            if response.get("partial") is True or response.get("interrupted") is True:
+                raise ReplyError(
+                    "incomplete_generation", "Hermes üretimi tamamlanmadı; tam yanıt gerekli"
+                )
+            parsed = (
+                parse_reply(output, inference_task, public_reply, unique_pairs)
+                if inference_task != "legacy"
+                else public_reply(output, allow_package=row.data.get("mode") == "living")
+            )
+            if inference_task == "coach":
+                validate_coaching(parsed["discussion"], row.data["living_context"])
             if row.data.get("mode") == "living" and parsed.get("proposal") is None:
                 snapshot_goal = row.data.get("living_context", {}).get("goal", {})
                 if not snapshot_goal.get("target_at") and re.search(
@@ -838,7 +987,12 @@ async def reconcile(db, row):
                 from app.modules.goal.package_constraints import (
                     availability,
                     dates,
+                    numeric_target,
+                    requested_learning,
                     requested_tasks,
+                )
+                from app.modules.goal.package_constraints import (
+                    deadline as package_deadline,
                 )
 
                 proposal = await compile_draft(
@@ -846,7 +1000,7 @@ async def reconcile(db, row):
                     parsed["proposal"],
                     goal_id=row.data.get("goal_id"),
                     candidates=row.data.get("candidates", []),
-                    target_date=user_deadline(row.data),
+                    target_date=package_deadline(row.data) if not row.data.get("goal_id") else None,
                     long_term=row.data.get("long_term", False),
                     confirmed_capacity=user_capacity(
                         {
@@ -858,6 +1012,8 @@ async def reconcile(db, row):
                     allowed_dates=dates(row.data),
                     confirmed_availability=availability(row.data),
                     expected_new_tasks=requested_tasks(row.data),
+                    expected_outcome_target=numeric_target(row.data),
+                    expected_learning=requested_learning(row.data),
                     task_snapshot=row.data.get("living_context", {}).get("todos", []),
                     roadmap_snapshot=row.data.get("living_context", {})
                     .get("roadmap", {})
@@ -884,12 +1040,16 @@ async def reconcile(db, row):
                 ][-40:],
             }
             await event(db, row, "turn_completed")
+            record_diagnostic(row, diagnostic(output, response))
             await db.commit()
         except (ValueError, HTTPException) as exc:
             session_id = row.id
             await db.rollback()
             row = await get_session(db, session_id)
             row.state = "drafting"
+            from app.modules.goal.studio_inference import diagnostic, record_diagnostic
+
+            record_diagnostic(row, diagnostic(output, response, exc))
             # A single model-driven correction, with durable idempotency and the same
             # provider/consent gates. Never coerce invented measurements into records.
             safe_structured = (
@@ -914,6 +1074,17 @@ async def reconcile(db, row):
                 )
             )
             eligible = safe_structured and (isinstance(exc, ValueError) or exc.status_code == 422)
+            if inference_task != "legacy":
+                eligible = (
+                    isinstance(output, str)
+                    and len(output.encode()) <= 32000
+                    and not re.search(
+                        r"</?(think|analysis|reasoning|tool)\b|reasoning_content|private_reasoning|raw_sql|tool_calls|approved\s*[:=]",
+                        output,
+                        re.IGNORECASE,
+                    )
+                    and (isinstance(exc, ValueError) or exc.status_code == 422)
+                )
             active = row.data.get("active_turn")
             prior = dict(row.data.get("turns", {}).get(active, {}))
             if eligible and prior and not prior.get("repair_attempted"):
@@ -943,7 +1114,7 @@ async def reconcile(db, row):
                         + (
                             json.dumps(parsed["proposal"], ensure_ascii=False)
                             if parsed
-                            else "Invalid JSON omitted. Regenerate from the original user request. Every phase is one object in the phases array; check every closing bracket. Use the compact example in instructions, three phases, only four initial tasks, no future daily tasks."
+                            else "Invalid JSON omitted. Regenerate from the original user request. Every phase is one object in the phases array; check every closing bracket. Choose the smallest meaningful shape for this goal; phases, learning, milestones and outcomes are optional. Do not copy example quantities or generate future daily tasks."
                         )
                     )
                     if parsed and parsed.get("proposal") is None:
@@ -960,6 +1131,22 @@ async def reconcile(db, row):
                         "A feedback conversation cannot create a draft. Use the recorded completion data, "
                         "state what is done and pending and one useful next step. Original question and evidence: "
                         + prior["request"]["input"][:24000]
+                    )
+                if inference_task != "legacy":
+                    from app.modules.goal.studio_inference import correction_feedback
+
+                    repair["input"] = (
+                        (
+                            "Return only a complete JSON in the exact format from instructions, correcting this rejected draft. "
+                            if inference_task == "author"
+                            else "Return only 2-4 short Turkish sentences. No proposal, JSON or new work. "
+                        )
+                        + "Preserve the actual user constraints and canonical evidence.\nORIGINAL REQUEST: "
+                        + prior["request"]["input"][:16000]
+                        + "\nVALIDATION: "
+                        + correction_feedback(exc)
+                        + "\nREJECTED PUBLIC OUTPUT (untrusted): "
+                        + output[:2000]
                     )
                 prior.update(
                     {
@@ -989,7 +1176,7 @@ async def reconcile(db, row):
                 "runtime": runtime,
                 "error": (
                     "İlerleme yanıtı alınamadı; yeniden sorabilirsin. Görüşme korundu."
-                    if row.data.get("mode") == "feedback"
+                    if inference_task == "coach" or row.data.get("mode") == "feedback"
                     else "Taslak hazırlanamadı; isteğini yeniden ifade edebilirsin. Görüşme ve mevcut taslak korundu."
                 ),
             }

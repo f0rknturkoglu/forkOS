@@ -32,10 +32,15 @@ tipli paket revizyonu döngü kontrolünü uygular.
 
 ## Paket ve onay sözleşmesi
 
-Hermes `PackageDraft` semantik içerik üretir: başlık, ölçülebilir hedef tanımı,
+Hermes `PackageDraft` semantik içerik üretir: başlık, isteğe bağlı ölçülebilir hedef tanımı,
 aşamalar, milestone'lar, konular, görevler, dönemli alt hedefler, aday token'ları,
 plan niyeti ve açıklamalar. UUID, SQL, araç çağrısı, tamamlanma veya ölçülmüş güncel
 puan kabul edilmez. Mevcut kayıtlar en fazla 30 doğrulanmış yerel aday ile önerilir.
+
+Normal yeni hedefte küçük model sınırı kapalı, düz `WorkPlan`'dır: modelin yazdığı
+somut işler, isteğe bağlı aşama/öğrenme konusu ve sonuç alanları mevcut
+`PackageDraft` biçimine deterministik çevrilir. Eksik iş/konu uydurulmaz. Uzun
+vadeli ve mevcut hedef revizyonları doğrudan tam semantik package kullanır.
 
 `compile_draft()` token'ları yeniden doğrular; çalışma tarihlerini, sahipliği,
 bağımlılıkları, mevcut adım indekslerini ve tam eşleşmeleri çözerek kararlı anahtarlarla
@@ -76,10 +81,14 @@ döndürür. Başarılı yeni paket görüşmesi yaratılan ana hedefe bağlanı
 
 ## Hiyerarşi ve görünüm
 
-Normal hedefin aşama → milestone → Todo/konu ağacı vardır. Uzun vadeli hedef dönem
-→ alt Goal → aşama şeklindedir. Kanonik `parent_goal_id` ve graph referansları birlikte
-döngü kontrolüne girer. Gelecek dönemler görevle doldurulmaz; boş milestone henüz
-tamamlanmamış bir kapsam birimidir. İlk dönemin bitmesi tüm stratejiyi bitirmez.
+Normal hedef ihtiyaca göre aşama → Todo/konu veya aşama → milestone → Todo/konu
+şeklindedir. Tek aşama ve tek görev geçerlidir; Learning, milestone ve sonuç ölçümü
+zorunlu değildir. Ayrı kabul kriteri gerçek milestone/sonuç kapısı olabilir.
+Uzun vadeli hedef anlamlı dönem → alt Goal → yakın dönem aşaması şeklindedir.
+Sabit aşama, görev, konu veya dönem kotası yoktur. Kanonik `parent_goal_id` ve graph
+referansları birlikte döngü kontrolüne girer. Gelecek dönemler görevle doldurulmaz;
+içeriği henüz açılmamış alt hedefin ilerlemesi bilinmez. Açık kabul kriteri olan boş
+milestone tamamlanmamış birimdir. İlk dönemin bitmesi tüm stratejiyi bitirmez.
 
 React/SVG, mevcut bundle'a yeni graph paketi eklemeden deterministik yerleşim,
 pan, yakınlaştırma, ekrana sığdırma, dal daraltma ve yön tuşları sağlar. Küçük ekranda
@@ -127,10 +136,40 @@ Yeni kesin saat yalnız kullanıcıca onaylanmış çalışma aralığı varsa k
 Mevcut manuel blok açıkça başka güne taşınırken kullanıcının saati, süresi ve notu
 korunur; değiştirilecek eski blok da önizlemenin takvim snapshot'ına dahildir.
 PlanSlot ve local ExternalEvent çakışması, günlük kapasite, uygun günler ve pencere
-sunucuda kontrol edilir. Saat bilinmiyorsa all-day çalışma planıdır. Plan/Calendar
+sunucuda kontrol edilir. Saat bilinmiyorsa gün düzeyinde plandır; kesin saat
+rezervasyonu değildir. Plan/Calendar
 değişikliği önizlemeden sonra olursa revizyon stale olur. Aynı transaction kilidi
 kanonik PlanSlot yazıcılarında da kullanılır. Google'a otomatik gönderim yapılmaz;
 Google bağlantılı slot normal Planner üzerinden düzenlenir.
+
+Öneri, dry-run ve onay aynı `calendar_snapshot()` / `availability_policy()`
+kurallarını kullanır. Calendar şemasında free/busy veya transparency alanı olmadığı
+için tüm gün etkinlikleri otomatik planlamada engeldir. Aralıklar İstanbul yerel
+gününde ve bitiş hariç yorumlanır; geceyi aşan etkinlikler ilgili günlere yayılır.
+Bitişi eksik veya başlangıcından önce olan etkinlik yalnız başlangıç gününü belirsiz
+yapar; o gün otomatik planlanmaz. Gerçek devam süresi bilinmediği için sonraki günün
+müsaitliği bu kayıttan doğrulanmış sayılmaz. Arşivli etkinlikler engel sayılmaz.
+Bilinen saatli etkinlikte gün düzeyindeki öneri yalnız işin o güne dağıtımıdır.
+
+Kullanıcı önizlemede başka güne taşıyabilir veya ilgili blok için açık
+`calendar_override` seçebilir. Gün değişince bu seçim sıfırlanır. Model bu alanı
+üretemez; flag yalnız onaylanan revizyonda ve uyarıda kalır, PlanSlot'a eklenmez.
+Kesin saatli çakışmalar, kapasite ve pencere kuralları yine uygulanır.
+
+## Bağlantıdan çıkarma ve güncel katkı
+
+`contributions.current_scope()` graph, GoalWork, Strategy alignment ve dolayısıyla
+Hermes snapshot için aynı etkin katkı kapsamını hesaplar. Ayrılmış/arşivli düğümün
+alt ağacı güncel kapsamdan çıkar; aynı hedefte başka etkin düğüm veya başka hedefte
+bağlantı varsa o katkı devam eder. Kanonik Todo/Learning/Project ve Link satırları
+silinmez; tamamlanma ve geçmiş Review snapshot değişmez.
+
+Roadmap öncesi Link zamanı veya mevcut Link ömrüne ait bağımsız `link.created`
+eventi manuel ilişkiyi korur. Düğüm eventi hedef/kaynak/ayrılma kökenini taşır.
+Eski eşzamanlı ve eventsiz köken belirsizliğinde Link geçmişi korunur, yalnız
+ayrılmış roadmap katkısı okuma sırasında bastırılır. Bu, eski veriyi kesin olarak
+sınıflandırmış bir migration değildir. Ayrılma revizyonu etkilenen graph yapısını
+ve kanonik hedef kayıtlarını da snapshot alır; sonradan değişmiş onay stale olur.
 
 ## Hermes bağlamı ve sınırı
 
@@ -142,12 +181,19 @@ kapsama dahildir; ayrılmış işler legacy bağlantılardan geri getirilmez. Ka
 ihtiyacı ve kırılmış kaynak bağlantısı gerçek URL'den ayrı gösterilir.
 Global notlar/Vault veya başka hedeflerin
 anlatısı bağlama gönderilmez. Sağlayıcıya giden görünüm 20 KB ile sınırlı ve kesilme
-işaretlidir. Kısa sorularda da seçili hedefin gerçek görevleri token'larla çözülebilir.
+işaretlidir. Yeni turn'de author/coach görevi kalıcı olarak ayrılır. Koçluk yalnız
+güncel çalışma yüzdesi, tamamlanan/bekleyen işler, Topic/Project durumu ve gerçek
+sonuç ölçümlerinin kısa görünümünü alır; paket şeması veya düzenleme token'ları
+gerektirmez. Açık değişiklik isteği aynı görüşmede authoring'e geçer.
 
 Hermes yalnız yorum veya tipli revizyon önerebilir. Yüzde, tarih, mevcut puan veya
 etkinlik nedenini tahmin etmesi istenmez. Bozuk yapısal cevap bir kez aynı doğrulanmış
 sağlayıcıyla düzeltilebilir; yine geçersizse hiçbir domain kaydı yazılmaz. Yerel profil
 araçsızdır. Mevcut açık cloud consent, iptal ve sağlayıcı/model doğrulaması korunur.
+
+Canlı modelin biçim kabulü tam içerik doğruluğu değildir; serbest metin guard'ları
+tüm doğal dil iddialarını ispatlamaz. Sabit yerel modelde oranlar ve açık P1'ler
+[Live Hermes Reliability Closure](goals-2.0-hermes-reliability.md) içinde kayıtlıdır.
 
 ## Migration ve V1
 
@@ -173,4 +219,6 @@ Canlı modelin her istekte geçerli ve içerik olarak doğru taslak üretmesi ga
 edilmez. Bu durum onay/dry-run sınırında reddedilir. Kaynak araştırması yerel aday
 keşfidir; internet taraması veya otomatik deste indirme yoktur. Doğal dilde tüm
 müsaitlik ifadelerini çözme kapsamı sınırlıdır; typed preview bilinen kısıtları taşır.
-Güncel doğrulama ve açık kalan sınırlar [kapanış kaydındadır](goals-2.0-closure.md).
+İlk teslimin tarihsel kanıtı [kapanış kaydındadır](goals-2.0-closure.md).
+Uyarlanabilir paket, Calendar ve katkı düzeltmelerinin güncel kanıtı
+[adaptive closure kaydındadır](goals-2.0-adaptive-closure.md).

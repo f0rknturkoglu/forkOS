@@ -320,32 +320,34 @@ export function GoalLivingWorkspace({
               Haftalık planı aç
             </a>
           </section>
-          <section className="rounded-card border border-subtle p-4 stack-y-2">
-            <h3 className="text-heading">Öğrenme</h3>
-            {context.data.learning.slice(0, 8).map((t) => (
-              <p key={t.id}>
-                {linkTo("study_topic", t.id, t.title)}{" "}
-                <span className="text-meta text-muted">{t.status === "done" ? "· Öğrenildi" : ""}</span>
-              </p>
-            ))}
-            <Disclosure summary="Kaynaklar">
-              {context.data.resources.map((r) => (
-                <p key={r.id}>
-                  {linkTo("learning_resource", r.id, r.title)}{" "}
-                  <span className="text-meta text-muted">
-                    ·{" "}
-                    {r.missing_source
-                      ? "Bağlı kaynak bulunamıyor"
-                      : r.pending_need
-                        ? "Kaynak ihtiyacı"
-                        : r.has_url
-                          ? "Bağlantılı kaynak"
-                          : "Yerel kaynak"}
-                  </span>
+          {(context.data.learning.length > 0 || context.data.resources.length > 0) && (
+            <section className="rounded-card border border-subtle p-4 stack-y-2">
+              <h3 className="text-heading">{context.data.learning.length ? "Öğrenme" : "Kaynaklar"}</h3>
+              {context.data.learning.slice(0, 8).map((t) => (
+                <p key={t.id}>
+                  {linkTo("study_topic", t.id, t.title)}{" "}
+                  <span className="text-meta text-muted">{t.status === "done" ? "· Öğrenildi" : ""}</span>
                 </p>
               ))}
-            </Disclosure>
-          </section>
+              <Disclosure summary="Kaynaklar">
+                {context.data.resources.map((r) => (
+                  <p key={r.id}>
+                    {linkTo("learning_resource", r.id, r.title)}{" "}
+                    <span className="text-meta text-muted">
+                      ·{" "}
+                      {r.missing_source
+                        ? "Bağlı kaynak bulunamıyor"
+                        : r.pending_need
+                          ? "Kaynak ihtiyacı"
+                          : r.has_url
+                            ? "Bağlantılı kaynak"
+                            : "Yerel kaynak"}
+                    </span>
+                  </p>
+                ))}
+              </Disclosure>
+            </section>
+          )}
           <section className="rounded-card border border-subtle p-4 stack-y-2">
             <h3 className="text-heading">Projeler ve hareketler</h3>
             {context.data.projects.map((p) => (

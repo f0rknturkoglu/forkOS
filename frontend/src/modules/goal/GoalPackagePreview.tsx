@@ -78,7 +78,14 @@ export function GoalPackagePreview({
       ...draft.current,
       operations: draft.current.operations.map((op) =>
         op.key === key || (field === "title" && op.type === "roadmap.create" && op.target_ref === key)
-          ? ({ ...op, data: { ...op.data, [field]: value } } as Op)
+          ? ({
+              ...op,
+              data: {
+                ...op.data,
+                [field]: value,
+                ...(op.type === "plan.schedule" && field === "day" ? { calendar_override: false } : {}),
+              },
+            } as Op)
           : op,
       ),
     });
@@ -393,9 +400,15 @@ export function GoalPackagePreview({
                     </div>
                     <p className="text-meta text-muted">
                       {op.data.start_min == null
-                        ? "Kesin saat seçilmedi"
+                        ? "Gün düzeyinde plan · kesin saat rezervasyonu değil"
                         : `Başlangıç: ${Math.floor(op.data.start_min / 60)}:${String(op.data.start_min % 60).padStart(2, "0")}`}
                     </p>
+                    <Checkbox
+                      label={`${refTitle(op.task_ref)}: takvim engeline rağmen bu gün çalışmayı seçiyorum`}
+                      checked={op.data.calendar_override ?? false}
+                      disabled={disabled}
+                      onChange={(value) => change(op.key, "calendar_override", value)}
+                    />
                   </>
                 )}
                 {op.type === "record.link" && (

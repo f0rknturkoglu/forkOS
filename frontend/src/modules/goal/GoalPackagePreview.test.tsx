@@ -31,6 +31,18 @@ const proposal: Proposal = {
   ],
 } as Proposal;
 afterEach(cleanup);
+it("requires deliberate calendar override and resets it when the date changes", () => {
+  const change = vi.fn();
+  render(<GoalPackagePreview proposal={proposal} before={{}} onChange={change} disabled={false} />);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Çalış: takvim engeline rağmen bu gün çalışmayı seçiyorum" }));
+  expect(
+    (change.mock.calls.at(-1)![0] as Proposal).operations.find((op) => op.type === "plan.schedule")?.data,
+  ).toMatchObject({ calendar_override: true });
+  fireEvent.input(screen.getByLabelText("Çalış plan günü"), { target: { value: "2026-10-20" } });
+  expect(
+    (change.mock.calls.at(-1)![0] as Proposal).operations.find((op) => op.type === "plan.schedule")?.data,
+  ).toMatchObject({ calendar_override: false, day: "2026-10-20" });
+});
 it("uses the canonical Todo priority scale in the approval preview", () => {
   const change = vi.fn();
   render(<GoalPackagePreview proposal={proposal} before={{}} onChange={change} disabled={false} />);

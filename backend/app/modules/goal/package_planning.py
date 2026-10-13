@@ -1,6 +1,6 @@
 """Day-level conservative planning. Clock times only come from confirmed availability."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import or_, select, text
 
@@ -9,6 +9,74 @@ from app.core.time import local_datetime, local_today
 from app.modules.calendar.models import ExternalEvent
 from app.modules.goal.package_schemas import ScheduleTask
 from app.modules.todo.models import PlanSlot
+
+
+async def calendar_snapshot(db, days):
+    first, last = local_datetime(min(days), 0), local_datetime(max(days) + timedelta(days=1), 0)
+    events = (
+        await db.scalars(
+            select(ExternalEvent)
+            .join(Entity, Entity.id == ExternalEvent.id)
+            .where(
+                Entity.archived_at.is_(None),
+                ExternalEvent.starts_at < last,
+                or_(
+                    ExternalEvent.ends_at > first,
+                    (
+                        ExternalEvent.ends_at.is_(None)
+                        | (ExternalEvent.ends_at <= ExternalEvent.starts_at)
+                    )
+                    & (ExternalEvent.starts_at >= first),
+                ),
+            )
+            .order_by(ExternalEvent.id)
+            .limit(501)
+        )
+    ).all()
+    if len(events) > 500:
+        raise ValueError("Takvim uygunluk kapsamı aşıldı")
+    return [
+        {
+            "kind": "event",
+            "id": str(e.id),
+            "starts_at": e.starts_at.isoformat(),
+            "ends_at": e.ends_at.isoformat() if e.ends_at else None,
+            "all_day": e.all_day,
+        }
+        for e in events
+    ]
+
+
+def availability_policy(events, days):
+    """End-exclusive local days. Unknown ends make only their start day uncertain.
+
+    The Calendar model has no transparency/free-busy flag: all-day events are
+    conservatively blocking for automation, never claims of zero human free time.
+    """
+    blocked, uncertain, busy = set(), set(), {}
+    for event in events:
+        if event.get("kind") != "event":
+            continue
+        start = datetime.fromisoformat(event["starts_at"])
+        end = datetime.fromisoformat(event["ends_at"]) if event["ends_at"] else None
+        if end is None or end <= start:
+            day = local_today(start)
+            if day in days:
+                uncertain.add(day)
+            continue
+        for day in days:
+            lower, upper = local_datetime(day, 0), local_datetime(day + timedelta(days=1), 0)
+            if start < upper and end > lower:
+                if event["all_day"]:
+                    blocked.add(day)
+                else:
+                    busy.setdefault(day, []).append(
+                        (
+                            max(0, int((start - lower).total_seconds() / 60)),
+                            min(1440, int((end - lower).total_seconds() / 60)),
+                        )
+                    )
+    return blocked, uncertain, busy
 
 
 async def snapshot(db, proposal, *, lock=False):
@@ -46,31 +114,7 @@ async def snapshot(db, proposal, *, lock=False):
         }
         for s in rows
     ]
-    events = (
-        await db.scalars(
-            select(ExternalEvent)
-            .join(Entity, Entity.id == ExternalEvent.id)
-            .where(
-                Entity.archived_at.is_(None),
-                ExternalEvent.starts_at < local_datetime(days[-1] + timedelta(days=1), 0),
-                ExternalEvent.ends_at > local_datetime(days[0], 0),
-            )
-            .order_by(ExternalEvent.id)
-            .limit(501)
-        )
-    ).all()
-    if len(events) > 500:
-        raise ValueError("Takvim uygunluk kapsamı aşıldı")
-    output.extend(
-        {
-            "kind": "event",
-            "id": str(e.id),
-            "starts_at": e.starts_at.isoformat(),
-            "ends_at": e.ends_at.isoformat(),
-            "all_day": e.all_day,
-        }
-        for e in events
-    )
+    output.extend(await calendar_snapshot(db, days))
     return output
 
 
@@ -83,6 +127,8 @@ def validate(proposal, slots):
         raise ValueError("Takvim planı çalışma kapasitesi içermeli")
     if len(ops) > 28:
         raise ValueError("İlk plan en fazla 28 çalışma bloğu içerebilir")
+    blocked, uncertain, calendar_busy = availability_policy(slots, {op.data.day for op in ops})
+    warnings = []
     replaced = {str(op.replace_slot_id) for op in ops if op.replace_slot_id}
     existing = [s for s in slots if s.get("kind", "slot") == "slot" and s["id"] not in replaced]
     load, intervals = {}, {}
@@ -99,6 +145,16 @@ def validate(proposal, slots):
         if not local_today() <= block.day < local_today() + timedelta(days=14):
             raise ValueError("Başlangıç planı bugünden başlayan 14 gün içinde olmalı")
         day = block.day.isoformat()
+        if block.day in blocked | uncertain:
+            if not block.calendar_override:
+                raise ValueError(
+                    "Bu gün takvim etkinliği veya belirsiz bitiş nedeniyle uygun değil; başka gün seç veya takvim engelini bilinçli olarak onayla"
+                )
+            warnings.append(f"{day}: takvim engeline rağmen çalışma kullanıcı tarafından seçildi.")
+        if block.start_min is None and calendar_busy.get(block.day):
+            warnings.append(
+                f"{day}: etkinlikler var; gün düzeyindeki plan kesin saat rezervasyonu değildir."
+            )
         if (
             block.day in constraints.unavailable_days
             or block.day.weekday() not in constraints.weekdays
@@ -125,15 +181,9 @@ def validate(proposal, slots):
                 raise ValueError(
                     "Kesin saat için kullanıcı tarafından doğrulanmış çalışma aralığı gerekli"
                 )
-            from datetime import datetime
-
-            start_at = local_datetime(block.day, block.start_min)
-            end_at = start_at + timedelta(minutes=block.duration_min)
             if any(
-                start_at < datetime.fromisoformat(e["ends_at"])
-                and end_at > datetime.fromisoformat(e["starts_at"])
-                for e in slots
-                if e.get("kind") == "event" and not e["all_day"]
+                block.start_min < b and block.start_min + block.duration_min > a
+                for a, b in calendar_busy.get(block.day, [])
             ):
                 raise ValueError("Çalışma saati yerel takvimdeki etkinlikle çakışıyor")
             end = block.start_min + block.duration_min
@@ -145,6 +195,8 @@ def validate(proposal, slots):
             if any(block.start_min < b and end > a for a, b in intervals.get(day, [])):
                 raise ValueError("Plan saati mevcut çalışmayla çakışıyor")
             intervals.setdefault(day, []).append((block.start_min, end))
+
+    return list(dict.fromkeys(warnings))
 
 
 async def propose(db, tasks, constraints):
@@ -165,47 +217,32 @@ async def propose(db, tasks, constraints):
         if s.duration_min is None:
             unknown.add(s.day)
     output, warnings = [], []
-    events = (
-        await db.scalars(
-            select(ExternalEvent)
-            .join(Entity, Entity.id == ExternalEvent.id)
-            .where(
-                Entity.archived_at.is_(None),
-                ExternalEvent.starts_at < local_datetime(today + timedelta(days=14), 0),
-                ExternalEvent.ends_at > local_datetime(today, 0),
-            )
-            .limit(501)
-        )
-    ).all()
-    if len(events) > 500:
+    days = {today + timedelta(days=offset) for offset in range(14)}
+    try:
+        events = await calendar_snapshot(db, days)
+    except ValueError:
         return [], ["Takvim uygunluk kapsamı çok büyük; önce mevcut planı gözden geçir"]
+    blocked, uncertain, busy = availability_policy(events, days)
     precise = constraints.capacity_confirmed and constraints.available_start_min is not None
-    busy = {}
     for slot in slots:
         if slot.start_min is not None:
             busy.setdefault(slot.day, []).append(
                 (slot.start_min, slot.start_min + (slot.duration_min or 30))
             )
-    for offset in range(14):
-        day = today + timedelta(days=offset)
-        start = local_datetime(day, 0)
-        end = start + timedelta(days=1)
-        for event in events:
-            if event.starts_at < end and event.ends_at > start:
-                if event.all_day:
-                    busy.setdefault(day, []).append((0, 1440))
-                else:
-                    busy.setdefault(day, []).append(
-                        (
-                            max(0, int((event.starts_at - start).total_seconds() / 60)),
-                            min(1440, int((event.ends_at - start).total_seconds() / 60)),
-                        )
-                    )
+    if blocked:
+        warnings.append(
+            "Tüm gün takvim etkinliği olan günler otomatik planlamada atlandı; müsaitlik varsayılmadı."
+        )
+    if uncertain:
+        warnings.append(
+            "Bitişi bilinmeyen etkinliklerin başlangıç günleri belirsiz; otomatik planlamada atlandı."
+        )
     if events and not precise:
         warnings.append(
-            "Yerel takvimde etkinlikler var. Çalışmalar gün düzeyinde önerildi; kesin saat seçerken etkinlikler tekrar kontrol edilir."
+            "Takvim etkinlikleri var. Gün düzeyindeki plan kesin saat rezervasyonu değildir; saat seçerken çakışmalar yeniden kontrol edilir."
         )
     cursor = 0
+    remaining_work = []
     for ref, duration in tasks:
         remaining = duration
         for offset in range(cursor, 14):
@@ -213,7 +250,7 @@ async def propose(db, tasks, constraints):
                 break
             day = today + timedelta(days=offset)
             if (
-                day in unknown
+                day in unknown | blocked | uncertain
                 or day in constraints.unavailable_days
                 or day.weekday() not in constraints.weekdays
             ):
@@ -255,7 +292,13 @@ async def propose(db, tasks, constraints):
             remaining -= block_duration
             cursor = offset
         if remaining:
+            remaining_work.append((ref, remaining))
             warnings.append(
                 f"{ref}: {remaining} dakikalık devam çalışması başlangıç penceresine sığmadı; sonraki planlamada yerleştirilmeli."
             )
+    if remaining_work:
+        warnings.insert(
+            0,
+            f"{len(remaining_work)} görevde toplam {sum(minutes for _, minutes in remaining_work)} dakikalık devam çalışması 14 günlük pencereye sığmadı.",
+        )
     return output, warnings[:12]

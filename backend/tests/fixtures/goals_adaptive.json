@@ -1,0 +1,232 @@
+[
+  {
+    "id": "academic",
+    "request": "YDS'den en az 55 puan almak istiyorum. Günde iki saat çalışabilirim.",
+    "why": "Dört farklı çalışma aşaması ve üç konu; sonuç ayrı kanıtlanır.",
+    "package": {
+      "kind": "package",
+      "title": "YDS 55+",
+      "outcome": {
+        "title": "YDS puanı",
+        "target_value": 55,
+        "unit": "puan"
+      },
+      "phases": [
+        {
+          "title": "Kelime",
+          "topics": [
+            {
+              "title": "Kelime bilgisi"
+            }
+          ],
+          "tasks": [
+            {
+              "title": "Kelime pratiği yap",
+              "topic_index": 0,
+              "duration_min": 40
+            }
+          ]
+        },
+        {
+          "title": "Okuma",
+          "topics": [
+            {
+              "title": "Okuma"
+            }
+          ],
+          "tasks": [
+            {
+              "title": "Okuma parçası çöz",
+              "topic_index": 0
+            }
+          ]
+        },
+        {
+          "title": "Dil yapıları",
+          "topics": [
+            {
+              "title": "Dil yapıları"
+            }
+          ],
+          "tasks": [
+            {
+              "title": "Dil yapılarını uygula",
+              "topic_index": 0
+            }
+          ]
+        },
+        {
+          "title": "Sonuç",
+          "milestone": "Sınav sonucunu doğrula",
+          "completion_gate": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "delivery",
+    "request": "forkOS V2'yi yayımlamak istiyorum. Eksik testleri ve release hazırlıklarını tamamlamalıyım.",
+    "why": "Test ve teslim işleri; eğitim içeriği veya tahmini tarih yok.",
+    "package": {
+      "kind": "package",
+      "title": "forkOS V2 teslimi",
+      "phases": [
+        {
+          "title": "Doğrulama",
+          "tasks": [
+            {
+              "title": "Eksik testleri tamamla"
+            },
+            {
+              "title": "Regresyon testlerini çalıştır"
+            }
+          ]
+        },
+        {
+          "title": "Sürüm hazırlığı",
+          "milestone": "Sürüm kabulünü doğrula",
+          "completion_gate": true,
+          "tasks": [
+            {
+              "title": "Sürüm notlarını hazırla"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "passport",
+    "request": "Pasaport başvurumu tamamlamak istiyorum.",
+    "why": "Tek aşama ve kısa kontrol listesi; nitel kabul, sayısal KR veya Learning yok.",
+    "package": {
+      "kind": "package",
+      "title": "Pasaport başvurusu",
+      "acceptance_criterion": "Başvurunun teslim edildiğini doğrula",
+      "phases": [
+        {
+          "title": "Başvuru",
+          "tasks": [
+            {
+              "title": "Gerekli belgeleri kontrol et"
+            },
+            {
+              "title": "Başvuruyu teslim et"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "move",
+    "request": "Üç ay içinde evimi taşımak istiyorum.",
+    "why": "Hazırlık ve taşınma aşamaları; kullanıcı tarihine bağlı, eğitim kaydı yok.",
+    "package": {
+      "kind": "package",
+      "title": "Evi taşı",
+      "acceptance_criterion": "Taşınmanın tamamlandığını doğrula",
+      "phases": [
+        {
+          "title": "Hazırlık",
+          "tasks": [
+            {
+              "title": "Taşınma ihtiyaçlarını listele"
+            }
+          ]
+        },
+        {
+          "title": "Organizasyon",
+          "tasks": [
+            {
+              "title": "Nakliye seçeneklerini karşılaştır"
+            }
+          ]
+        },
+        {
+          "title": "Taşınma",
+          "tasks": [
+            {
+              "title": "Paketleme planını hazırla"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "habit",
+    "request": "Haftada üç kez koşuya çıkmayı alışkanlık haline getirmek istiyorum.",
+    "why": "Yalnız üç yakın dönem occurrence; sınırsız rutin veya sahte sonuç yok.",
+    "package": {
+      "kind": "package",
+      "title": "Düzenli koşu",
+      "phases": [
+        {
+          "title": "İlk hafta",
+          "tasks": [
+            {
+              "title": "İlk koşuya çık"
+            },
+            {
+              "title": "İkinci koşuya çık"
+            },
+            {
+              "title": "Üçüncü koşuya çık"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "long",
+    "request": "Önümüzdeki beş yılda akademik ve profesyonel kariyerimi geliştirmek istiyorum.",
+    "why": "İki stratejik dönem; gelecekte kapsam belirsiz, yalnız ilk dönem detaylı.",
+    "package": {
+      "kind": "package",
+      "title": "Kariyer gelişimi",
+      "long_term": true,
+      "children": [
+        {
+          "title": "Yakın dönem gelişimi",
+          "period": "Yakın dönem",
+          "phases": [
+            {
+              "title": "İlk çalışma",
+              "tasks": [
+                {
+                  "title": "İlk araştırma taslağını hazırla"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Gelecek kapsam",
+          "period": "Gelecek dönem",
+          "description": "İlerlemeye göre amaçları netleştir"
+        }
+      ]
+    }
+  },
+  {
+    "id": "minimal",
+    "request": "Yarın önemli bir belgeyi teslim etmek istiyorum.",
+    "why": "Tek görev; kullanıcıdan gelen yarın tarihi, boş Learning/milestone yok.",
+    "package": {
+      "kind": "package",
+      "title": "Belge teslimi",
+      "phases": [
+        {
+          "title": "Teslim",
+          "tasks": [
+            {
+              "title": "Belgeyi teslim et"
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

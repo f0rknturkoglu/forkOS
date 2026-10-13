@@ -255,7 +255,7 @@ async def build(db, goal_id):
             {
                 "id": str(i),
                 "title": entities[i].title,
-                **{k: v for k, v in p.items() if k != "requirements"},
+                **{k: p[k] for k in ("percent", "completed", "total", "coverage")},
             }
             for i, p in projects.items()
         ],

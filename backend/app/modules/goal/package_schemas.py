@@ -86,6 +86,7 @@ class ScheduleData(Closed):
     duration_min: int = Field(30, ge=1, le=480)
     start_min: int | None = Field(None, ge=0, le=1439)
     note: str | None = Field(None, max_length=5000)
+    calendar_override: bool = False
 
     @model_validator(mode="after")
     def bounded_day(self):

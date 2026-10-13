@@ -98,7 +98,7 @@ async def operation(db, op, ref):
             await db.delete(old)
             await db.flush()
         slot = await todos.schedule(
-            db, PlanSlotIn(entity_id=identity, **op.data.model_dump()), commit=False
+            db, PlanSlotIn(entity_id=identity, **op.data.model_dump(exclude={"calendar_override"})), commit=False
         )
         return identity, slot.id
     if isinstance(op, ConnectRecord):

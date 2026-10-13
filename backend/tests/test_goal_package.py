@@ -794,12 +794,22 @@ def test_authoring_examples_are_closed_regular_and_long_term_packages():
     from app.modules.goal.package_authoring import PackageDraft, instructions
 
     for long_term in (False, True):
-        example, _ = json.JSONDecoder().raw_decode(
-            instructions(long_term=long_term).split("Example: ")[1]
+        if not long_term:
+            from app.modules.goal.studio_inference import WorkPlan
+            example, _ = json.JSONDecoder().raw_decode(instructions().split("Örnek yapı: ")[1])
+            value = PackageDraft.model_validate(WorkPlan.model_validate(example).package())
+            assert len(value.phases) == 1 and not value.phases[0].topics and not value.outcome
+            continue
+        examples, _ = json.JSONDecoder().raw_decode(
+            instructions(long_term=long_term).split("Examples of DIFFERENT valid shapes: ")[1]
         )
-        value = PackageDraft.model_validate(example["proposal"])
-        assert value.long_term == long_term
-        assert len(value.children) == (3 if long_term else 0)
+        values = [PackageDraft.model_validate(example) for example in examples]
+        if long_term:
+            assert all(p.long_term and p.children[-1].phases == [] for p in values)
+        else:
+            assert any(len(p.phases) == 1 and not p.phases[0].topics for p in values)
+            assert any(any(phase.topics for phase in p.phases) for p in values)
+            assert all(not p.long_term and p.phases[0].milestone is None for p in values)
 
 
 @pytest.mark.no_database
