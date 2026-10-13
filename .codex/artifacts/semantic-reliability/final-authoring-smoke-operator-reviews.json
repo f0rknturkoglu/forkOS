@@ -1,0 +1,51 @@
+[
+  {
+    "cohort": "fixed",
+    "scenario": "yds",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "software",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "passport",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "document",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "python",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "mixed",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "long_term",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  }
+]

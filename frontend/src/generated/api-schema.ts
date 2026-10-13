@@ -6667,6 +6667,28 @@ export interface components {
              */
             target: string;
         };
+        /** CoachingFacts */
+        CoachingFacts: {
+            /** Actions */
+            actions: string[];
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /** Completed */
+            completed: number;
+            /** Outcome Percent */
+            outcome_percent: number | null;
+            /** Percent */
+            percent: number | null;
+            /** Remaining */
+            remaining: string[];
+            /** Total */
+            total: number;
+            /** Truncated */
+            truncated: boolean;
+        };
         /** Cohort */
         Cohort: {
             /** Counts */
@@ -12844,6 +12866,7 @@ export interface components {
         StudioSessionOut: {
             /** Context */
             context?: (components["schemas"]["ReviewContext"] | components["schemas"]["ProjectContext"] | components["schemas"]["GoalContext"] | components["schemas"]["CareerContext"] | components["schemas"]["LearningContext"] | components["schemas"]["PlanningContext"]) | null;
+            current_facts?: components["schemas"]["CoachingFacts"] | null;
             /** Error */
             error?: string | null;
             /** Goal Id */

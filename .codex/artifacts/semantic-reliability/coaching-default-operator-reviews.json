@@ -1,0 +1,142 @@
+[
+  {
+    "cohort": "fixed",
+    "scenario": "progress",
+    "attempt": 1,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "progress",
+    "attempt": 2,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "progress",
+    "attempt": 3,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "progress",
+    "attempt": 4,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "progress",
+    "attempt": 5,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "progress",
+    "attempt": 6,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "progress",
+    "attempt": 7,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "progress",
+    "attempt": 8,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "progress",
+    "attempt": 9,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "progress",
+    "attempt": 10,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "focus",
+    "attempt": 1,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "focus",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Tamamlanmış Kelime tekrarı işini yeni tamamlanacak iki işten biri olarak sunuyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "focus",
+    "attempt": 3,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "focus",
+    "attempt": 4,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "focus",
+    "attempt": 5,
+    "suitable": false,
+    "reason": "Kanonik %67 oranını korumayı öneriyor; oran ölçülen sonuç değil ve çalışma yapıldıkça değişmeli."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "focus",
+    "attempt": 6,
+    "suitable": false,
+    "reason": "Ölçülmemiş sonuçtan dolayı doğrulanmış çalışma ilerlemesini kesin değil diye anlatıyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "focus",
+    "attempt": 7,
+    "suitable": false,
+    "reason": "Kaydedilmemiş tarama hataları bulunduğunu varsayıyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "focus",
+    "attempt": 8,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "focus",
+    "attempt": 9,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "focus",
+    "attempt": 10,
+    "suitable": true,
+    "reason": "Kanonik tamamlanan işler ve gerçek açık Deneme yanlışlarını incele işiyle uyumlu; ölçülmemiş puan başarısı iddia etmiyor."
+  }
+]

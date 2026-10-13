@@ -1,0 +1,86 @@
+[
+  {
+    "cohort": "fixed",
+    "scenario": "revision_topic",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_topic",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_topic",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Konu sayısı bir olarak korunmuş fakat Yükleyici ve Yüklemeler başlığı mevcut gramer çalışması için anlamlı/doğru bir konu değil; reviewer yine kabul etmiş."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_resource",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_resource",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_resource",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_attach",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_attach",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_attach",
+    "attempt": 3,
+    "suitable": true,
+    "reason": "Doğrulanmış mevcut Kanonik ek kontrol Todo kaydı seçili gerçek Gramer aşamasına bağlanıyor; yeni Todo veya hedef yaratılmıyor."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_rename",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_rename",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_rename",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  }
+]

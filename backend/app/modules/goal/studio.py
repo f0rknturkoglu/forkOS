@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import HTTPException
 from sqlalchemy import select, text
 
+from app.config import settings
 from app.core.entity import create_entity
 from app.core.events import log_event
 from app.core.models import Entity, Link
@@ -258,7 +259,21 @@ async def out(db, row):
     revision = await db.get(GoalStudioRevision, uuid.UUID(revision_id)) if revision_id else None
     active = row.data.get("active_turn")
     pending = row.data.get("turns", {}).get(active, {}) if active else {}
+    from app.modules.goal.semantic_pipeline import STAGE_LABELS, factual_summary
+
+    pipeline = pending.get("pipeline", {})
+    coaching = (
+        pending.get("inference_task") in {"coach", "route"}
+        or pipeline.get("stage") == "coach"
+        or bool(pipeline.get("coaching"))
+    )
+    current_facts = (
+        factual_summary(row.data["living_context"], pipeline or {"catalog": []})
+        if coaching and row.data.get("living_context")
+        else None
+    )
     return StudioSessionOut(
+        current_facts=current_facts,
         goal_id=row.data.get("goal_id"),
         mode=row.data.get("mode", "draft"),
         pending_turn={"client_uuid": active, "message": pending["message"]}
@@ -282,6 +297,9 @@ async def out(db, row):
         else None,
         error=row.data.get("error"),
         context=row.data.get("assistance_context"),
+        progress=STAGE_LABELS.get(pending.get("pipeline", {}).get("stage"), "")
+        if row.state in {"running", "unknown_delivery"}
+        else "",
     )
 
 
@@ -674,6 +692,11 @@ async def turn(db, row, body):
                 data["candidates"] = await include_scope(
                     db, data["candidates"], data["living_context"]
                 )
+                from app.modules.goal.semantic_planning import revision_nodes
+
+                data["living_context"]["revision_nodes"] = await revision_nodes(
+                    db, data["living_context"]
+                )
         if data.get("goal_id"):
             from app.modules.goal.work import feedback_context, load_work
 
@@ -708,8 +731,16 @@ async def turn(db, row, body):
         from app.modules.goal.studio_inference import task_for
 
         prior["inference_task"] = task_for(data, body.message)
+        if prior["inference_task"] == "route" and not settings.goal_studio_semantic_enabled:
+            prior["inference_task"] = "coach"
         turns[identity] = prior
         data["messages"] = [*data.get("messages", []), {"role": "user", "text": body.message}][-40:]
+        if settings.goal_studio_semantic_enabled and data.get("mode") in {"living", "feedback"}:
+            from app.modules.goal.semantic_pipeline import start as start_pipeline
+
+            prior["pipeline"] = start_pipeline(
+                {**data, "turns": turns, "active_turn": identity}, prior["inference_task"]
+            )
     row.state = "unknown_delivery"
     row.data = {**data, "turns": turns, "active_turn": identity, "error": None}
     await event(db, row, "turn_requested")
@@ -865,6 +896,10 @@ async def turn(db, row, body):
         "model": policy["model"],
         "provider": policy["provider"],
     }
+    if prior.get("pipeline"):
+        from app.modules.goal.semantic_pipeline import request_body as semantic_request
+
+        request_body = semantic_request({**data, "active_turn": identity}, prior, request_body)
     # The exact payload must be reused after a lost response, including context-sent marker.
     request_body = prior.get("request", request_body)
     prior["request"] = request_body
@@ -889,6 +924,8 @@ async def turn(db, row, body):
             raise HTTPException(502, "Hermes run kimliği geçersiz")
         row = await get_session(db, row.id)
         prior = {**prior, "run_id": run_id, "context_sent": True}
+        if prior.get("pipeline"):
+            prior["pipeline"] = {**prior["pipeline"], "calls": prior["pipeline"]["calls"] + 1}
         row.data = {
             **row.data,
             "turns": {**row.data["turns"], identity: prior},
@@ -913,6 +950,29 @@ async def turn(db, row, body):
 async def reconcile(db, row):
     run_id = row.data.get("run_id")
     if row.state != "running" or not run_id:
+        return await out(db, row)
+    active = row.data.get("active_turn")
+    active_turn = row.data.get("turns", {}).get(active, {})
+    if active_turn.get("pipeline") and datetime.now(UTC) - datetime.fromisoformat(
+        active_turn["at"]
+    ) > timedelta(seconds=180):
+        from contextlib import suppress
+
+        # Cancellation delivery may be unknown; a late reply can never become a proposal.
+        with suppress(HTTPException):
+            await transport.request("POST", f"/v1/runs/{run_id}/stop", body={})
+        row.state = "failed"
+        row.data = {
+            **row.data,
+            "error": "Yanıt hazırlama süresi doldu. Görüşme ve kayıtlar korundu; yeniden deneyebilirsin.",
+        }
+        active_turn = {
+            **active_turn,
+            "pipeline": {**active_turn["pipeline"], "budget_expired": True},
+        }
+        row.data = {**row.data, "turns": {**row.data["turns"], active: active_turn}}
+        await event(db, row, "failed")
+        await db.commit()
         return await out(db, row)
     await transport.require_ready()
     response = await transport.request("GET", f"/v1/runs/{run_id}")
@@ -963,10 +1023,59 @@ async def reconcile(db, row):
                 raise ReplyError(
                     "incomplete_generation", "Hermes üretimi tamamlanmadı; tam yanıt gerekli"
                 )
+            if prior.get("pipeline"):
+                from app.modules.goal.semantic_pipeline import accept as accept_semantic
+
+                pipeline, parsed = accept_semantic(row.data, prior, output, unique_pairs)
+                step = {
+                    "stage": prior["pipeline"]["stage"],
+                    "request": prior["request"],
+                    "run_id": run_id,
+                    "diagnostic": diagnostic(output, response),
+                }
+                pipeline["steps"] = [*pipeline["steps"], step][-6:]
+                prior = {**prior, "pipeline": pipeline}
+                if parsed is None:
+                    prior.pop("request", None)
+                    prior["run_id"] = None
+                    prior["delivery_identity"] = (
+                        "forkos-goal-studio-"
+                        + row.data["active_turn"]
+                        + "-stage-"
+                        + str(len(pipeline["steps"]))
+                    )
+                    row.state = "unknown_delivery"
+                    row.data = {
+                        **row.data,
+                        "run_id": None,
+                        "runtime": runtime,
+                        "turns": {**row.data["turns"], row.data["active_turn"]: prior},
+                    }
+                    await db.commit()
+                    return await turn(
+                        db,
+                        row,
+                        StudioTurnIn(client_uuid=row.data["active_turn"], message=prior["message"]),
+                    )
+                inference_task = (
+                    "coach"
+                    if pipeline.get("coaching")
+                    else "author"
+                    if parsed.get("proposal")
+                    else "coach"
+                )
+                row.data = {
+                    **row.data,
+                    "turns": {**row.data["turns"], row.data["active_turn"]: prior},
+                }
             parsed = (
-                parse_reply(output, inference_task, public_reply, unique_pairs)
-                if inference_task != "legacy"
-                else public_reply(output, allow_package=row.data.get("mode") == "living")
+                (
+                    parse_reply(output, inference_task, public_reply, unique_pairs)
+                    if inference_task != "legacy"
+                    else public_reply(output, allow_package=row.data.get("mode") == "living")
+                )
+                if parsed is None
+                else parsed
             )
             if inference_task == "coach":
                 validate_coaching(parsed["discussion"], row.data["living_context"])
@@ -995,6 +1104,20 @@ async def reconcile(db, row):
                     deadline as package_deadline,
                 )
 
+                if prior.get("pipeline", {}).get("semantic_revision"):
+                    from app.modules.goal.semantic_planning import validate_revision_scope
+
+                    await validate_revision_scope(db, prior["pipeline"])
+
+                from app.modules.goal.semantic_planning import (
+                    literal_constraints,
+                    validate_literal_package,
+                )
+
+                explicit = prior.get("pipeline", {}).get("constraints") or literal_constraints(
+                    row.data
+                )
+                validate_literal_package(parsed["proposal"], explicit)
                 proposal = await compile_draft(
                     db,
                     parsed["proposal"],
@@ -1002,7 +1125,8 @@ async def reconcile(db, row):
                     candidates=row.data.get("candidates", []),
                     target_date=package_deadline(row.data) if not row.data.get("goal_id") else None,
                     long_term=row.data.get("long_term", False),
-                    confirmed_capacity=user_capacity(
+                    confirmed_capacity=explicit.get("capacity_min")
+                    or user_capacity(
                         {
                             "messages": [
                                 m for m in row.data.get("messages", []) if m.get("role") == "user"
@@ -1013,13 +1137,27 @@ async def reconcile(db, row):
                     confirmed_availability=availability(row.data),
                     expected_new_tasks=requested_tasks(row.data),
                     expected_outcome_target=numeric_target(row.data),
-                    expected_learning=requested_learning(row.data),
+                    expected_learning="learning" not in explicit["excluded"]
+                    and requested_learning(row.data),
+                    skip_scheduling="schedule" in explicit["excluded"],
                     task_snapshot=row.data.get("living_context", {}).get("todos", []),
-                    roadmap_snapshot=row.data.get("living_context", {})
-                    .get("roadmap", {})
-                    .get("nodes", []),
+                    roadmap_snapshot=row.data.get("living_context", {}).get(
+                        "revision_nodes",
+                        row.data.get("living_context", {}).get("roadmap", {}).get("nodes", []),
+                    ),
                     planning_default=row.data.get("living_context", {}).get("recorded_constraints"),
                 )
+                if "schedule" in explicit["excluded"]:
+                    proposal = StudioProposal.model_validate(
+                        {
+                            **proposal.model_dump(mode="json"),
+                            "operations": [
+                                op.model_dump(mode="json")
+                                for op in proposal.operations
+                                if op.type != "plan.schedule"
+                            ],
+                        }
+                    )
             else:
                 proposal = (
                     canonical_proposal(
@@ -1032,11 +1170,22 @@ async def reconcile(db, row):
                 )
             if proposal is not None:
                 await revise(db, row, proposal)
+            assistant_message = {"role": "assistant", "text": parsed["discussion"]}
+            if (
+                prior.get("inference_task") in {"coach", "route"}
+                and proposal is None
+                and row.data.get("living_context")
+            ):
+                from app.modules.goal.semantic_pipeline import factual_summary
+
+                assistant_message["facts"] = factual_summary(
+                    row.data["living_context"], prior.get("pipeline", {"catalog": []})
+                )
             row.data = {
                 **row.data,
                 "messages": [
                     *row.data["messages"],
-                    {"role": "assistant", "text": parsed["discussion"]},
+                    assistant_message,
                 ][-40:],
             }
             await event(db, row, "turn_completed")
@@ -1050,6 +1199,84 @@ async def reconcile(db, row):
             from app.modules.goal.studio_inference import diagnostic, record_diagnostic
 
             record_diagnostic(row, diagnostic(output, response, exc))
+            active = row.data.get("active_turn")
+            current = dict(row.data.get("turns", {}).get(active, {}))
+            if current.get("pipeline"):
+                from app.modules.goal.semantic_planning import ERRORS
+                from app.modules.goal.studio_inference import correction_feedback
+
+                pipeline = dict(current["pipeline"])
+                pipeline["steps"] = [
+                    *pipeline["steps"],
+                    {
+                        "stage": pipeline["stage"],
+                        "run_id": run_id,
+                        "request": current["request"],
+                        "diagnostic": diagnostic(output, response, exc),
+                    },
+                ][-6:]
+                eligible = (
+                    isinstance(output, str)
+                    and len(output.encode()) <= 32000
+                    and (isinstance(exc, ValueError) or exc.status_code == 422)
+                    and diagnostic(output, response, exc)["category"]
+                    not in {"unsafe_output", "incomplete_generation"}
+                )
+                if eligible and pipeline["repair_count"] == 0 and pipeline["calls"] < 6:
+                    if pipeline["stage"] == "review" and (
+                        (isinstance(exc, ReplyError) and exc.code in ERRORS) or parsed is not None
+                    ):
+                        pipeline["stage"] = getattr(exc, "repair_stage", pipeline["draft_stage"])
+                    pipeline.update(
+                        repair_count=1,
+                        correction=correction_feedback(exc),
+                        correction_code=getattr(exc, "code", "schema_validation"),
+                        rejected=output
+                        if pipeline["stage"] == "review"
+                        else json.dumps(
+                            pipeline.get("package") or pipeline.get("coaching"), ensure_ascii=False
+                        )
+                        if pipeline.get("draft_stage")
+                        else output,
+                    )
+                    current.update(
+                        pipeline=pipeline,
+                        repair_attempted=True,
+                        original_run_id=run_id,
+                        run_id=None,
+                        delivery_identity="forkos-goal-studio-"
+                        + active
+                        + "-repair-stage-"
+                        + str(len(pipeline["steps"])),
+                    )
+                    current.pop("request", None)
+                    row.state = "unknown_delivery"
+                    row.data = {
+                        **row.data,
+                        "run_id": None,
+                        "turns": {**row.data["turns"], active: current},
+                        "error": None,
+                    }
+                    await db.commit()
+                    return await turn(
+                        db, row, StudioTurnIn(client_uuid=active, message=current["message"])
+                    )
+                current["pipeline"] = pipeline
+                code = getattr(
+                    exc,
+                    "code",
+                    "incomplete_revision"
+                    if row.data.get("goal_id")
+                    else "insufficient_delivery_coverage",
+                )
+                row.data = {
+                    **row.data,
+                    "turns": {**row.data["turns"], active: current},
+                    "error": ERRORS.get(code, "Güvenilir bir yanıt hazırlanamadı.")
+                    + " Yeniden deneyebilir veya taslağı kendin düzenleyebilirsin.",
+                }
+                await db.commit()
+                return await out(db, row)
             # A single model-driven correction, with durable idempotency and the same
             # provider/consent gates. Never coerce invented measurements into records.
             safe_structured = (

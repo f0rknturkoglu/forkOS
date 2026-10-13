@@ -1,0 +1,308 @@
+{
+  "request": "Gramer bölümüne bir konu ekle.",
+  "observed_compiled": true,
+  "semantic_revision": {
+    "kind": "revision",
+    "action": "add_topics",
+    "target": null,
+    "tasks": [],
+    "topics": [
+      {
+        "title": "Özne ve Yüklem",
+        "description": null,
+        "phase": null,
+        "resource_needs": [
+          "Alıştırma bul"
+        ],
+        "sources": [],
+        "reuse": null
+      },
+      {
+        "title": "Zarf Tamlığı",
+        "description": null,
+        "phase": null,
+        "resource_needs": [
+          "Alıştırma bul"
+        ],
+        "sources": [],
+        "reuse": null
+      }
+    ],
+    "sources": [],
+    "resource_needs": [],
+    "record": null,
+    "area": null,
+    "changes": []
+  },
+  "catalog": [
+    {
+      "ref": "area_1",
+      "kind": "area",
+      "title": "Sentetik çalışma c38ebbaf",
+      "id": "33e3fbea-c484-4e71-9aa3-a0b6431e36d3",
+      "candidate": "candidate_1"
+    },
+    {
+      "ref": "node_1",
+      "kind": "node",
+      "title": "Gramer",
+      "node_kind": "phase",
+      "index": 0,
+      "id": "f65e8d24-e31d-4928-90b8-73d2de557d8c",
+      "detached": false,
+      "status": "open"
+    },
+    {
+      "ref": "node_2",
+      "kind": "node",
+      "title": "Zamanlar",
+      "node_kind": "record",
+      "index": 1,
+      "id": "281d558a-017c-4795-add6-ba09dc9ff159",
+      "detached": false,
+      "status": "open"
+    },
+    {
+      "ref": "node_3",
+      "kind": "node",
+      "title": "Eksikleri listele",
+      "node_kind": "record",
+      "index": 2,
+      "id": "2a88a55d-984d-480e-92b6-b42f70783b97",
+      "detached": false,
+      "status": "open"
+    },
+    {
+      "ref": "node_4",
+      "kind": "node",
+      "title": "İlk çalışma",
+      "node_kind": "record",
+      "index": 3,
+      "id": "8c5d4d05-d7ce-4bfa-9c80-db30c33d4ebd",
+      "detached": false,
+      "status": "open"
+    },
+    {
+      "ref": "work_1",
+      "kind": "work",
+      "title": "İlk çalışma",
+      "status": "open",
+      "id": "0a6e0864-0206-4088-ac50-cb180b0d78b3",
+      "candidate": "candidate_2"
+    },
+    {
+      "ref": "work_2",
+      "kind": "work",
+      "title": "Eksikleri listele",
+      "status": "open",
+      "id": "498896d6-49ef-4c8d-8154-6baffe8c4cb6",
+      "candidate": "candidate_3"
+    },
+    {
+      "ref": "topic_1",
+      "kind": "topic",
+      "title": "Zamanlar",
+      "status": "not_started",
+      "id": "8e6df69c-b159-43fa-a28a-9815e464b48f",
+      "candidate": "candidate_4"
+    },
+    {
+      "ref": "slot_1",
+      "kind": "slot",
+      "title": "Eksikleri listele",
+      "id": "6727037b-d4be-4666-a207-77a6c96c3cc7",
+      "candidate": "candidate_3",
+      "day": "2026-10-16",
+      "duration_min": 25,
+      "start_min": null
+    },
+    {
+      "ref": "slot_2",
+      "kind": "slot",
+      "title": "İlk çalışma",
+      "id": "feb7c292-5f93-496d-bd00-7fce51d6539e",
+      "candidate": "candidate_2",
+      "day": "2026-10-14",
+      "duration_min": 25,
+      "start_min": null
+    }
+  ],
+  "canonical_snapshot": {
+    "schema_version": 2,
+    "recorded_constraints": null,
+    "collected_at": "2026-10-13T22:06:17.818152+00:00",
+    "goal": {
+      "id": "8243d712-c43c-420f-91d8-891db4bb783e",
+      "title": "Sentetik revizyon 85500750",
+      "description": "",
+      "target_at": null,
+      "parent_goal_id": null,
+      "horizon": "quarter"
+    },
+    "roadmap": {
+      "percent": 0,
+      "requirements": 3,
+      "known": 3,
+      "truncated": false,
+      "nodes": [
+        {
+          "index": 0,
+          "id": "f65e8d24-e31d-4928-90b8-73d2de557d8c",
+          "title": "Gramer",
+          "kind": "phase",
+          "parent_id": null,
+          "target_id": null,
+          "target_type": null,
+          "description": null,
+          "position": 0,
+          "percent": 0,
+          "completed": false,
+          "missing": false,
+          "progress_bearing": true,
+          "completion_gate": false,
+          "weight": 1.0,
+          "persisted": true,
+          "updated_at": "2026-10-13T22:06:17.784679Z",
+          "canonical_percent": null,
+          "target_title": null,
+          "dependencies": []
+        },
+        {
+          "index": 1,
+          "id": "281d558a-017c-4795-add6-ba09dc9ff159",
+          "title": "Zamanlar",
+          "kind": "record",
+          "parent_id": "f65e8d24-e31d-4928-90b8-73d2de557d8c",
+          "target_id": "8e6df69c-b159-43fa-a28a-9815e464b48f",
+          "target_type": "study_topic",
+          "description": null,
+          "position": 0,
+          "percent": 0,
+          "completed": false,
+          "missing": false,
+          "progress_bearing": true,
+          "completion_gate": false,
+          "weight": 1.0,
+          "persisted": true,
+          "updated_at": "2026-10-13T22:06:17.788545Z",
+          "canonical_percent": null,
+          "target_title": "Zamanlar",
+          "dependencies": []
+        },
+        {
+          "index": 2,
+          "id": "2a88a55d-984d-480e-92b6-b42f70783b97",
+          "title": "Eksikleri listele",
+          "kind": "record",
+          "parent_id": "f65e8d24-e31d-4928-90b8-73d2de557d8c",
+          "target_id": "498896d6-49ef-4c8d-8154-6baffe8c4cb6",
+          "target_type": "todo",
+          "description": null,
+          "position": 0,
+          "percent": 0,
+          "completed": false,
+          "missing": false,
+          "progress_bearing": true,
+          "completion_gate": false,
+          "weight": 1.0,
+          "persisted": true,
+          "updated_at": "2026-10-13T22:06:17.796801Z",
+          "canonical_percent": null,
+          "target_title": "Eksikleri listele",
+          "dependencies": []
+        },
+        {
+          "index": 3,
+          "id": "8c5d4d05-d7ce-4bfa-9c80-db30c33d4ebd",
+          "title": "İlk çalışma",
+          "kind": "record",
+          "parent_id": "f65e8d24-e31d-4928-90b8-73d2de557d8c",
+          "target_id": "0a6e0864-0206-4088-ac50-cb180b0d78b3",
+          "target_type": "todo",
+          "description": null,
+          "position": 0,
+          "percent": 0,
+          "completed": false,
+          "missing": false,
+          "progress_bearing": true,
+          "completion_gate": false,
+          "weight": 1.0,
+          "persisted": true,
+          "updated_at": "2026-10-13T22:06:17.791879Z",
+          "canonical_percent": null,
+          "target_title": "İlk çalışma",
+          "dependencies": []
+        }
+      ]
+    },
+    "todos": [
+      {
+        "id": "0a6e0864-0206-4088-ac50-cb180b0d78b3",
+        "title": "İlk çalışma",
+        "status": "open",
+        "recurring_template": false
+      },
+      {
+        "id": "498896d6-49ef-4c8d-8154-6baffe8c4cb6",
+        "title": "Eksikleri listele",
+        "status": "open",
+        "recurring_template": false
+      }
+    ],
+    "learning": [
+      {
+        "id": "8e6df69c-b159-43fa-a28a-9815e464b48f",
+        "title": "Zamanlar",
+        "status": "not_started",
+        "area_id": "33e3fbea-c484-4e71-9aa3-a0b6431e36d3"
+      }
+    ],
+    "resources": [],
+    "planned_slots": [
+      {
+        "id": "6727037b-d4be-4666-a207-77a6c96c3cc7",
+        "entity_id": "498896d6-49ef-4c8d-8154-6baffe8c4cb6",
+        "day": "2026-10-16",
+        "start_min": null,
+        "duration_min": 25
+      },
+      {
+        "id": "feb7c292-5f93-496d-bd00-7fce51d6539e",
+        "entity_id": "0a6e0864-0206-4088-ac50-cb180b0d78b3",
+        "day": "2026-10-14",
+        "start_min": null,
+        "duration_min": 25
+      }
+    ],
+    "projects": [],
+    "outcome": {
+      "percent": null,
+      "measurements": []
+    },
+    "activity_windows": {
+      "7": {
+        "count": 0,
+        "completed_todos": 0,
+        "evidence_ids": [],
+        "truncated": false
+      },
+      "30": {
+        "count": 0,
+        "completed_todos": 0,
+        "evidence_ids": [],
+        "truncated": false
+      },
+      "90": {
+        "count": 0,
+        "completed_todos": 0,
+        "evidence_ids": [],
+        "truncated": false
+      }
+    },
+    "accepted_revisions": [],
+    "reviews": [],
+    "truncated": false,
+    "warnings": [],
+    "scope": "Yalnız hedefin açık bağlantıları. Etkinlik sonuç başarısı veya hareketsizliğin nedeni değildir."
+  }
+}

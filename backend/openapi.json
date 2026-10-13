@@ -3725,6 +3725,76 @@
         "title": "CarryOverIn",
         "type": "object"
       },
+      "CoachingFacts": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "outcome_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome Percent"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "remaining": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Remaining",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "percent",
+          "completed",
+          "total",
+          "remaining",
+          "outcome_percent",
+          "truncated",
+          "actions",
+          "collected_at"
+        ],
+        "title": "CoachingFacts",
+        "type": "object"
+      },
       "Cohort": {
         "properties": {
           "counts": {
@@ -20705,6 +20775,16 @@
               }
             ],
             "title": "Context"
+          },
+          "current_facts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CoachingFacts"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "error": {
             "anyOf": [

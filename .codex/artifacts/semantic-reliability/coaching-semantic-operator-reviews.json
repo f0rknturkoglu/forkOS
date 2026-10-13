@@ -1,0 +1,46 @@
+[
+  {
+    "cohort": "holdout",
+    "scenario": "progress",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir koçluk cevabı yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "progress",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Çalışma ilerlemesi %67 değerini ölçülmemiş sınav puanı gibi kullanıyor; reviewer yanlış kabul etmiş."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "progress",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir koçluk cevabı yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "focus",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Hedef ve açık iş zaten bağlamda verildiği halde mevcut görev listesini yeniden soruyor."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "focus",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Yorum mevcut açık iş ile uyumlu fakat route üzerinden kabul edildiği için o ölçüm epochunda facts karta eklenmemiş. Sonraki facts guard fixture ile düzeltildi.",
+    "interpretation_suitable": true
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "focus",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Yorum mevcut açık iş ile uyumlu fakat route üzerinden kabul edildiği için o ölçüm epochunda facts karta eklenmemiş. Sonraki facts guard fixture ile düzeltildi.",
+    "interpretation_suitable": true
+  }
+]

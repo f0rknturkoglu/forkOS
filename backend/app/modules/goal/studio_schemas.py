@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from app.integrations.contextual_schemas import AssistanceContext
 from app.modules.goal.package_schemas import (
@@ -272,6 +272,17 @@ class StudioRevisionOut(Closed):
     error: str | None = None
 
 
+class CoachingFacts(Closed):
+    percent: int | None
+    completed: int
+    total: int
+    remaining: list[str]
+    outcome_percent: float | None
+    truncated: bool
+    actions: list[str]
+    collected_at: AwareDatetime
+
+
 class StudioSessionOut(Closed):
     goal_id: UUID | None = None
     mode: Literal["draft", "feedback", "living"] = "draft"
@@ -282,5 +293,6 @@ class StudioSessionOut(Closed):
     revision: StudioRevisionOut | None
     pending_turn: StudioTurnIn | None = None
     progress: str = ""
+    current_facts: CoachingFacts | None = None
     error: str | None = None
     context: AssistanceContext | None = None

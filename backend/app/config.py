@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     hermes_goal_profile_config: str = ""
     hermes_goal_topology: Literal["native", "host_bridge"] = "native"
     hermes_goal_model_api_key: str = ""
+    goal_studio_semantic_enabled: bool = False
 
     #: Opsiyonel Obsidian Vault destegi (hibrit mimari).
     #: Bos birakilirsa Vault entegrasyonu pasiftir ve forkOS normal calisir.

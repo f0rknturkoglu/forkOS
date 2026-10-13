@@ -1,6 +1,7 @@
 import { GoalPackagePreview } from "./GoalPackagePreview";
 import { ArrowUp, RefreshCw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { GoalCoachingFacts } from "./GoalCoachingFacts";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, streamGoalStudio } from "@/core/api";
 import { Button, Disclosure, IconButton, Field, Input, Textarea, Select, Checkbox } from "@/core/ui";
@@ -421,10 +422,14 @@ export function GoalStudio({
               {session.error}
             </p>
           )}
+          {session.current_facts && (!session.messages.at(-1)?.facts || session.error) && (
+            <GoalCoachingFacts value={session.current_facts} label="Bu sorunun kayıtlı durumu" />
+          )}
           <div role="log" aria-label="Bağlam görüşmesi" className="max-h-80 overflow-y-auto stack-y-3">
             {session.messages.map((m, i) => (
               <div key={i} className="rounded-card bg-surface-sunken p-3">
                 <p className="text-meta text-muted">{m.role === "user" ? "Sen" : "Hermes"}</p>
+                {m.role === "assistant" && <GoalCoachingFacts value={m.facts} />}
                 <p className="whitespace-pre-wrap break-words text-body">{String(m.text ?? "")}</p>
               </div>
             ))}
@@ -432,7 +437,7 @@ export function GoalStudio({
           {running && (
             <>
               <p aria-live="polite" className="max-h-48 overflow-y-auto whitespace-pre-wrap break-words text-meta">
-                {live || "Yanıt hazırlanıyor…"}
+                {session.progress || live || "Yanıt hazırlanıyor…"}
               </p>
               <Button
                 disabled={mutation.isPending}

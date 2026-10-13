@@ -1,0 +1,8 @@
+{
+  "backend/app/modules/goal/semantic_planning.py": "45bf300d1a879afdd613702a45ee6134fdbe743f9dcecfaa6b3ef7bb8e15ed18",
+  "backend/app/modules/goal/semantic_pipeline.py": "ad65bf51c7985a8e5e90195a8fa32eb3b3dd06fb9b1d6e643c2dd55f297dd7e9",
+  "backend/app/modules/goal/package_authoring.py": "6fc183840dbbfe870cfc0d9bb81b8b463b5e4b9774b712193c8d200ecd766f5a",
+  "backend/app/modules/goal/studio.py": "dbc231c380ee08d1a9d0bb6f10f4bc6bae99ff92de0bf01b27167b25f11f3b0f",
+  "backend/app/modules/goal/studio_inference.py": "f393797e1a2b49077c920c251abe2219be628bd67f5ab1641b5a2f6fd10a8dac",
+  "backend/scripts/eval_goal_hermes.py": "5fc1be8bcd22b6b624c8b8e6599b446e0e6cb34f33bc0e0423ec11b149085fff"
+}

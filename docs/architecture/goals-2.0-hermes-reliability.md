@@ -227,3 +227,17 @@ profil/harness kaldırıldı. Kişisel `forkos_pgdata` korundu. Çalışan conta
 kalmayınca bu görevde başlatılan OrbStack durduruldu. 5173/5174/8787/18888/5433/
 18434/18435/8643 portlarında dinleyici kalmadı; `cleanup.log` kayıtlıdır.
 Yerel kanıt logları/ekranları tutuldu. Commit/push/CI/tag/release/deploy yoktur.
+
+## 2026-10-13/14 — Semantik güvenilirlik çalışması
+
+Bu belgenin yukarıdaki 50 denemesi ve 63 model çağrısı tarihsel baseline'dır;
+sonraki sonuçlar bu tabloya karıştırılmamıştır. Yeni çalışma küçük ihtiyaç
+sözleşmesi, bağımsız Topic/task ilişkisi, tipli revizyon, ayrı durum kartı ve
+bağımsız kalite aşaması ekler. Yeni akışın derlenmesi veya deterministik testleri
+9/10 gerçek model kullanılabilirliği anlamına gelmez.
+
+Native structured-output araştırmasında doğrudan llama.cpp desteği doğrulandı;
+kurulu Hermes 0.21.6 `/v1/runs` zincirinde schema alanının completion'a taşınmadığı
+görüldü. Per-request output limit de bu zincirde doğrulanmadı. İnceleme, yeni
+fixed/holdout ölçümleri, maliyet ve açık sorunlar ayrı rapordadır:
+[Semantic Reliability Closure](goals-2.0-semantic-reliability-closure.md).

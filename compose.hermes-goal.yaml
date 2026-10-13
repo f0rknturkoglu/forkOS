@@ -5,6 +5,7 @@ services:
     env_file:
       - ${HERMES_GOAL_PROFILE_DIR:?Set the dedicated Goal Studio profile directory}/forkos.env
     environment:
+      GOAL_STUDIO_SEMANTIC_ENABLED: ${GOAL_STUDIO_SEMANTIC_ENABLED:-false}
       HERMES_GOAL_TOPOLOGY: host_bridge
       HERMES_GOAL_BASE_URL: http://host.docker.internal:8643
       HERMES_GOAL_PROFILE_CONFIG: /hermes-goal-profile/config.yaml

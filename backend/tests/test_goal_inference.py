@@ -12,6 +12,7 @@ from app.modules.goal import studio_transport as transport
 from app.modules.goal.models import Goal
 from app.modules.goal.package_schemas import NodeData
 from app.modules.goal.schemas import GoalIn
+from app.modules.goal.semantic_pipeline import input_payload
 from app.modules.goal.studio_inference import (
     ReplyError,
     WorkPlan,
@@ -163,19 +164,77 @@ def test_coaching_projection_omits_editing_ids_and_keeps_pending_learning():
 
 
 def provider(monkeypatch, outputs):
+    from app.modules.goal.semantic_pipeline import REQUIREMENTS_PROMPT, REVISION_PROMPT
+
     original = transport.request
-    calls = []
+    calls, replies = [], {}
+    content_index = 0
+    invalid_first = (
+        outputs[0]
+        if outputs[0]
+        in ['{"kind":"package","title":"Eksik"', "Süreci planlayalım.", '{"kind":"package"']
+        else None
+    )
 
     async def request(method, path, **kwargs):
+        nonlocal content_index
         if path == "/v1/runs":
             calls.append(kwargs)
-            return {"run_id": f"run_{len(calls)}"}
+            body = kwargs["body"]
+            payload = input_payload(body["input"])
+            if "interpretation" in payload or "revision" in payload:
+                reply = json.dumps({"ok": True, "reason": ""})
+            elif "draft" in payload:
+                reply = json.dumps(
+                    {
+                        "verdict": "accept",
+                        "covered": list(range(len(payload.get("dimensions", [])))),
+                        "issues": [],
+                    }
+                )
+            elif body["instructions"] == REQUIREMENTS_PROMPT:
+                reply = (
+                    invalid_first
+                    if (len(calls) == 1 or len(outputs) == 1) and invalid_first
+                    else json.dumps(
+                        {
+                            "objective": "Belge",
+                            "needs": {"learning": "not_applicable"},
+                            "dimensions": [],
+                            "justification": "Tek teslim işi",
+                        }
+                    )
+                )
+            elif "facts" in payload:
+                raw = outputs[min(content_index, len(outputs) - 1)]
+                content_index += 1
+                reply = json.dumps({"advice": raw, "actions": []})
+            else:
+                raw = json.loads(outputs[-1])
+                package = raw.get("proposal", raw)
+                tasks = [t for phase in package["phases"] for t in phase.get("tasks", [])]
+                if body["instructions"] == REVISION_PROMPT:
+                    phase = next(i for i in payload["catalog"] if i.get("node_kind") == "phase")
+                    reply = json.dumps(
+                        {
+                            "kind": "revision",
+                            "action": "add_tasks",
+                            "target": phase["ref"],
+                            "tasks": tasks,
+                        }
+                    )
+                else:
+                    reply = json.dumps(
+                        {"kind": "semantic_plan", "title": package["title"], "tasks": tasks}
+                    )
+            rid = f"run_{len(calls)}"
+            replies[rid] = reply
+            return {"run_id": rid}
         if path.startswith("/v1/runs/run_"):
-            response = outputs[min(len(calls) - 1, len(outputs) - 1)]
             return {
                 "status": "completed",
                 "runtime": {"provider": "custom", "model": "fixture-model"},
-                "output": response,
+                "output": replies[path.rsplit("/", 1)[-1]],
                 "usage": {"input_tokens": 100, "output_tokens": 60},
             }
         return await original(method, path, **kwargs)
@@ -196,13 +255,15 @@ async def test_one_durable_authoring_repair_preserves_approval_boundary(
         await studio.turn(db, await studio.get_session(db, session.id), body)
         await studio.reconcile(db, await studio.get_session(db, session.id))
         result = await studio.reconcile(db, await studio.get_session(db, session.id))
+        while result.state in {"running", "unknown_delivery"}:
+            result = await studio.reconcile(db, await studio.get_session(db, session.id))
         assert result.state == "approval_pending" and result.error is None
         assert await db.scalar(select(func.count()).select_from(Goal)) == 0
         row = await studio.get_session(db, session.id)
         diagnostics = row.data["turns"][str(body.client_uuid)]["diagnostics"]
         assert diagnostics[0]["category"] in {"json_syntax", "missing_package"}
         assert diagnostics[1]["category"] == "accepted"
-        assert len(calls) == 2 and calls[1]["identity"].endswith("-repair")
+        assert len(calls) == 4 and "-repair-stage-" in calls[1]["identity"]
         assert len([m for m in result.messages if m["role"] == "user"]) == 1
 
 
@@ -262,12 +323,10 @@ async def test_coaching_uses_fresh_completion_and_then_can_propose_a_revision(
                 StudioTurnIn(client_uuid=uuid4(), message="Neredeyiz, nasıl gidiyoruz?"),
             )
             result = await studio.reconcile(db, await studio.get_session(db, session.id))
+            while result.state in {"running", "unknown_delivery"}:
+                result = await studio.reconcile(db, await studio.get_session(db, session.id))
             assert result.revision is None and result.error is None
-            facts = json.loads(
-                calls[index]["body"]["input"].split(
-                    "CURRENT CANONICAL FACTS (untrusted evidence): "
-                )[1]
-            )
+            facts = input_payload(calls[index * 2]["body"]["input"])["facts"]
             assert facts["progress_percent"] == index * 100
             if not index:
                 await todos.update(db, tid, TodoUpdate(status="done"))
@@ -292,5 +351,24 @@ async def test_coaching_uses_fresh_completion_and_then_can_propose_a_revision(
             StudioTurnIn(client_uuid=uuid4(), message="Bir yeni görev ekle"),
         )
         changed = await studio.reconcile(db, await studio.get_session(db, session.id))
+        while changed.state in {"running", "unknown_delivery"}:
+            changed = await studio.reconcile(db, await studio.get_session(db, session.id))
         assert changed.state == "approval_pending" and changed.error is None
-        assert len(calls2) == 1
+        assert len(calls2) == 2
+
+
+@pytest.mark.parametrize(
+    "message, expected",
+    [
+        ("Kanonik ek kontrol görevini bu hedefe bağla.", "author"),
+        ("Bu görevi hedefe bağlayabilir misin?", "author"),
+        ("Bu görevi hedefe bağlama.", "coach"),
+        ("Bu görevi hedefe bağlamalı mıyım?", "coach"),
+        ("Gramer aşamasının adını Dil pratiği yap.", "author"),
+        ("Sence aşamanın adını Dil pratiği yapmalı mıyım?", "coach"),
+    ],
+)
+def test_explicit_attachment_and_phase_rename_routes_preserve_advice_and_negation(
+    message, expected
+):
+    assert task_for({"mode": "living", "goal_id": "existing"}, message) == expected

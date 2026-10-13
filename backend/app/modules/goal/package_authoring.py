@@ -1,5 +1,6 @@
 """Semantic package draft -> stable typed operations; no model-supplied database IDs."""
 
+import re
 from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Annotated, Literal
@@ -29,6 +30,7 @@ class Outcome(Closed):
 
 class Topic(Closed):
     title: str = Field(min_length=1, max_length=300)
+    description: str | None = Field(None, max_length=1500)
     parent_index: int | None = Field(None, ge=0, le=39)
     resources: list[str] = Field(default_factory=list, max_length=5)
     resource_needs: list[str] = Field(default_factory=list, max_length=3)
@@ -41,6 +43,8 @@ class Task(Closed):
     duration_min: int = Field(30, ge=1, le=480)
     due_date: date | None = None
     topic_index: int | None = Field(None, ge=0, le=39)
+    existing_topic: str | None = Field(None, pattern=r"^candidate_[0-9]{1,2}$")
+    new_topic_title: str | None = Field(None, min_length=1, max_length=300)
     reuse: str | None = Field(None, pattern=r"^candidate_[0-9]{1,2}$")
 
 
@@ -90,7 +94,19 @@ class ScheduleChange(Closed):
     duration_min: int = Field(30, ge=1, le=480)
 
 
+class TopicResources(Closed):
+    topic: str = Field(pattern=r"^candidate_[0-9]{1,2}$")
+    sources: list[str] = Field(default_factory=list, max_length=5)
+    resource_needs: list[str] = Field(default_factory=list, max_length=3)
+
+
+class RecordAttachment(Closed):
+    record: str = Field(pattern=r"^candidate_[0-9]{1,2}$")
+    parent_index: int | None = Field(None, ge=0, le=59)
+
+
 class PackageDraft(Closed):
+    preserve_goal_metadata: bool = False
     kind: Literal["package"]
     title: str = Field(min_length=1, max_length=300)
     description: str | None = Field(None, max_length=3000)
@@ -100,6 +116,8 @@ class PackageDraft(Closed):
     acceptance_criterion: str | None = Field(None, min_length=1, max_length=300)
     learning_area: str | None = Field(None, max_length=100)
     reuse_area: str | None = Field(None, pattern=r"^candidate_[0-9]{1,2}$")
+    topic_resources: list[TopicResources] = Field(default_factory=list, max_length=8)
+    record_attachments: list[RecordAttachment] = Field(default_factory=list, max_length=8)
     task_changes: list[TaskChange] = Field(default_factory=list, max_length=20)
     node_changes: list[NodeChange] = Field(default_factory=list, max_length=20)
     schedule_changes: list[ScheduleChange] = Field(default_factory=list, max_length=20)
@@ -152,6 +170,14 @@ class PackageDraft(Closed):
                         raise ValueError("Paket içinde aynı öğrenme konusu tekrarlanamaz")
                     topic_titles.add(normalized)
                 for t in p.tasks:
+                    if (
+                        sum(
+                            v is not None
+                            for v in (t.topic_index, t.existing_topic, t.new_topic_title)
+                        )
+                        > 1
+                    ):
+                        raise ValueError("Görev tek bir doğrulanmış öğrenme konusuna bağlanabilir")
                     if t.topic_index is not None and t.topic_index >= len(p.topics):
                         raise ValueError("Görevin öğrenme konusu yok")
                     normalized = t.title.casefold().strip()
@@ -207,8 +233,11 @@ async def compile_draft(
     expected_new_tasks=None,
     expected_outcome_target=None,
     expected_learning=False,
+    skip_scheduling=False,
 ):
     draft = PackageDraft.model_validate(value)
+    if draft.preserve_goal_metadata and not goal_id:
+        raise ValueError("Kısmi revizyon mevcut hedef gerektirir")
     if (
         expected_learning
         and not goal_id
@@ -324,7 +353,8 @@ async def compile_draft(
             goal_data.pop("target_at")
         if draft.description is None:
             goal_data.pop("description")
-        add("goal_edit", "goal.update", goal_data, target_id=str(goal_id))
+        if not draft.preserve_goal_metadata:
+            add("goal_edit", "goal.update", goal_data, target_id=str(goal_id))
     else:
         add(
             root,
@@ -404,6 +434,8 @@ async def compile_draft(
 
         offset = offsets.get(UUID(goal_ref), -1) + 1 if len(goal_ref) == 36 else 0
         phase_refs = []
+        pending_tasks = []
+        named_topics = {}
         for i, p in enumerate(phases):
             matches = [
                 n
@@ -495,7 +527,7 @@ async def compile_draft(
                     else add(
                         f"{prefix}topic_{i}_{j}",
                         "learning.topic",
-                        {"title": t.title},
+                        {"title": t.title, "description": t.description},
                         area_ref=area,
                         parent_ref=topic_refs[t.parent_index]
                         if t.parent_index is not None
@@ -503,6 +535,7 @@ async def compile_draft(
                     )
                 )
                 topic_refs.append(ref)
+                named_topics[t.title.casefold().strip()] = ref
                 add(
                     f"{prefix}tn_{i}_{j}",
                     "roadmap.create",
@@ -535,6 +568,8 @@ async def compile_draft(
                         },
                         topic_ref=ref,
                     )
+            pending_tasks.append((i, p, list(topic_refs), step_node))
+        for i, p, topic_refs, step_node in pending_tasks:
             for j, t in enumerate(p.tasks):
                 if (
                     goal_id
@@ -547,7 +582,19 @@ async def compile_draft(
                     raise ValueError(
                         f"Mevcut görev yeniden oluşturulamaz: {t.title}. İstenen yeni pratikler için farklı, somut görevler öner; mevcut görevi değiştirmek için task_changes kullan."
                     )
-                topic_ref = topic_refs[t.topic_index] if t.topic_index is not None else None
+                topic_ref = (
+                    topic_refs[t.topic_index]
+                    if t.topic_index is not None
+                    else candidate(t.existing_topic, {"study_topic"})
+                    if t.existing_topic
+                    else named_topics.get(t.new_topic_title.casefold().strip())
+                    if t.new_topic_title
+                    else None
+                )
+                if t.new_topic_title and not topic_ref:
+                    raise ValueError(
+                        "Görevin adlandırılmış öğrenme konusu bu çalışma kapsamında yok"
+                    )
                 reuse = t.reuse or resolved.exact(
                     t.title,
                     "todo",
@@ -616,6 +663,91 @@ async def compile_draft(
             target_ref=child,
         )
         await phases_for(c.phases, child, f"c{i}_")
+    from app.core.models import Entity
+
+    for i, attachment in enumerate(draft.record_attachments):
+        if not goal_id:
+            raise ValueError("Kayıt bağlama mevcut hedef gerektirir")
+        rid = candidate(attachment.record, {"todo", "study_topic", "project"})
+        if any(n.get("target_id") == rid for n in (roadmap_snapshot or [])):
+            raise ValueError("Kayıt zaten bu hedefte; mevcut bağını kullan")
+        parent = None
+        if attachment.parent_index is not None:
+            node = node_map.get(attachment.parent_index)
+            if not node or node.get("kind") not in {"phase", "period"} or node.get("detached"):
+                raise ValueError("Bağlanacak aşama hedefin etkin bağlamında olmalı")
+            current_parent = await db.get(GoalRoadmapNode, node["id"])
+            parent_entity = await db.get(Entity, node["id"])
+            if (
+                not current_parent
+                or current_parent.goal_id != goal_id
+                or current_parent.detached
+                or not parent_entity
+                or parent_entity.archived_at
+                or (
+                    node.get("updated_at")
+                    and parent_entity.updated_at
+                    != datetime.fromisoformat(node["updated_at"].replace("Z", "+00:00"))
+                )
+            ):
+                raise ValueError("Bağlanacak aşama değişmiş; güncel hedefi yeniden oku")
+            parent = str(node["id"])
+        add(
+            f"attach_{i}",
+            "roadmap.create",
+            {"title": candidate_map[attachment.record]["title"], "kind": "record"},
+            goal_ref=root,
+            parent_ref=parent,
+            target_ref=rid,
+        )
+    for i, change in enumerate(draft.topic_resources):
+        tid = candidate(change.topic, {"study_topic"})
+        if not goal_id or not any(
+            n.get("target_id") == tid and not n.get("detached") for n in (roadmap_snapshot or [])
+        ):
+            raise ValueError("Kaynak hedefin etkin öğrenme konusuna eklenebilir")
+        active_topic_node = await db.scalar(
+            select(GoalRoadmapNode.id)
+            .join(Entity, Entity.id == GoalRoadmapNode.id)
+            .where(
+                GoalRoadmapNode.goal_id == goal_id,
+                GoalRoadmapNode.target_id == tid,
+                GoalRoadmapNode.detached.is_(False),
+                Entity.archived_at.is_(None),
+            )
+        )
+        if not active_topic_node:
+            raise ValueError("Kaynak konusunun hedef bağlantısı değişmiş; hedefi yeniden oku")
+        if not change.sources and not change.resource_needs:
+            raise ValueError("Kaynak eklemesi boş olamaz")
+        for j, token in enumerate(change.sources):
+            resource = candidate(
+                token, {"bookmark", "course", "learning_resource", "flashcard_deck"}
+            )
+            add(
+                f"resource_link_{i}_{j}",
+                "record.link",
+                {"relation": "learns_from"},
+                from_ref=tid,
+                to_ref=resource,
+            )
+        for j, need in enumerate(change.resource_needs):
+            if (
+                not need.strip()
+                or len(need) > 300
+                or re.search(r"https?://|www\.", need, flags=re.I)
+            ):
+                raise ValueError("Kaynak ihtiyacı kısa ve bağlantısız olmalı")
+            add(
+                f"resource_need_{i}_{j}",
+                "learning.resource",
+                {
+                    "title": need,
+                    "kind": "exercise",
+                    "note": "Henüz seçilmemiş kaynak ihtiyacı; doğrulanmış dış bağlantı yok.",
+                },
+                topic_ref=tid,
+            )
     for i, change in enumerate(draft.task_changes):
         tid = candidate(change.task, {"todo"})
         if not goal_id or tid not in {str(t["id"]) for t in (task_snapshot or [])}:
@@ -726,7 +858,9 @@ async def compile_draft(
             task_ref=tid,
             replace_slot_id=str(existing[0].id),
         )
-    slots, warnings = await propose(db, tasks_to_plan, draft.planning)
+    slots, warnings = (
+        ([], []) if skip_scheduling else await propose(db, tasks_to_plan, draft.planning)
+    )
     if (
         goal_id
         and expected_new_tasks is not None

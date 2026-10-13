@@ -14,6 +14,7 @@ from app.db import SessionLocal
 from app.modules.goal import studio
 from app.modules.goal import studio_policy as policy
 from app.modules.goal import studio_transport as transport
+from app.modules.goal.semantic_pipeline import input_payload
 from app.modules.goal.studio_schemas import StudioConsentIn, StudioSessionIn, StudioTurnIn
 from app.modules.system import export, restore
 from app.modules.system.models import Setting
@@ -32,6 +33,7 @@ def profile(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "hermes_goal_api_key", "fixture-private-key")
     monkeypatch.setattr(settings, "hermes_goal_base_url", "http://127.0.0.1:8643")
     monkeypatch.setattr(settings, "hermes_goal_topology", "native")
+    monkeypatch.setattr(settings, "goal_studio_semantic_enabled", True)
     return config, path
 
 
@@ -492,34 +494,66 @@ async def test_correction_is_bounded_if_model_repeats_invalid_fields(profile, ap
         assert len(calls) <= 2
 
 
-async def test_feedback_refreshes_completion_each_turn_and_never_prepares_mutations(profile, api, monkeypatch):
+async def test_feedback_refreshes_completion_each_turn_and_never_prepares_mutations(
+    profile, api, monkeypatch
+):
     from app.modules.goal import service
     from app.modules.goal.schemas import GoalIn, GoalMilestoneIn, GoalMilestonePatch
+
     choose(profile, "custom")
     original = transport.request
     calls = []
+
     async def reply(method, path, **kwargs):
         if path == "/v1/runs":
             calls.append(kwargs["body"])
             return {"run_id": f"feedback-{len(calls)}"}
         if path.startswith("/v1/runs/feedback-"):
-            return {"status":"completed", "runtime":{"provider":"custom","model":"fixture-model"},"output":json.dumps({"discussion":"İlk adımını bitirdin. Sıradaki çalışmana geçebilirsin.","proposal":None})}
+            payload = input_payload(calls[-1]["input"])
+            output = (
+                {"ok": True, "reason": ""}
+                if "interpretation" in payload
+                else {
+                    "advice": "Kaydettiğin çalışmayı değerlendirerek sıradaki adımını seçebilirsin.",
+                    "actions": [],
+                }
+            )
+            return {
+                "status": "completed",
+                "runtime": {"provider": "custom", "model": "fixture-model"},
+                "output": json.dumps(output),
+            }
         return await original(method, path, **kwargs)
+
     monkeypatch.setattr(transport, "request", reply)
     async with SessionLocal() as db:
         goal = await service.create_goal(db, GoalIn(title="Sınav hazırlığı"))
-        milestone = await service.add_goal_milestone(db, goal.id, GoalMilestoneIn(title="İlk deneme"))
-        session = await studio.start(db, StudioSessionIn(client_uuid=uuid4(), goal_id=goal.id, mode="feedback"))
+        milestone = await service.add_goal_milestone(
+            db, goal.id, GoalMilestoneIn(title="İlk deneme")
+        )
+        session = await studio.start(
+            db, StudioSessionIn(client_uuid=uuid4(), goal_id=goal.id, mode="feedback")
+        )
         message = StudioTurnIn(client_uuid=uuid4(), message="Nasıl gidiyorum?")
         await studio.turn(db, await studio.get_session(db, session.id), message)
         result = await studio.turn(db, await studio.get_session(db, session.id), message)
-        assert result.revision is None
-        assert json.loads(calls[0]["input"].split("CURRENT CANONICAL FACTS (untrusted evidence): ")[1])["progress_percent"] == 0
+        while result.state in {"running", "unknown_delivery"}:
+            result = await studio.reconcile(db, await studio.get_session(db, session.id))
+        assert result.revision is None and result.error is None
+        assert result.messages[-1]["facts"]["percent"] == 0
+        assert input_payload(calls[0]["input"])["facts"]["progress_percent"] == 0
         await service.update_goal_milestone(db, milestone.id, GoalMilestonePatch(completed=True))
-        await studio.turn(db, await studio.get_session(db, session.id), StudioTurnIn(client_uuid=uuid4(), message="Şimdi nasıl gidiyorum?"))
-        assert json.loads(calls[1]["input"].split("CURRENT CANONICAL FACTS (untrusted evidence): ")[1])["progress_percent"] == 100
-        assert "proposal: null" in calls[1]["instructions"]
-        assert "Do not create or edit a draft" in calls[1]["instructions"]
+        await studio.turn(
+            db,
+            await studio.get_session(db, session.id),
+            StudioTurnIn(client_uuid=uuid4(), message="Şimdi nasıl gidiyorum?"),
+        )
+        result = await studio.reconcile(db, await studio.get_session(db, session.id))
+        while result.state in {"running", "unknown_delivery"}:
+            result = await studio.reconcile(db, await studio.get_session(db, session.id))
+        assert input_payload(calls[2]["input"])["facts"]["progress_percent"] == 100
+        assert result.messages[-1]["facts"]["percent"] == 100
+        assert "Yeni iş/plan/proposal üretme" in calls[2]["instructions"]
 
 
 async def test_feedback_draft_is_rejected_and_corrected_as_feedback_only(profile, api, monkeypatch):
@@ -528,25 +562,47 @@ async def test_feedback_draft_is_rejected_and_corrected_as_feedback_only(profile
     from app.modules.goal import service
     from app.modules.goal.models import Goal
     from app.modules.goal.schemas import GoalIn
+
     choose(profile, "custom")
     original = transport.request
     calls = []
+
     async def reply(method, path, **kwargs):
         if path == "/v1/runs":
             calls.append(kwargs["body"])
             return {"run_id": f"feedback-repair-{len(calls)}"}
         if path.startswith("/v1/runs/feedback-repair-"):
-            output = {"discussion":"İlk adımını seç.","proposal":{"kind":"goal","title":"İstenmeyen yeni hedef"} if len(calls)==1 else None}
-            return {"status":"completed","runtime":{"provider":"custom","model":"fixture-model"},"output":json.dumps(output)}
-        return await original(method,path,**kwargs)
-    monkeypatch.setattr(transport,"request",reply)
+            payload = input_payload(calls[-1]["input"])
+            output = (
+                {"ok": True, "reason": ""}
+                if "interpretation" in payload
+                else {
+                    "discussion": "İlk adımını seç.",
+                    "proposal": {"kind": "goal", "title": "İstenmeyen yeni hedef"},
+                }
+                if len(calls) == 1
+                else {"advice": "İlk adımını seçebilirsin.", "actions": []}
+            )
+            return {
+                "status": "completed",
+                "runtime": {"provider": "custom", "model": "fixture-model"},
+                "output": json.dumps(output),
+            }
+        return await original(method, path, **kwargs)
+
+    monkeypatch.setattr(transport, "request", reply)
     async with SessionLocal() as db:
         goal = await service.create_goal(db, GoalIn(title="Mevcut hedef"))
-        session = await studio.start(db, StudioSessionIn(client_uuid=uuid4(),goal_id=goal.id,mode="feedback"))
-        body = StudioTurnIn(client_uuid=uuid4(),message="İlerlemem nasıl?")
-        await studio.turn(db,await studio.get_session(db,session.id),body)
-        await studio.turn(db,await studio.get_session(db,session.id),body)
-        result = await studio.turn(db,await studio.get_session(db,session.id),body)
-        assert result.revision is None and result.state == "drafting"
-        assert "No proposal, JSON or new work" in calls[1]["input"]
+        session = await studio.start(
+            db, StudioSessionIn(client_uuid=uuid4(), goal_id=goal.id, mode="feedback")
+        )
+        body = StudioTurnIn(client_uuid=uuid4(), message="İlerlemem nasıl?")
+        await studio.turn(db, await studio.get_session(db, session.id), body)
+        await studio.turn(db, await studio.get_session(db, session.id), body)
+        result = await studio.turn(db, await studio.get_session(db, session.id), body)
+        while result.state in {"running", "unknown_delivery"}:
+            result = await studio.reconcile(db, await studio.get_session(db, session.id))
+        assert result.revision is None and result.state == "drafting" and result.error is None
+        assert "correction" in input_payload(calls[1]["input"])
+        assert len(calls) == 3
         assert await db.scalar(select(func.count()).select_from(Goal)) == 1

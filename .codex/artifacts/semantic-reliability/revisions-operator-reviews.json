@@ -1,0 +1,212 @@
+[
+  {
+    "cohort": "fixed",
+    "scenario": "revision_one",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_one",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_one",
+    "attempt": 3,
+    "suitable": true,
+    "reason": "İstenen görev adı/sayısı seçili hedefte korunmuş; yeni görevler somut çalışma olarak onaya sunulmuş."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_two",
+    "attempt": 1,
+    "suitable": true,
+    "reason": "İstenen görev adı/sayısı seçili hedefte korunmuş; yeni görevler somut çalışma olarak onaya sunulmuş."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_two",
+    "attempt": 2,
+    "suitable": true,
+    "reason": "İstenen görev adı/sayısı seçili hedefte korunmuş; yeni görevler somut çalışma olarak onaya sunulmuş."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_two",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_topic",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Bir konu istendiği halde iki konu eklenmiş; yanlış kapsam reviewer tarafından kabul edilmiş. Sonraki explicit quantity guard bu raw cevabı reddeder."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_topic",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_topic",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_resource",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_resource",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_resource",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_attach",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_attach",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_attach",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_move",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_move",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_move",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_reduce",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_reduce",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_reduce",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_detach",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_detach",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_detach",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_rename",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_rename",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_rename",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_replan",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_replan",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "revision_replan",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  }
+]

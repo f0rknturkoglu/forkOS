@@ -23,6 +23,20 @@ SUPPORTED_VERSIONS = {"0.21.6"}
 MODEL_PORTS = {11434, 18434, 18435}
 
 
+def generation_capabilities():
+    """Verified runs contract and new-turn policy; an existing turn retains its own marker."""
+    return {
+        "contract": "hermes-0.21.6-runs",
+        "native_schema": False,
+        "per_request_output_budget": False,
+        "strategy": "bounded_semantic_stages"
+        if settings.goal_studio_semantic_enabled
+        else "single_stage_with_one_repair",
+        "max_calls": 6 if settings.goal_studio_semantic_enabled else 2,
+        "wall_budget_seconds": 180 if settings.goal_studio_semantic_enabled else None,
+    }
+
+
 def loopback(value, *, profile=False):
     try:
         url = urlsplit(value)

@@ -19,6 +19,7 @@ from app.modules.goal.package_authoring import compile_draft
 from app.modules.goal.package_planning import propose, snapshot, validate
 from app.modules.goal.package_schemas import NodeData, PlanningConstraints
 from app.modules.goal.schemas import GoalIn
+from app.modules.goal.semantic_pipeline import input_payload
 from app.modules.goal.studio_schemas import StudioDecisionIn, StudioProposal, StudioSessionIn
 from app.modules.learning.models import StudyArea, StudyTopic
 from app.modules.todo import service as todos
@@ -616,7 +617,13 @@ async def test_project_detach_preserves_canonical_progress_and_public_context():
         assert await project_progress(db, [pid]) == before
 
 
-async def test_adaptive_user_deadline_is_sent_to_model_and_retry_payload_is_stable(monkeypatch):
+@pytest.mark.parametrize("semantic", [False, True])
+async def test_adaptive_user_deadline_is_sent_to_model_and_retry_payload_is_stable(
+    monkeypatch, semantic
+):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "goal_studio_semantic_enabled", semantic)
     from app.modules.goal import studio_transport as transport
     from app.modules.goal.studio_schemas import StudioTurnIn
 
@@ -645,7 +652,14 @@ async def test_adaptive_user_deadline_is_sent_to_model_and_retry_payload_is_stab
         )
         await studio.turn(db, row, body)
         expected = (local_today() + timedelta(weeks=6)).isoformat()
-        assert json.dumps({"target_date": expected})[1:-1] in calls[0]["input"]
+        constraints = (
+            input_payload(calls[0]["input"])["explicit_constraints"]
+            if semantic
+            else json.JSONDecoder().raw_decode(calls[0]["input"].split("USER CONSTRAINTS: ", 1)[1])[
+                0
+            ]
+        )
+        assert constraints["target_date"] == expected
         assert "allowed_dates" in calls[0]["input"]
         assert json.dumps([expected]) in calls[0]["input"]
         await studio.turn(db, await studio.get_session(db, session.id), body)

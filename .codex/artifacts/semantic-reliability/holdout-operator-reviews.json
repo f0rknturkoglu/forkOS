@@ -1,0 +1,100 @@
+[
+  {
+    "cohort": "holdout",
+    "scenario": "yds",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "yds",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "software",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "software",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kullanıcının belirtmediği imzalama ve sunucuya yükleme koşulları eklenmiş; test/düzeltme/paketleme kapsamı kısmen yararlı."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "passport",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "passport",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "document",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "document",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "python",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "python",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "mixed",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "mixed",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "long_term",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "holdout",
+    "scenario": "long_term",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  }
+]

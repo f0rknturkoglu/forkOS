@@ -35,6 +35,10 @@ def deadline(data):
         )
         if not match:
             match = re.search(
+                r"\b(\d{1,3}|" + "|".join(words) + r")\s+(gün|hafta|ay|yıl)(?:da|de)\b", text
+            )
+        if not match:
+            match = re.search(
                 r"\b(?:önümüzdeki|gelecek)\s+(\d{1,3}|"
                 + "|".join(words)
                 + r")\s+(gün|hafta|ay|yıl)(?:da|de)?\b",
@@ -192,6 +196,11 @@ def availability(data):
 
 
 def requested_tasks(data):
+    return requested_count(data, r"görev")
+
+
+def requested_count(data, noun):
+    """Read an explicit addition quantity; this does not infer work or module needs."""
     messages = [
         m["text"].casefold().replace("i\u0307", "i")
         for m in data.get("messages", [])
@@ -212,7 +221,11 @@ def requested_tasks(data):
         "on": 10,
     }
     match = re.search(
-        r"\b(\d{1,2}|" + "|".join(words) + r")\s+(?:(?:yeni|pratik|çalışma)\s+){0,2}görev\b",
+        r"\b(\d{1,2}|"
+        + "|".join(words)
+        + r")\s+(?:(?:yeni|pratik|çalışma|öğrenme|alıştırma)\s+){0,2}(?:"
+        + noun
+        + r")\b",
         messages[-1],
     )
     if match:

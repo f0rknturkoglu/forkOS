@@ -1,0 +1,492 @@
+[
+  {
+    "cohort": "fixed",
+    "scenario": "yds",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "yds",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "yds",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "yds",
+    "attempt": 4,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "yds",
+    "attempt": 5,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "yds",
+    "attempt": 6,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "yds",
+    "attempt": 7,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "yds",
+    "attempt": 8,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "yds",
+    "attempt": 9,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "yds",
+    "attempt": 10,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "software",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "software",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "software",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "software",
+    "attempt": 4,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "software",
+    "attempt": 5,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "software",
+    "attempt": 6,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "software",
+    "attempt": 7,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "software",
+    "attempt": 8,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "software",
+    "attempt": 9,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "software",
+    "attempt": 10,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "passport",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "passport",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "passport",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "passport",
+    "attempt": 4,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "passport",
+    "attempt": 5,
+    "suitable": false,
+    "reason": "Pasaport preview: kullanıcı belirtmediği TR/UK, yeni/çalışma başvurusu, diplomatik temsilcilik, e-posta/e-imza ve belge koşullarını kesin iş olarak üretmiş. Reviewer hatalı kabul etmiş."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "passport",
+    "attempt": 6,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "passport",
+    "attempt": 7,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "passport",
+    "attempt": 8,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "passport",
+    "attempt": 9,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "passport",
+    "attempt": 10,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "document",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "document",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "document",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "document",
+    "attempt": 4,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "document",
+    "attempt": 5,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "document",
+    "attempt": 6,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "document",
+    "attempt": 7,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "document",
+    "attempt": 8,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "document",
+    "attempt": 9,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "document",
+    "attempt": 10,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "python",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "python",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "python",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "python",
+    "attempt": 4,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "python",
+    "attempt": 5,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "python",
+    "attempt": 6,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "python",
+    "attempt": 7,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "python",
+    "attempt": 8,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "python",
+    "attempt": 9,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "python",
+    "attempt": 10,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "mixed",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "mixed",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "mixed",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "mixed",
+    "attempt": 4,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "mixed",
+    "attempt": 5,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "mixed",
+    "attempt": 6,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "mixed",
+    "attempt": 7,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "mixed",
+    "attempt": 8,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "mixed",
+    "attempt": 9,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "mixed",
+    "attempt": 10,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "long_term",
+    "attempt": 1,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "long_term",
+    "attempt": 2,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "long_term",
+    "attempt": 3,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "long_term",
+    "attempt": 4,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "long_term",
+    "attempt": 5,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "long_term",
+    "attempt": 6,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "long_term",
+    "attempt": 7,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "long_term",
+    "attempt": 8,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "long_term",
+    "attempt": 9,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  },
+  {
+    "cohort": "fixed",
+    "scenario": "long_term",
+    "attempt": 10,
+    "suitable": false,
+    "reason": "Kabul edilebilir önizleme yok."
+  }
+]

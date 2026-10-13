@@ -1,0 +1,14 @@
+{
+  "backend/app/modules/goal/semantic_planning.py": "bf99d43638f6714575da6a7883c2e68ae83cf80b0f5eeb120b70b8ac9544abd0",
+  "backend/app/modules/goal/semantic_pipeline.py": "fce15c9d4243979ceb830aa56995a8586ffa949a34cfdb497d63ad47213c4f23",
+  "backend/app/modules/goal/package_authoring.py": "6d21e9fe98eac09325da648b8d6743f697b732c6a150bdfd70a4da2aeafdb568",
+  "backend/app/modules/goal/package_constraints.py": "13389fa23d93794c450b6203f98f95e3d59263727b5ee76386cb7296d8cf17a5",
+  "backend/app/modules/goal/studio.py": "0ce8b32842c5fa1f3d030ae13362ddfc55363ecf0d2340aeae81ab64114ef93c",
+  "backend/app/modules/goal/studio_inference.py": "16d8fe90c64810fe12f86f0ba6fc27b908e3ab2f915a45f04cf9b3b12d1471aa",
+  "backend/app/modules/goal/studio_transport.py": "58223ba962508bca74e73d0607bd799694ba34f0cdb95c5356048747fba26999",
+  "backend/app/modules/goal/studio_schemas.py": "9c4222fee7a0c09f822fbb4a09404be7e52df5fa1563eca6d4e4a861005cd119",
+  "backend/scripts/eval_goal_hermes.py": "8e13be34e246e66791d1d89450ed80964a80e04bdae9f775798e5d142d8fd593",
+  "backend/scripts/summarize_goal_hermes.py": "09cc64fce4f5089435fac789061e75f1afc7e3c4295aac18f9ee6c3e29ad2d03",
+  "frontend/src/modules/goal/GoalStudio.tsx": "277e8f502cc3aa34ac85abc1bd864ceee46572d2ce4d819b734d4877a43de507",
+  "frontend/src/modules/goal/GoalCoachingFacts.tsx": "6368842cfc40bd41888e42e2eb71e7f8f7a9235b3b3667e9bef0c3e43077646c"
+}

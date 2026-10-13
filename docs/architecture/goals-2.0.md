@@ -222,3 +222,44 @@ müsaitlik ifadelerini çözme kapsamı sınırlıdır; typed preview bilinen k�
 İlk teslimin tarihsel kanıtı [kapanış kaydındadır](goals-2.0-closure.md).
 Uyarlanabilir paket, Calendar ve katkı düzeltmelerinin güncel kanıtı
 [adaptive closure kaydındadır](goals-2.0-adaptive-closure.md).
+
+## Semantik planlama ve durum kartı
+
+Deneysel `GOAL_STUDIO_SEMANTIC_ENABLED=true` ile yeni living turu küçük model sözleşmeleriyle ilerler: ihtiyaçlar → bağımsız görev ve
+öğrenme konuları → kapsam denetimi → mevcut V2 derleyici → insan onayı. Somut tek
+bir işi açıkça isteyen kısa mesaj ihtiyaç çağrısını atlayabilir. Mevcut hedef
+revizyonu veya koçluk iki aşamalıdır; belirsiz yönlendirmeye küçük bir sınıflandırıcı
+eklenir. Eski pipeline işareti olmayan turlar eski parser üzerinden okunur.
+
+`Requirements` kullanıcı bilgisi değildir. Learning/kaynak/doğrulama gereksinimleri
+model çıkarımıdır; açık sayı, tarih, kapasite ve olumsuz tercihler ayrı sunucu
+verisidir ve önceliklidir. `SemanticDraft` konuları görevlerden bağımsız tanımlar;
+bir konu birden çok aşamadaki görevle ilişkilendirilebilir. Kaynak ihtiyacı henüz
+seçilmemiş yerel LearningResource olarak görünür; kaynak URL'si uydurulmaz.
+
+Revizyonlar yalnız seçili hedefin gerçek aşama/iş/konu/slot referanslarıyla çözülür.
+Kaynak ekleme mevcut konuyu tekrar oluşturmaz; kayıt bağlama adayın tipini ve
+güncel entity bilgisini doğrular. Ayrılan adım yalnız revizyon kapsamında tekrar
+bağlanabilir, etkin ilerleme hesabına kendiliğinden dönmez. Takvim taşıma/hafifletme
+mevcut slot kimliğini ve okunan gün/süreyi koruyan doğrulamadan geçer.
+
+Koçluk mesajındaki **Bu yanıtın kayıtlı durumu** bloğu model metninden ayrı,
+GoalContextSnapshot'tan üretilir. Önceki mesaj tarihsel durumunu korur; yeni soru
+veriyi yeniden okur. %100 hazırlık ile ölçülmüş gerçek sonuç ayrıdır. Model yorumu
+ve en fazla iki gerçek açık iş önerisi ayrı bir incelemeden geçer. Serbest metnin
+tüm anlamı deterministik olarak ispatlanmış değildir.
+
+Bir deneysel turda en fazla altı Hermes generation isteği, toplam bir düzeltme ve 180 saniyelik kabul
+bütçesi vardır. Bütçe sonrası geç yanıt öneri olamaz; iptal teslimi bilinmiyorsa bu
+bir native iptal garantisi değildir. Yeni endpoint, migration veya veri sahipliği
+katmanı yoktur. Deneysel seçenek varsayılan olarak kapalıdır; ölçülen native
+başarı oranı daha çok çağrıyı varsayılan yapmak için yeterli değildir. Kanonik
+durum kartı mevcut tek çağrılı koçlukta da kullanılır. Bayrağı kapatmak devam eden
+kalıcı turun sözleşmesini değiştirmez. Güncel ölçüm ve kalan sınırlar:
+[Semantic Reliability Closure](goals-2.0-semantic-reliability-closure.md).
+
+Koçlukta `current_facts` pending/error ve sınıflandırıcı yolunda da bulunur;
+model yanıtı bozulsa bile o sorunun çalışma durumu gösterilir. Açık görev/konu/
+kaynak miktarları, phase-only rename, gerçek değişiklik içeren move/replan ve
+actual slot günü/süresi sunucu tarafından doğrulanır. Kısmi tipli revizyon hedef
+metadatasını değiştirmez.

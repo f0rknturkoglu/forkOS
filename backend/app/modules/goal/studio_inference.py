@@ -105,13 +105,32 @@ def task_for(data, message):
         return "legacy"
     if not data.get("goal_id"):
         return "author"
-    # Only explicit requests to mutate the plan enter authoring. Questions remain coaching.
+    text = message.casefold().replace("i\u0307", "i")
+    if re.search(r"nasıl.*(?:geliştir|iyileştir|düzenley|planlay)", text):
+        return "coach"
+    # Advice/negation wins over a verb stem. Unclear indirect language gets a tiny classifier.
+    if re.search(
+        r"should (?:i|we)|what if|sence|gerekir mi|gerekli mi|nasıl olur|(?:eklemeli|değiştirmeli|azaltmalı|bağlamalı).*m[ıi]|(?:ekle|değiştir|kaldır|taşı)me\b|(?:ekle|oluştur|değiştir|bağla|ayır)ma\b",
+        text,
+    ):
+        return "coach"
+    if re.search(
+        r"ekley(?:elim|ebilir)|taşıy(?:alım|abilir)|bağlay(?:alım|abilir)|azalt(?:alım|abilir)|hafiflet|değiştir(?:elim|ebilir)|oluştur(?:alım|abilir)|planlay(?:alım|abilir)|güncellememiz lazım|plana alsak|\badını\b.+\byap\b",
+        text,
+    ):
+        return "author"
     change = re.search(
-        r"\b(?:ekle|değiştir|düzenle|çıkar|taşı|kaldır|güncelle|oluştur|planla|yeniden planla|"
-        r"add|remove|move|rename|create|revise|reschedule)\b",
-        message.casefold(),
+        r"\b(?:ekle|değiştir|düzenle|çıkar|taşı|kaldır|güncelle|oluştur|planla|yeniden planla|bağla|ayır|"
+        r"add|remove|move|rename|create|revise|reschedule|attach|link|detach)\b",
+        text,
     )
-    return "author" if change else "coach"
+    if change:
+        return "author"
+    if re.search(r"plan|aşama|görev|konu|çalışma|işi|work|task|topic", text) and not re.search(
+        r"neredey|nasıl gid|neye odak|ilerleme|ne durumda", text
+    ):
+        return "route"
+    return "coach"
 
 
 def authoring_prompt(*, existing=False, long_term=False, add_tasks=None):
