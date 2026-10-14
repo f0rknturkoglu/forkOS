@@ -31,6 +31,7 @@ doctor:     ; ./scripts/forkos_doctor.sh "$(CO)"
 launch:     ; python3 scripts/forkos.py
 stop:       ; python3 scripts/forkos.py stop
 install-launcher: ; python3 scripts/forkos.py install
+setup:      ; python3 scripts/setup_all.py
 sh:        ; $(CO) exec api bash
 psql:      ; $(CO) exec db psql -U lifeos -d lifeos
 migrate:   ; $(CO) exec api alembic upgrade head

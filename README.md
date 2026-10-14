@@ -122,12 +122,25 @@ flowchart TB
 
 ## 4. Hızlı Başlangıç
 
+### 🤖 Ajan ile Tek Adımda Kurulum (Agentic Setup)
+
+forkOS'u Claude Code, Cursor, Codex, Antigravity veya ChatGPT gibi bir AI kodlama ajanına kurdurmak isterseniz, [**AGENTIC_SETUP.md**](AGENTIC_SETUP.md) dosyasındaki hazır promptu ajanınıza vermeniz yeterlidir. Ajan; `.env` dosyasını, Obsidian Vault köprüsünü, Hermes MCP bağlantısını ve terminal kısayollarını (`forkos`, `forkos stop`, `forkos doctor`) tek seferde kurup test eder.
+
+Doğrudan terminalden tek komutla sihirbazı çalıştırmak isterseniz:
+```bash
+make setup
+```
+
+---
+
+### Manuel Adım Adım Kurulum
+
 ### Önkoşullar
 
 * **Container Runtime:** Docker Desktop, OrbStack veya Podman (Compose v2 destekli)
-* **Araçlar:** Git, Make
+* **Araçlar:** Git, Make, Python 3.11+
 
-### Adım Adım Kurulum
+### Adımlar
 
 1. **Depoyu Klonlayın:**
    ```bash

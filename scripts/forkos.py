@@ -76,18 +76,45 @@ def settings():
 
 
 def install():
-    path = Path.home() / '.zshrc'
-    original = path.read_text() if path.exists() else ''
+    target_files = []
+    zshrc = Path.home() / '.zshrc'
+    bashrc = Path.home() / '.bashrc'
+    bash_profile = Path.home() / '.bash_profile'
+
+    shell = os.environ.get("SHELL", "").lower()
+    if "zsh" in shell or zshrc.exists():
+        target_files.append(zshrc)
+    if "bash" in shell or bashrc.exists() or bash_profile.exists():
+        if bashrc.exists():
+            target_files.append(bashrc)
+        elif bash_profile.exists():
+            target_files.append(bash_profile)
+
+    if not target_files:
+        target_files.append(zshrc)
+
     start, end = '# >>> forkOS launcher >>>', '# <<< forkOS launcher <<<'
-    block = f'{start}\nalias forkos={shlex.quote(shlex.join([sys.executable, str(Path(__file__).resolve())]))}\n{end}'
-    if start in original and end in original:
-        before, tail = original.split(start, 1)
-        _, after = tail.split(end, 1)
-        content = before + block + after
-    else:
-        content = original.rstrip() + '\n\n' + block + '\n'
-    path.write_text(content)
-    print('✓ forkos aliası kuruldu. Bu terminalde: source ~/.zshrc')
+    cmd = shlex.join([sys.executable, str(Path(__file__).resolve())])
+    block = f'{start}\nalias forkos={shlex.quote(cmd)}\n{end}'
+
+    updated = []
+    for path in dict.fromkeys(target_files):
+        original = path.read_text() if path.exists() else ''
+        if start in original and end in original:
+            before, tail = original.split(start, 1)
+            _, after = tail.split(end, 1)
+            content = before + block + after
+        else:
+            content = original.rstrip() + '\n\n' + block + '\n'
+        path.write_text(content)
+        updated.append(path.name)
+
+    print(f"✓ forkos aliası kuruldu ({', '.join(updated)}).")
+    print("  Kullanım:")
+    print("    forkos         → Sistemi başlatır (Container'lar, migration, Obsidian, Hermes)")
+    print("    forkos stop    → Tüm servisleri, container'ları ve modelleri güvenle durdurur")
+    print("    forkos doctor  → Sağlık kontrolü ve teşhis raporunu çalıştırır")
+    print(f"  Aktif terminalde hemen geçerli kılmak için: source ~/{updated[0]}")
 
 
 
@@ -217,6 +244,20 @@ def stop(keep_engine=False):
         raise SystemExit(1)
     print('\n✓ forkOS kapalı. Veriler korundu. Yeniden açmak için: forkos\n')
 
+def get_compose_cmd():
+    if shutil.which('docker'):
+        try:
+            res = subprocess.run(['docker', 'context', 'show'], capture_output=True, text=True, timeout=3)
+            if res.returncode == 0 and res.stdout.strip() == 'orbstack':
+                return 'docker --context orbstack compose'
+        except Exception:
+            pass
+        return 'docker compose'
+    if shutil.which('podman'):
+        return 'podman compose'
+    return 'docker compose'
+
+
 def main():
     parser = argparse.ArgumentParser(description='forkOS başlangıç ve güvenli kapanış checklist’i')
     parser.add_argument('command', nargs='?', default='start', choices=['start', 'stop', 'doctor', 'install'])
@@ -231,10 +272,11 @@ def main():
         install()
         return
     if args.command == 'doctor':
-        raise SystemExit(subprocess.call([str(ROOT / 'scripts/forkos_doctor.sh'), 'docker compose'], cwd=ROOT))
+        raise SystemExit(subprocess.call([str(ROOT / 'scripts/forkos_doctor.sh'), get_compose_cmd()], cwd=ROOT))
     print('\nforkOS · Başlangıç checklist’i\n')
     cfg = settings()
-    compose = ['docker', '--context', 'orbstack', 'compose', '-f', 'compose.yaml']
+    compose_prefix = shlex.split(get_compose_cmd())
+    compose = compose_prefix + ['-f', 'compose.yaml']
     if cfg.get('OBSIDIAN_VAULT_HOST_PATH'):
         vault = Path(cfg['OBSIDIAN_VAULT_HOST_PATH']).expanduser()
         if not vault.is_absolute():
