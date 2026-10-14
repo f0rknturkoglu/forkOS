@@ -263,6 +263,18 @@ forkOS/
 
 ---
 
-## 10. Lisans
+## 10. Geliştirici Notu & Sorumluluk Reddi (Disclaimer)
 
-Bu proje [MIT Lisansı](LICENSE) kapsamında sunulmaktadır. forkOS açık kaynaklı, şeffaf ve yerel-öncelikli bir kişisel projedir.
+> [!NOTE]
+> **Hobi Projesi & Kişisel Hikâye:**<br>
+> forkOS tamamen **bireysel bir hobi projesidir**. Staj dönemimde yaşadığım depresyonu ve zihinsel yorgunluğu aşmak, bir şeyler üretmenin getirdiği heyecanı ve canlılığı yeniden hissetmek ve kendime eğlenceli bir geliştirme alanı yaratmak amacıyla başlatılmıştır. Temel motivasyonu eğlence, kişisel öğrenme ve kendi günlük iş akışımı organize etmektir.
+
+> [!CAUTION]
+> **Sorumluluk Reddi (No Warranty & Limitation of Liability):**<br>
+> Bu yazılım *"olduğu gibi"* (AS-IS) ve hiçbir garanti (zımni, ticari, belirli bir amaca uygunluk vb.) olmaksızın sunulmaktadır. forkOS'un veya içerisindeki herhangi bir modülün (veri toplama, üçüncü taraf sitelerden/beslemelerden bilgi çekme, otomasyonlar vb.) kullanımından, veri kayıplarından, üçüncü taraf platformların hizmet koşulları (ToS) değişikliklerinden veya sisteminizde doğabilecek doğrudan/dolaylı hiçbir teknik veya hukuki sonuçtan **geliştirici hiçbir sorumluluk kabul etmez**. Sistemi kuran ve çalıştıran kullanıcı, tüm kullanımın ve yerel yapılandırmanın tek sorumlusudur.
+
+---
+
+## 11. Lisans
+
+Bu proje MIT Lisansı kapsamında sunulmaktadır. forkOS açık kaynaklı, şeffaf ve yerel-öncelikli bir kişisel projedir.
