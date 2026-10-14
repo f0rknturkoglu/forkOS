@@ -204,7 +204,7 @@ describe("JobDetail", () => {
             engine: "local_rules",
             candidate_source: "document",
             candidate_document_id: "11111111-2222-3333-4444-555555555555",
-            candidate_document_title: "furkan-cv.pdf",
+            candidate_document_title: "sample-cv.pdf",
             archetype: null,
             archetype_scores: {},
             score: 25,
@@ -226,7 +226,7 @@ describe("JobDetail", () => {
     );
     fireEvent.click(screen.getByRole("tab", { name: "Uyum" }));
     expect(screen.getByText("career-ops-v1")).toBeTruthy();
-    expect(screen.getAllByText("furkan-cv.pdf").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("sample-cv.pdf").length).toBeGreaterThan(0);
     expect(screen.getByText("abc123def456")).toBeTruthy();
     // İlan, değerlendirmeden sonra yeniden görüldü → eskimiş olarak işaretlenir.
     expect(screen.getByText("İlan verisi değerlendirmeden sonra güncellendi")).toBeTruthy();

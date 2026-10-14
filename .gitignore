@@ -28,7 +28,13 @@ backend/data/config.yaml
 backend/data/attachments/
 # forkjob kullanici verisi: runtime dosyalari `<ad>.yaml.user` — git'e GIRMEZ.
 # Sablonlar (feeds.yaml, linkedin-profiles.yaml) takip edilir ve kisisel veri tasimaz.
+*.user
 backend/app/sources/forkjob_core/data/*.user
+*.db
+*.sqlite
+*.sqlite3
+.env.*
+!.env.example
 
 # buyuk yedekler ve yerel audit dosyalari
 *.zip

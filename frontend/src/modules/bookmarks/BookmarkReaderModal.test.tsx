@@ -73,7 +73,7 @@ const mockBookmark: Bookmark = {
   reading_time_min: 6,
   word_count: 1200,
   scroll_progress: 35,
-  author: "Furkan Turkoglu",
+  author: "Test Author",
 };
 
 const mockFullText: BookmarkFullText = {
@@ -82,7 +82,7 @@ const mockFullText: BookmarkFullText = {
   url: "https://blog.example.com/deep-dive",
   content_html: "<p>Ajan mimarileri yerel sistemlerde guvenlik ve gizlilik saglar.</p>",
   content_text: "Ajan mimarileri yerel sistemlerde guvenlik ve gizlilik saglar.",
-  author: "Furkan Turkoglu",
+  author: "Test Author",
   reading_time_min: 6,
   word_count: 1200,
   scroll_progress: 35,
@@ -148,7 +148,7 @@ describe("BookmarkReaderModal", () => {
 
     expect(markup).toContain("blog.example.com");
     expect(markup).toContain("Ajan Mimarisi ve Yerel Sistemler");
-    expect(markup).toContain("Furkan Turkoglu");
+    expect(markup).toContain("Test Author");
     expect(markup).toContain("6 dk okuma");
     expect(markup).toContain("Ajan mimarileri yerel sistemlerde guvenlik ve gizlilik saglar.");
   });

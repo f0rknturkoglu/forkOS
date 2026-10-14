@@ -78,7 +78,7 @@ async def _seed_test_opportunity(
 async def test_application_package_master_cv_immutability(db_session: AsyncSession):
     """C5: Master CV entity and document record remain strictly immutable during tailoring."""
     # Seed a Master CV document
-    doc_entity = await create_entity(db_session, type="document", title="Furkan_Turkoglu_Master_CV.pdf")
+    doc_entity = await create_entity(db_session, type="document", title="Sample_Master_CV.pdf")
     base_doc = Document(
         id=doc_entity.id,
         drive_file_id="drive-master-cv-123",
@@ -101,7 +101,7 @@ async def test_application_package_master_cv_immutability(db_session: AsyncSessi
     await db_session.refresh(base_doc)
     await db_session.refresh(doc_entity)
     assert base_doc.category == "cv"
-    assert doc_entity.title == "Furkan_Turkoglu_Master_CV.pdf"
+    assert doc_entity.title == "Sample_Master_CV.pdf"
     assert pkg.base_cv_document_id == str(base_doc.id)
 
 

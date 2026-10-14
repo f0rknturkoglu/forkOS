@@ -54,7 +54,7 @@ def test_briefing_data_defaults():
 
 def test_sanitize_payload_masks_sensitive_keys():
     raw = {
-        "user": "furkan",
+        "user": "test_user",
         "github_token": "ghp_1234567890abcdef",
         "nested": {
             "password": "secret_password",
@@ -64,7 +64,7 @@ def test_sanitize_payload_masks_sensitive_keys():
         "safe_list": [{"secret_token": "val", "count": 10}],
     }
     sanitized = sanitize_payload(raw)
-    assert sanitized["user"] == "furkan"
+    assert sanitized["user"] == "test_user"
     assert sanitized["github_token"] == "[REDACTED]"
     assert sanitized["nested"]["password"] == "[REDACTED]"
     assert sanitized["nested"]["api_key"] == "[REDACTED]"

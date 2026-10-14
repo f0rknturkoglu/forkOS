@@ -114,7 +114,7 @@ All verification gates have passed with empirical evidence:
     "version": "career-ops-v1",
     "engine": "local_rules",
     "candidate_source": "document",
-    "candidate_document_title": "Furkan_Turkoglu_CV_TR.docx",
+    "candidate_document_title": "sample_cv.docx",
     "score": 50,
     "recommendation": "consider"
   }

@@ -185,7 +185,7 @@ def test_two_pass_evaluation_prefers_candidate_document_evidence():
         ),
         title="Platform Engineer",
         candidate_document_id=document_id,
-        candidate_document_title="furkan-cv.txt",
+        candidate_document_title="sample-cv.txt",
         candidate_text=(
             "Platform engineer. Built and operated Kubernetes clusters and Terraform modules."
         ),
@@ -193,12 +193,12 @@ def test_two_pass_evaluation_prefers_candidate_document_evidence():
 
     assert evaluation.candidate_source == "document"
     assert evaluation.candidate_document_id == document_id
-    assert evaluation.candidate_document_title == "furkan-cv.txt"
+    assert evaluation.candidate_document_title == "sample-cv.txt"
     match_by_name = {item.requirement: item.match for item in evaluation.matches}
     assert match_by_name["Kubernetes"] == "strong"
     assert match_by_name["Terraform"] == "strong"
     assert all(
-        "furkan-cv.txt" in item.evidence
+        "sample-cv.txt" in item.evidence
         for item in evaluation.matches
         if item.requirement in {"Kubernetes", "Terraform"}
     )

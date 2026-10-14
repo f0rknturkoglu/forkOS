@@ -60,7 +60,7 @@ describe("career intelligence surfaces", () => {
           engine: "local_rules",
           candidate_source: "document",
           candidate_document_id: "doc-1",
-          candidate_document_title: "furkan-cv.pdf",
+          candidate_document_title: "sample-cv.pdf",
           archetype: "agentic",
           archetype_scores: { agentic: 4 },
           score: 25,
@@ -102,7 +102,7 @@ describe("career intelligence surfaces", () => {
     expect(html).toContain("Agentic Systems");
     expect(html).toContain("Hard blocker");
     expect(html).toContain("İlişkili projeyi görünür kıl");
-    expect(html).toContain("furkan-cv.pdf");
+    expect(html).toContain("sample-cv.pdf");
   });
 
   it("does not offer invalid reply transitions from terminal states", () => {

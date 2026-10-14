@@ -1,546 +1,255 @@
-# forkOS
+# forkOS (v1.0)
 
-Kişisel verilerini kendi bilgisayarında tutan, tek kullanıcılı ve **local-only** bir kişisel işletim sistemi.
+[![Local-Only](https://img.shields.io/badge/Privacy-Local--Only-green.svg)](docs/mimari.md)
+[![Zero Telemetry](https://img.shields.io/badge/Telemetry-Zero-brightgreen.svg)](.agents/skills/local-privacy-audit/SKILL.md)
+[![PostgreSQL 16](https://img.shields.io/badge/Database-PostgreSQL_16-blue.svg)](backend/alembic/README.md)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-teal.svg)](backend/)
+[![React 18 + Vite](https://img.shields.io/badge/Frontend-React_18_%2B_Vite-indigo.svg)](frontend/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-forkOS; yakalama, planlama, odaklanma, öğrenme, akademik gelişim, iş fırsatları ve operasyonel takibi birbirine bağlı tek bir çalışma alanında toplar. Hosted backend, kullanıcı hesabı veya telemetri yoktur; uygulama varsayılan olarak yalnızca `127.0.0.1` üzerinde çalışır.
+Kişisel verilerini kendi donanımında tutan, tek kullanıcılı ve **local-only** kişisel işletim sistemi.
 
-**İki sahipli çalışma modeli.** forkOS **yürütmenin** sahibidir: görevler, plan, takvim, Pomodoro, öğrenme ilerlemesi/SRS, fırsatlar, RSS ve olay geçmişi. Bilgi ise ayrı ve private `f0rknbrain` Obsidian Vault'unda yaşar: notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notları, kaynak notları. Aynalı Not sistemi yoktur. Ayrıntı: [PHASE 3 — bilgi sahipliği devri](docs/obsidian-hybrid/phase3-cutover.md).
+forkOS; görev yürütme, haftalık planlama, derin odaklanma (Pomodoro), aralıklı tekrarla öğrenme (SRS/Flashcards), iş ve kamu duyurusu takibi (ATS/YLSY/ÖSYM/TÜSEB/MAPEG), tam metin RSS okuma ve yer imi arşivini birbirine bağlı tek bir çalışma alanında toplar. Barındırılan (hosted) backend, kullanıcı hesabı veya telemetri yoktur; servisler varsayılan olarak yalnızca `127.0.0.1` üzerinde çalışır.
 
-## V1 ürün kapsamı
+---
 
-Akademik ve kariyer gelişimi; günlük yürütme, hedefler/strateji, projeler, öğrenme ve kartlar, Takvim, Pomodoro, RSS/Feed, Yer İmleri ve tanılama korunur. Medya, Finans, bağımsız Belgeler/Bilgi arayüzleri ve Google Drive emekli edilmiştir. Yerel CV/dosya işleme ve Obsidian altyapısı devam eder; geçmiş veriler silinmez. [Kanonik V1 ürün kapsamı](docs/architecture/v1-product-scope.md) · [Kapanış ve doğrulama](docs/architecture/v1-scope-closure-report.md).
+## 1. Temel Felsefe ve İki Sahipli Mimari
 
-Pomodoro geçmişinde tamamlanan seanslar elle eklenebilir, düzenlenebilir ve onayla silinebilir. Sayaç ve elle kayıt aynı kalıcı modeli kullanır.
+* **forkOS yürütmenin sahibidir:** Görevler, haftalık zaman blokları, takvim, Pomodoro seansları, öğrenme ilerlemesi/SRS kartları, iş ve akademik fırsatlar, RSS akışları ve append-only olay geçmişi forkOS PostgreSQL veritabanında yaşar.
+* **Obsidian bilginin sahibidir:** Notlar, günlükler, proje bilgi notları, öğrenme özetleri ve kaynak incelemeleri yerel bir Obsidian Vault'unda Markdown dosyaları olarak saklanır. forkOS bu dosyalara yalnızca köprü uçlarıyla (`/api/obsidian/*`) erişir. Çift sahiplik veya aynalama (mirroring) karmaşası yoktur.
+* **Sıfır Telemetri & Dışarıya Kapalı Sınır:** Dış dünyaya veri sızıntısı (harici CDN, font izleyicileri, analitik SDK'ları, bulut API'leri) kesinlikle engellenmiştir. Dış ağa yapılan tek çağrı, kullanıcının yapılandırdığı kaynaklardan (RSS, iş ilanları, resmî duyurular) **yalnızca içerik indirmek (pull-only)** içindir.
 
-## Başlangıç ve kişisel akış
+---
 
-Yeni kurulumun karşılama akışı, isteğe bağlı kaynak seçimi ve tekrar açılabilen rehberleri vardır. Her sayfanın header'ındaki `(i)` bilgiyi ve rehberleri toplar. Akış kaynakları kullanıcı seçimiyle açılır; HN, GitHub, Hugging Face Papers, Reddit ve mevcut RSS abonelikleri desteklenir. [Başlangıç ve rehberler](docs/product/v1-welcome-onboarding.md) · [Kişisel akış](docs/product/personal-feed-discovery.md).
-
-Tutorialı tekrar denemek için **Ayarlar → Genel & Görünüm → Tutorial deneme modu → Tutorialı sıfırdan başlat**. Bu işlem yalnız rehber ilerlemesini sıfırlar; hedefler, görevler, öğrenme kayıtları ve akış kaynakları korunur.
-
-Kaynak sonuçları eksik veya gecikmiş olabilir; başvuru ve son tarih bilgisini özgün kaynaktan kontrol et. Mevcut otomasyon tercihleri açıksa API açılışında kaynak çekimi başlayabilir. Modül görünürlüğü ile arka plan güncellemesi ayrı ayarlardır.
-
-## Yerel V1 doğrulaması
-
-[Pre-release readiness](docs/architecture/v1-pre-release-readiness.md) · [Kapatılan bulgular](docs/architecture/v1-pre-release-findings.md) · [Taslak V1 notları](docs/releases/v1-draft.md).
-Yerel testler CI onayının yerine geçmez; henüz V1 etiketi veya release yayımlanmadı.
-
-## Neler sunuyor?
-
-Navigasyon ürün alanlarına göre kurulur (tek kaynak: `docs/product-navigation.md`):
-
-| Ürün alanı | Yetenekler |
-| --- | --- |
-| **Home** | Günün planı, tek **Dikkat** yüzeyi (son tarihler, takipler, bildirimler), şimdi/sırada, bekleyen kararlar |
-| **Plan** | Görevler, alt görevler, tekrarlayan rutinler, haftalık plan, takvim, Pomodoro |
-| **Projeler** | Proje aşamaları, ilerleme, GitHub etkinliği, proje günlüğü |
-| **Kariyer** | İş ilanı keşfi, CV uyumu, başvuru CRM'i, mülakat hafızası, YLSY/ÖSYM ve kamu duyuruları |
-| **Öğrenme** | Öğrenme ağacı ve SRS, flashcard'lar |
-| **Kütüphane** | Yer imleri, evrensel gelen kutusu, tam metin RSS/Feed okuyucu; bilgi için Obsidian köprüsü |
-| **Sistem** | Aktivite/ritim, değerlendirme ve tanılama, kaynak sağlığı, yedekleme, ayarlar |
-
-### Fırsatlardaki üç skor
-
-Fırsatlar ekranında aynı ilan için üç ayrı ölçü vardır ve karıştırılmazlar:
-
-| Skor | Aralık | Ne söyler | Nerede görünür |
-| --- | --- | --- | --- |
-| **Kalite skoru** | `-1..100` (`-1` = elendi) | Kaynak/kural tabanlı ilan kalitesi: beceri eşleşmesi, kıdem, konum, tazelik | Satırdaki TEK ana sayı |
-| **Profil uyumu** | `%0..%100`, boş = hesaplanmadı | Becerilerinin ilan metniyle örtüşme oranı | Satırdaki ikincil "Uyum" chip'i ve ilan detayı |
-| **Tavsiye skoru** | `0..100` | CV ile iki aşamalı değerlendirmenin önerisi (başvur / düşün / geç) | İkincil "Tavsiye" chip'i ve "Uyum" sekmesi |
-
-"Skor hesaplanmadı" ile "0 puan" aynı şey değildir: hesaplanmamış kayıtlar ayrı filtrelenebilir. İlan metni veya profil değiştiğinde kayıtlı değerlendirme **bayat** işaretlenir ve yeniden hesaplanana kadar güncel gibi sunulmaz. Ayrıntılar: [Career Acquisition & Ranking v2.1](docs/career/career-acquisition-ranking-v2.1-closure.md).
-
-Sistemdeki aranabilir kayıtlar ortak `entity` omurgasını kullanır. Görev, proje, fırsat ve kariyer belgeleri `link` ilişkileriyle birbirine bağlanır; anlamlı değişiklikler append-only `event` günlüğüne yazılır. Legacy Notlar bu omurgada arşivdir: `searchable=False` / `linkable=False` olduğu için arama ve ilişki panellerinde görünmez.
-
-## Mimari
+## 2. Sistem Mimarisi
 
 ```mermaid
-flowchart LR
-    Browser[React + Vite PWA] --> API[FastAPI]
-    Extension[Chrome MV3 Extension] --> API
-    API --> DB[(PostgreSQL 16)]
-    API --> Queue[Kalıcı kaynak kuyruğu]
-    Worker[İsteğe bağlı worker] --> Queue
-    Queue --> Sources[RSS · ilan · takvim · GitHub]
-    API --> Vault[(f0rknbrain Obsidian Vault · bilgi)]
+flowchart TB
+    subgraph Clients[" İstemci Katmanı (Clients) "]
+        Browser["React 18 + Vite PWA\n(Linear-style UI · 127.0.0.1:5173)"]
+        Extension["Chrome MV3 Extension\n(Idempotent Outbox)"]
+        Hermes["Ajan / MCP İstemcisi\n(Streamable HTTP · /mcp)"]
+    end
+
+    subgraph Core[" forkOS Çekirdek Servisi (FastAPI · 127.0.0.1:8787) "]
+        API["FastAPI API Gateway\n(CORS loopback · No-Auth Single-User)"]
+
+        subgraph Modules[" Modül & Domain Katmanı "]
+            Today["Today & Plan\n(Zamanlama · Görevler · Pomodoro)"]
+            Projects["Projeler\n(Aşamalar · GitHub Entegrasyonu)"]
+            Career["Kariyer & Fırsatlar\n(İlanlar · CV Uyum Puanlama · CRM)"]
+            Learning["Öğrenme & SRS\n(Öğrenme Ağacı · Flashcards)"]
+            Library["Kütüphane & Okuyucu\n(Yer İmleri · RSS/Atom)"]
+            System["Sistem & Tanılama\n(Sağlık · Bakım · Yedekleme)"]
+        end
+
+        subgraph Backbone[" Ortak Veri Omurgası "]
+            EntityEngine["Entity (UUID · PK)\nLink (İlişki Grafiği)\nEvent (Append-Only Günlük)"]
+        end
+
+        subgraph QueueSystem[" Kaynak Kuyruğu & Adaptörler "]
+            Queue["Kalıcı Kaynak Kuyruğu\n(SourceSyncBatch)"]
+            Worker["APScheduler Worker\n(İsteğe bağlı · Profil tabanlı)"]
+        end
+    end
+
+    subgraph Storage[" Yerel Depolama (Storage & Knowledge) "]
+        DB[("PostgreSQL 16 (pgdata volume)\nFTS 'simple' + unaccent + pg_trgm")]
+        Vault[("Obsidian Vault (Markdown)\n(f0rknbrain · Bilgi Deposu)")]
+        LocalDisk[("Yerel Disk (data/)\nÖnbellek · Ekler · Belgeler")]
+    end
+
+    subgraph Ingestion[" Dış İçerik Çekme Katmanı (Pull-Only · RFC 9309) "]
+        ATS["ATS Panoları\n(Greenhouse, Lever, Ashby, Recruitee)"]
+        Gov["Resmî Duyurular\n(ÖSYM, YLSY, TÜSEB, MAPEG)"]
+        Feeds["RSS / Atom / Web Akışları"]
+        LinkedIn["LinkedIn Kaynakları\n(JobSpy & Native Transport)"]
+    end
+
+    Browser -->|HTTP / REST| API
+    Extension -->|POST /api/capture| API
+    Hermes -->|Streamable HTTP /mcp| API
+
+    API --> Modules
+    Modules --> Backbone
+    Backbone --> DB
+
+    API --> Queue
+    Worker -.->|Kuyruk tüketimi| Queue
+    Queue --> ATS & Gov & Feeds & LinkedIn
+    Ingestion -.->|RawItem| Queue
+    Queue -->|İlan / Duyuru / Feed| Modules
+
+    API <-->|Dosya Köprüsü| Vault
+    API -->|Dosya / Cache| LocalDisk
 ```
 
-- **Frontend:** React 18, TypeScript, Vite, TanStack Query, Tailwind CSS
-- **Backend:** FastAPI, SQLAlchemy async, Alembic, Pydantic
-- **Veri:** PostgreSQL 16; FTS + unaccent + trigram arama
-- **Bilgi:** private f0rknbrain Obsidian Vault; forkOS yalnızca `/api/obsidian/*` köprüsü ve modül köprüleriyle okur/yazar
-- **Çalıştırma:** Docker Compose veya Podman Compose; günlük (stable) runtime ve geliştirme runtime'ı ayrıdır
-- **Otomasyon:** Varsayılan olarak kapalı APScheduler worker; manuel genel yenileme worker olmadan çalışır
+### Katman Sorumlulukları
 
-### Bilgi sahipliği ve Vault köprüsü
+1. **İstemci (Web / PWA & Extension):**
+   * Modern, yoğun ve sakin Linear-tarzı arayüz (`@/core/ui` tasarım tokenları ve primitive'leri).
+   * Chrome MV3 eklentisi: Tek tıkla yer imi, iş ilanı veya metin yakalama. Backend kapalıyken istekleri `chrome.storage` outbox'ında saklar; backend açıldığında `client_uuid` ile idempotent biçimde boşaltır.
+   * Model Context Protocol (MCP) Streamable HTTP arayüzü (`/mcp`): Yerel yapay zekâ asistanlarına 37 adet sınırlı ve denetimli araç sunar.
+2. **Çekirdek Veri Omurgası (`entity`, `link`, `event`):**
+   * **Entity:** Tüm modül ana kayıtlarının PK'si `entity.id` (UUID) alanına foreign key'dir. Ortak arama ve navigasyon buradan yürür.
+   * **Link:** Entity'ler arasında çift yönlü ilişki kurar (ör. Görev ↔ Proje, İlan ↔ Belge/CV).
+   * **Event:** Append-only günlük. Hiçbir event güncellenmez veya silinmez; ritim, aktivite haritası ve denetim bu akıştan türetilir.
+3. **Kaynak Motoru (Resilient Scraping & RFC 9309):**
+   * `SourceAdapter` sözleşmesine dayalı modüler yapı.
+   * RFC 9309 robots.txt uyumu (4xx yanıtlarda kısıtlamasız geçiş, API alt alan adlarında nezaket, devre kesici / backoff mekanizması).
+   * 3 ardışık boş çekim alarmı ile sessiz ölümlerin engellenmesi.
 
-Notlar, günlükler, proje bilgi notları ve günlükleri, öğrenme bilgi notları ile kaynak notları Vault'ta Markdown olarak yaşar; forkOS bunları yalnızca köprü uçlarıyla (`/api/obsidian/capture`, `/ensure`, `/items/{id}`, `uri/search`, `/index/refresh`, proje günlüğü ve kaynak notu köprüleri) açar ve yazar.
+---
 
-- Bağımsız Bilgi sayfası kaldırıldı. Vault ve ajan bağlantısı **Ayarlar → Agent & Bilgi** altında yönetilir.
-- `/notes?focus=<uuid>` eski Aktivite/yer imi bağlantıları için çalışmaya devam eder; not Vault'ta çözülür, legacy DB'ye düşen bir okuma yoktur.
-- `/api/notes*`, `/api/note-folders*` ve `/api/graph` rota kaydı **yoktur**; legacy Notlar tabloları, ek deposu ve `note.*` olayları dondurulmuş arşiv olarak yerinde kalır (hiçbir migration tablo DROP etmez).
-- Vault erişilemezse uygulama normal çalışır, yalnızca bilgi işlemleri açık hata verir (`503`/`403`); legacy Notlar'a düşen bir yedek yazma yolu yoktur.
-- Domain grafiği (Entity/Link/Event, ilişki panelleri) korunur; forkOS artık hiçbir bilgi grafı görselleştirmesi render etmez.
+## 3. V1 Ürün Kapsamı ve Modüller
 
-### Ajan Entegrasyonu ve Hermes
+| Alan | Modül | Yetenekler |
+| :--- | :--- | :--- |
+| **Home** | **Bugün (Today)** | Günün planı, tek **Dikkat** yüzeyi (yaklaşan son tarihler, takipler, bildirimler), şimdi/sırada kartları ve odak seansları. |
+| **Plan** | **Görevler & Rutinler** | Alt görevler, öncelikler, etiketler, tekrarlayan rutinler, haftalık zaman blokları. |
+| | **Takvim & Pomodoro** | Günlük/haftalık takvim entegrasyonu, geçmiş seans düzenleme/ekleme imkânına sahip Pomodoro sayacı. |
+| **Projeler** | **Proje Yönetimi** | Proje aşamaları, kilometre taşları, GitHub commit/etkinlik izleme, proje günlüğü köprüsü. |
+| **Kariyer** | **Fırsatlar & İlanlar** | 100+ ATS panosu, TÜSEB, MAPEG, ÖSYM, YLSY, EURES ve yerel LinkedIn tarayıcısı. |
+| | **Uyum & CV Puanlama** | İlan kalitesi, beceri profili uyumu (%0-%100) ve CV ile iki aşamalı tavsiye skoru. |
+| | **Başvuru CRM** | Aşamalı başvuru takibi, mülakat hazırlığı, kontak ve şirket eşleştirmesi, toplu arşiv/temizlik. |
+| **Öğrenme** | **Öğrenme Ağacı** | Konu hiyerarşisi, kaynak ve döküman bağlantıları, ustalık yüzdesi takibi. |
+| | **Flashcards (SRS)** | SuperMemo/SM-2 tabanlı aralıklı tekrar, desteler ve günlük gözden geçirme döngüsü. |
+| **Kütüphane** | **Yer İmleri** | Pocket-benzeri tam metin okuma modu, vurgulama (highlights), okuma süresi tahmini ve arşivleme. |
+| | **RSS & Akışlar** | Kategori bazlı RSS/Atom takibi, Hacker News, GitHub Trending ve makale keşfi. |
+| **Sistem** | **Sistem & Tanılama** | Kaynak sağlığı göstergesi, devre kesici durumu, disk/cache yönetimi, JSON ve PostgreSQL yedekleme. |
 
-forkOS canlı operasyonel durumunu ve f0rknbrain bilgi kasasını yerel yapay zeka ajanlarına (Hermes vb.) açmak için Model Context Protocol (MCP) tabanlı `/mcp` Streamable HTTP arayüzü sunar. Yüzey toplam **37 sınırlı araçtır**:
+---
 
-| Katman | Araç | Kapsam |
-| --- | --- | --- |
-| **H0** | 8 | operasyonel durum + f0rknbrain bilgi kasası **okuma** |
-| **H1** | 11 | açıkça onaylanan güvenli **yazmalar** |
-| **H2** | 5 | `90 Agent/Memory` altında küratörlü **sıcak hafıza** |
-| **H3** | 1 | kökenli, sınırlı **kanıt getirme** (`forkos_evidence`) |
-| **H4** | 1 | **yerel biliş** router'ı: sınıflandırma, sözleşmeli çıkarım, sorgu yeniden yazımı (`forkos_local_cognition`) |
-| **H5** | 3 | **gözden geçirme zekâsı** ve anlamsal hafıza adayları (`forkos_review_intelligence`, `semantic_memory_candidates`, `semantic_memory_promote`) |
-| **H6** | 1 | **proaktif dikkat kontrolü**: kapalı kural kümesi, koşu durumu, konfigürasyon ve kullanıcı override'ı (`forkos_proactivity`) |
-| **H7** | 1 | **kalıcı karar ve sınırlı yürütme**: kanıta dayanan plan revizyonu, sunucu tarafı onay, adım başına durable makbuz ve kesintiye dayanıklı, H1 üzerinden yürütme (`forkos_execution`) |
-| **Career** | 2 | yerel görüşme zekâsı ve sonuç analitiği (`forkos_career_interview`, `forkos_career_insights`) |
-| **Strategy** | 1 | hedef ve strateji gözlemi (`forkos_strategy`) |
-| **A5** | 3 | H3 kanıt sıralaması, A4 aday incelemesi ve açık iddia kanıt desteği yargısı; hepsi varsayılan kapalı (`forkos_context_judge`, `forkos_memory_judge`, `forkos_answer_judge`) |
+## 4. Hızlı Başlangıç
 
-Yazma araçları `readOnlyHint=false` taşır; önerilen istemci güveni `untrusted`dır ve kullanıcı onayı istemci/harness tarafından yönetilir.
+### Önkoşullar
 
-Backend ajan araçları için dış model/API'ye veri göndermez. H4 ve açıkça etkinleştirilmiş A5.1 yalnızca yapılandırılmış **loopback** yerel model süreçlerine gider; A5.2 ve A5.3 isteğe bağlı olarak aynı makinedeki yerel NLI modelini (poorjev) kullanır. MCP araç sonuçlarını yapılandırılmış ajan harness'i tüketir: harness uzak bir model sağlayıcısı kullanıyorsa seçilen bağlam o sağlayıcıya model girdisi olarak gidebilir.
+* **Container Runtime:** Docker Desktop, OrbStack veya Podman (Compose v2 destekli)
+* **Araçlar:** Git, Make
 
-Ayrıntılı mimari, araç sözleşmeleri ve kurulum için [Hermes Brain Interface Rehberi](docs/hermes/README.md) dokümanına bak.
+### Adım Adım Kurulum
 
-Ayrıntılı sözleşmeler için [mimari rehberine](docs/mimari.md) bak.
+1. **Depoyu Klonlayın:**
+   ```bash
+   git clone https://github.com/f0rknturkoglu/forkOS.git
+   cd forkOS
+   ```
 
-## Hızlı başlangıç
+2. **Ortam Değişkenlerini Hazırlayın:**
+   ```bash
+   cp .env.example .env
+   ```
+   *(Varsayılan ayarlar `127.0.0.1` üzerinde çalışmak için hazırdır; herhangi bir credential girmeniz zorunlu değildir.)*
 
-### Gereksinimler
+3. **forkOS'u Başlatın:**
+   ```bash
+   # Docker / OrbStack ile:
+   make up CO="docker compose"
 
-- Docker Desktop / OrbStack ve Docker Compose v2, **veya** Podman 4.7+
-- Git
+   # Podman ile:
+   make up
+   ```
 
-### Docker ile
+   > **Otomatik Migration Geçidi:** `compose.yaml` içerisindeki one-shot `migrate` servisi, API ve arayüz başlamadan önce Alembic migration'larını (`alembic upgrade head`) otomatik olarak uygular ve veritabanı şemasını hazırlar.
 
-```bash
-git clone https://github.com/f0rknturkoglu/forkOS.git
-cd forkOS
-cp .env.example .env
-make up CO="docker compose"
-```
+4. **Uygulamaya Erişin:**
+   * **Web Arayüzü:** [http://127.0.0.1:5173](http://127.0.0.1:5173)
+   * **API Swagger / OpenAPI:** [http://127.0.0.1:8787/docs](http://127.0.0.1:8787/docs)
+   * **PostgreSQL:** `127.0.0.1:5433` (`lifeos` / `lifeos`)
 
-> **Otomatik migration geçidi:** `compose.yaml` içindeki one-shot `migrate` servisi sayesinde veritabanı migration'ları (`alembic upgrade head`) başlatma sırasında otomatik uygulanır; `api` ve `worker` servisleri ancak migration başarıyla tamamlandıktan sonra ayağa kalkar. Manuel `make migrate CO="docker compose"` komutu acil durum veya doğrudan müdahaleler için korunur.
+---
 
-Ardından:
+## 5. Çalışma Biçimleri (Runtime Modları)
 
-- Web: [http://127.0.0.1:5173](http://127.0.0.1:5173)
-- API: [http://127.0.0.1:8787](http://127.0.0.1:8787)
-- OpenAPI: [http://127.0.0.1:8787/docs](http://127.0.0.1:8787/docs)
-- PostgreSQL: `127.0.0.1:5433`
+| Hedef | Komut | Açıklama |
+| :--- | :--- | :--- |
+| **Günlük (Stable)** | `make up CO="docker compose"` | Önceden derlenmiş frontend + üretim uvicorn. HMR ve dosya izleyici çalışmaz; SSD dostudur. |
+| **Geliştirme (Dev)** | `make up-dev CO="docker compose"` | Vite dev server, HMR, `uvicorn --reload` ve dizin bind mount'ları aktiftir. |
+| **Obsidian Hibrit** | `make up-obsidian CO="docker compose"` | Günlük runtime + `.env` içindeki `OBSIDIAN_VAULT_HOST_PATH` yolunu API'ye bağlar. |
+| **Tam Otomasyon** | `make up-auto CO="docker compose"` | Günlük runtime + APScheduler arka plan worker servisini devreye sokar. |
+| **Durdurma** | `make down CO="docker compose"` | Tüm container'ları durdurur; kişisel PostgreSQL volume'ü korunur. |
 
-```text
-make up            → yalnız çekirdek forkOS (Vault bağlı DEĞİL)
-make up-obsidian   → forkOS + f0rknbrain Obsidian Vault   ← günlük önerilen runtime
-```
+### Masaüstü Başlatıcı (macOS & OrbStack)
 
-Bilgi köprüsü (Notlar, günlükler, proje günlükleri) Vault mount'u gerektirir:
-`.env` içine `OBSIDIAN_VAULT_HOST_PATH` (host yolu) ve `OBSIDIAN_VAULT_NAME`
-değerlerini yaz, sonra `make up-obsidian CO="docker compose"` ile başlat. Vault
-mount'u yalnızca `api` servisine verilir; `web` container'ı Vault'u görmez ve
-Vault dosyaları forkOS yedeğine girmez; Vault'u ayrıca yedekle.
-Merge restore mevcut kayıtları güncellemez ve farklı içerikteki mevcut dosyanın
-üzerine yazmaz. Eksik belge veya bozuk ek açık hata verir. COMMIT cevabı kaybolursa
-tam dosyalar korunur; aynı yedekle idempotent tekrar deneme yapılabilir. Bu durum
-veya süreç/güç kesilmesi yetim dosya bırakabilir; DB ve dosya sistemi arasında
-kesintisiz dağıtık transaction garantisi verilmez. `make up` sessizce farklı davranmaz:
-hangi runtime'ı istediğini komut söyler.
-
-`Makefile` varsayılan olarak `podman compose` kullanır. Podman kullanıyorsan `CO` parametresini yazmana gerek yoktur.
-
-## Günlük kullanım
-
-### Terminalden tek komut
-
-macOS + OrbStack için bir kez repository içinden çalıştır:
-
+Terminalden tek bir `forkos` komutuyla sistemi başlatmak için:
 ```bash
 make install-launcher
 source ~/.zshrc
-forkos
+forkos            # Sistemi sağlık kontrolleriyle ayağa kaldırır
+forkos stop       # Güvenli biçimde kapatır
+forkos doctor     # Sistem sağlığını raporlar
 ```
 
-`forkos`, OrbStack’i ve geliştirme container’larını açar; migration geçidini,
-PostgreSQL’i, backend’i, web’i ve container sağlık kontrollerini sırayla bekler.
-Obsidian ve Hermes Desktop açılır; `.env` içindeki Vault bağlanır. Hermes’in
-yerel model sağlayıcısı kontrol edilir: llama.cpp kullanılıyorsa Ollama ayrıca
-başlatılmaz. Qwen dosyası, model sunucusu ve kısa bir yerel üretim isteği
-doğrulanır; ardından Hermes MCP bağlantısı ve uçtan uca doctor çalışır.
-Her adım terminalde bekliyor / başarılı / başarısız olarak görünür; uzun adımlar
-10 saniyede bir ilerleme mesajı verir. Hata durumunda komut başarısız çıkar,
-başlatılmış servisler ve kişisel veriler korunur. Worker açılmaz.
+---
+
+## 6. Tarayıcı Eklentisi (Chrome MV3)
+
+1. Tarayıcınızda `chrome://extensions` adresine gidin ve **Geliştirici modu**nu (Developer mode) açın.
+2. **Paketlenmemiş öğe yükle** (Load unpacked) düğmesine basarak repo içindeki `extension/` klasörünü seçin.
+3. Eklenti seçeneklerinde API adresinin `http://127.0.0.1:8787/api` olduğunu doğrulayın.
+4. Eklentinin ürettiği ID'yi `.env` dosyasındaki `EXTENSION_ID` değişkenine yazabilirsiniz.
+
+*Eklenti, çevrimdışıyken yakalanan içerikleri kendi yerel hafızasında tutar ve sistem açıldığında güvenle iletir.*
+
+---
+
+## 7. Yedekleme ve Veri Güvenliği
+
+* **PostgreSQL Dump (Tam Güvenlik):**
+  ```bash
+  make backup CO="docker compose"
+  ```
+  `backend/backups/` altında zaman damgalı PostgreSQL custom-format dump üretir.
+* **Taşınabilir JSON Yedekleme:**
+  Web arayüzünden (`Ayarlar → Sistem & Yedekleme`) tek tıkla indirilebilir gzip JSON yedeği alınabilir.
+* **Seçici ve Temiz Yedek Politikası:**
+  Yedekler yalnızca anlamlı kullanıcı verilerini kapsar. OAuth token'ları (`oauth_token`) ve geçici kaynak koşu günlükleri (`source_run`) güvenlik ve kararlılık gerekçesiyle yedeğe dahil edilmez.
+* **Felaket Kurtarma:**
+  ```bash
+  make disaster-restore CO="docker compose"
+  ```
+
+---
+
+## 8. Test ve Doğrulama
+
+forkOS'un katı sözleşmeleri (Kural 1: entity.id FK, Kural 10: asyncpg tek SQL per op.execute, Kural 12: Turkish simple FTS vb.) otomatik testlerle korunur:
 
 ```bash
-forkos --stable     # Günlük runtime; Vite/HMR kapalı
-forkos --no-open    # Web sekmesi açılmasın
-forkos doctor      # Başlatmadan mevcut sistemi kontrol et
-forkos stop        # Uygulamaları, model sunucusunu ve forkOS servislerini güvenle kapat
-forkos stop --keep-engine # OrbStack açık kalsın
-```
-
-Python 3, OrbStack, Hermes CLI/Desktop ve Obsidian kurulu olmalıdır. Komut
-masaüstü uygulaması veya model indirmez; eksik kurulum hata olarak gösterilir.
-Container imajları eksikse Compose’un normal build/pull davranışı geçerlidir.
-Alias `.zshrc` içinde işaretli tek bir blokta tutulur; yeniden kurulum diğer
-ayarları korur. Repository taşınırsa `make install-launcher` tekrar çalıştır.
-Renksiz çıktı için `NO_COLOR=1 forkos` kullanabilirsin.
-
-`forkos stop`, Hermes ve Obsidian’a normal kapanış isteği gönderir; Hermes’in
-yerel model/arka plan süreçlerine SIGTERM gönderip kapanmalarını bekler.
-Çalışan forkOS container’ları repository etiketiyle seçilir; web/API/worker ve
-migration durduktan sonra PostgreSQL kapatılır. Container ve volume silinmez.
-Kapanış uzarsa zorla öldürülmez; hata bildirilir ve diğer kapanış adımları devam eder.
-OrbStack başka çalışan container veya sanal makine varsa açık kalır; yalnız
-kullanılıyorsa motor ve uygulama kapanır. Son adımda servis portlarının kapandığı
-doğrulanır. Zaten kapalı sistemde aynı komut tekrar kullanılabilir.
-
-```bash
-# Günlük (stable) runtime — Vite, HMR ve `uvicorn --reload` YOKTUR.
-make up CO="docker compose"
-make down CO="docker compose"
-
-# Loglar ve servis durumu
-make logs CO="docker compose"
-make ps CO="docker compose"
-
-# Uçtan uca çalışma zamanı sağlık kontrolü
-make doctor CO="docker compose"
-
-# Şemayı manuel güncelle (otomatik geçit dışında gerektiğinde)
-make migrate CO="docker compose"
-
-# Yerel PostgreSQL dump'ı
-make backup CO="docker compose"
-```
-
-### Runtime modları
-
-forkOS'un iki çalışma biçimi vardır; ikisi de aynı portları kullanır
-(web `127.0.0.1:5173`, API `127.0.0.1:8787`, PostgreSQL `127.0.0.1:5433`).
-
-| Komut | Ne çalışır | Ne zaman |
-| --- | --- | --- |
-| `make up` | **Günlük (stable) runtime.** PostgreSQL + üretim modunda FastAPI + önceden derlenmiş frontend'i servis eden nginx. `compose.yaml` | Normal kullanım |
-| `make up-dev` | **Geliştirme runtime'ı.** Yukarıdakine ek olarak Vite dev server, HMR, dosya izleyici (polling) ve `uvicorn --reload`; `backend/` ve `frontend/` bind mount edilir. `compose.yaml` + `compose.dev.yaml` | Kod yazarken |
-| `make up-auto` | Günlük runtime + APScheduler worker (`--profile auto`) | Günlük kullanım, otomasyon açık |
-| `make up-auto-dev` | Geliştirme runtime'ı + worker | Kod yazarken, otomasyon açık |
-| `make up-obsidian` | Günlük runtime + Obsidian Vault mount (`compose.obsidian.yaml`) | Normal kullanım, bilgi köprüsü açık |
-| `make up-obsidian-dev` | Geliştirme runtime'ı + Vault mount | Kod yazarken, bilgi köprüsü açık |
-| `make up-auto-obsidian` | Günlük runtime + worker + Vault mount | Otomasyon açık, bilgi köprüsü açık |
-
-Günlük runtime'da hiçbir dosya izleyici çalışmaz: SSD'ye sürekli yazan Vite
-polling'i, HMR ve `--reload` yalnızca `compose.dev.yaml` içindedir. Backend
-veya frontend kaynağını değiştirdikten sonra günlük runtime'ı yenilemek için
-`make build CO="docker compose"` çalıştır ve servisleri yeniden başlat.
-
-Compose dosyalarını doğrulamak için:
-
-```bash
-make config CO="docker compose"        # günlük runtime
-make config-dev CO="docker compose"    # geliştirme runtime'ı
-```
-
-### Container logları
-
-Tüm servislerde log rotasyonu açıktır (`max-size: 10m`, `max-file: 3`).
-Varsayılan sürücü `json-file`'dır çünkü hem Docker hem Podman'da geçerlidir
-(Podman'da `k8s-file`'a eşlenir). Docker'da daha verimli olan `local`
-sürücüsünü tercih edersen:
-
-```bash
-LOG_DRIVER=local make up CO="docker compose"
-```
-
-Not: `podman compose` bazı sürümlerde `logging` bloğunu podman'a aktarmaz.
-O durumda rotasyonu `~/.config/containers/containers.conf` içindeki
-`log_size_max` ile sistem genelinde ayarla.
-
-### Veri konumları
-
-Günlük runtime'da uygulamanın **kodu** imajdan gelir, ama **yazdığı veri**
-host'a bağlanır. Bu dizinler `compose.yaml` içinde hem `api` hem `worker`
-servisine bağlanır; bağlanmasalardı container yeniden oluşturulunca kaybolurlardı.
-
-| Yol (host) | İçerik |
-| --- | --- |
-| `backend/data/documents/` | yerel belge dosyaları |
-| `backend/data/attachments/` | legacy not ekleri (binary, sha256 adıyla; dondurulmuş arşiv) |
-| `backend/data/media/` | emekli medya dosyaları (korunan arşiv) |
-| `backend/data/cache/` | scraper önbelleği (yeniden üretilebilir) |
-| `backend/data/config.yaml` | Forkjob Core uyum profili |
-| `backend/backups/` | JSON yedekleri ve felaket kurtarma dump'ları |
-| `backend/app/sources/forkjob_core/data/*.user` | forkjob_core akışları ve LinkedIn profilleri |
-| `forkos_pgdata` (volume) | PostgreSQL verisi |
-| `OBSIDIAN_VAULT_HOST_PATH` (host) | f0rknbrain Obsidian Vault kökü — **bilgi burada yaşar**, forkOS yedeğine girmez |
-
-Eski konumdaki `backend/config.yaml` ilk kullanımda `backend/data/config.yaml`
-altına **kopyalanır** (silinmez).
-
-### Göster ve arka planda güncelleme ayrıdır
-
-Bir modülü gizlemek (Ayarlar → Modüller) yalnızca **arayüzü** kapatır: rota,
-Home bileşenleri ve komutlar gizlenir; verisi silinmez. Arka planda dış
-kaynağa çıkıp çıkmamak **ayrı** bir karardır ve Ayarlar → Modüller ekranındaki
-"Arka plan güncellemesi" bölümünden yönetilir.
-
-- `automation.opportunity.enabled`,
-  `automation.calendar.enabled`, `automation.github.enabled` — kapatıldığında
-  worker o kaynağa **hiç çıkmaz**.
-- RSS'in arka plan anahtarı kendi aralığıdır (`rss.interval_minutes = 0` →
-  yalnız manuel). Aynı davranışı iki ayara bağlamamak için ikinci bir anahtar
-  yoktur.
-- **Elle aksiyonlar otomasyondan bağımsızdır:** header'daki yenileme, "Tümünü
-  tazele" ve POST uçları otomasyon kapalıyken de çalışır.
-
-Hazır çalışma profilleri teknik scheduler değerleri yerine tek seçim sunar:
-
-| Profil | Ne yapar |
-| --- | --- |
-| **Elle** | Arka plan güncellemesi tamamen kapalı; yalnız manuel yenileme + yerel bakım |
-| **Dengeli** (önerilen) | RSS 60 dk, fırsatlar 30 dk, takvim 60 dk, GitHub 3 sa |
-| **Aktif** | Daha sık turlar (RSS 30 dk, fırsatlar 15 dk, takvim 30 dk) |
-
-Profil değişikliği worker'ı yeniden başlatmayı gerektirmez: işler aralıklarını
-her turda ayardan okur.
-
-### Açılış telafisi
-
-forkOS çevrimdışı geçen süreyi telafi eder ama **worker'ı yeniden başlatmak tek
-başına ağ patlaması yaratmaz**: açılış görevleri tazelik kapılıdır.
-
-- RSS: yalnız süresi geçmiş feed'ler (aralık ayarına göre) çekilir.
-- Takvim / GitHub: son tur yeterince yeniyse atlanır.
-- Kritik kaynaklar: son 2 saat içinde koşmuşsa kuyruğa tekrar alınmaz.
-- Yedek: taze ya da değişiklik yoksa atlanır.
-
-Worker normal kullanımda kapalı kalabilir. Header'daki yenileme düğmesi RSS, fırsat/duyuru, takvim, GitHub ve son tarih kaynaklarını tek turda günceller; yanındaki menüden kapsam seçilir:
-
-- **Kritik kaynaklar** — yalnız resmî/hızlı kaynaklar (ÖSYM, YLSY, YÖK, ATS panoları)
-- **Standart yenileme** (varsayılan) — opt-in kaynaklar hariç fırsat kaynakları ve RSS
-- **Tam yenileme** — katalogun tamamı; EURES ve LinkedIn gibi yavaş/opt-in kaynaklar dahil
-
-Worker kapalıyken de aynı kalıcı kaynak kuyruğu API arka planında işlenir; menüde çalışan yenilemenin kuyruk kimliği, ilerlemesi ve son sonucu görünür.
-
-```bash
-# Sürekli otomasyonla aç
-make up-auto CO="docker compose"
-
-# Worker'ı sonradan aç / kapat
-make worker-up CO="docker compose"
-make worker-down CO="docker compose"
-```
-
-LinkedIn doğrudan taraması otomatik turlara dahil edilmez; yalnızca açık bir manuel seçimle çalışır.
-
-## İsteğe bağlı entegrasyonlar
-
-Temel yerel özellikler hiçbir credential olmadan çalışır. Harici sağlayıcılar gerektiğinde Ayarlar ekranından veya `.env` üzerinden bağlanır.
-
-```dotenv
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI=http://127.0.0.1:8787/api/auth/google/callback
-EXTENSION_ID=
-```
-
-- Google OAuth: yalnız Calendar aynası; Drive emekli
-- GitHub: proje commit/contribution bilgileri
-- Kaynak adaptörleri: iş ilanları, YLSY, ÖSYM ve kamu duyuruları
-
-Secret değerler export ve uygulama yedeklerine bilinçli olarak alınmaz.
-
-## Tarayıcı eklentisi
-
-1. `chrome://extensions` sayfasında **Developer mode** seçeneğini aç.
-2. **Load unpacked** ile `extension/` klasörünü seç.
-3. Eklenti seçeneklerinden API adresini `http://127.0.0.1:8787/api` olarak ayarla.
-4. Oluşan extension ID'yi `.env` içindeki `EXTENSION_ID` alanına yaz ve servisleri yeniden başlat.
-
-Backend kapalıyken yakalanan kayıtlar eklentinin yerel outbox'ında bekler. `client_uuid` tekrar denemelerin çift kayıt üretmesini engeller.
-
-## Test ve doğrulama
-
-```bash
-# İzole, geçici PostgreSQL üzerinde backend testleri
+# Hızlı backend testleri (Geçici izole test veritabanında çalışır, ana veriye dokunmaz)
 make test CO="docker compose"
 
-# Backend + frontend + extension + API sözleşmesi + production build
+# Tam doğrulama (Backend + Frontend Lint/TypeCheck + API Sözleşme Senkronu)
 make verify CO="docker compose"
 ```
 
-Testler kişisel `lifeos` veritabanına bağlanmayı reddeder ve yalnızca adı `_test` ile biten geçici veritabanında çalışır. Test projesi iş bitince container, network ve volume'ünü kaldırır.
+---
 
-Backend şeması değiştiğinde API sözleşmesini eşleştir:
-
-```bash
-cd backend
-python scripts/export_openapi.py
-cd ../frontend
-npm run api:generate
-```
-
-## Yedekleme ve geri yükleme
-
-- `make backup`: PostgreSQL custom-format dump üretir.
-- Uygulamadaki yedekleme: taşınabilir, gzip sıkıştırılmış JSON üretir.
-- `/backup/restore`: mevcut veriyi silmeden, çakışmasız birleştirerek içe aktarır.
-- `make disaster-restore`: açık onay isteyen, safety dump alan gerçek felaket kurtarma akışıdır.
-
-Yedek kapsamı **kullanıcı anlamlı** veridir: entity omurgası, bağlantılar, olay
-geçmişi ve tüm modül tabloları (legacy not arşivi, görev, proje, öğrenme, medya,
-finans, fırsat, yer imi, değerlendirme, belge, etiket, ayarlar…).
-
-Kapsam dışı bırakılanlar:
-
-- `oauth_token` — erişim/yenileme token'ları hiçbir zaman dışa çıkmaz.
-- `source_run`, `source_sync_batch` — kaynak sağlığı ve kuyruk ilerlemesi;
-  kullanıcı verisi değil, bir sonraki çekim turu yeniden üretir. Geri
-  yüklendiklerinde eski sağlık geçmişi yeni veriyle karışıp devre kesici
-  kararlarını yanıltırlardı.
-
-Eski yedekler geriye dönük uyumludur: payload'da bulunan ama artık kapsam
-dışı olan tablolar restore sırasında sessizce atlanır.
-
-Bilgi tarafı bu kapsamın dışındadır: PHASE 3'ten sonra yazılan notlar, günlükler
-ve kaynak notları f0rknbrain Vault'unda yaşar ve kendi Git/senkron stratejisiyle
-yedeklenir — forkOS yedeğine **kopyalanmaz** (çift sahiplik yaratmamak için).
-Legacy Notlar tabloları ve kullanılan ekler arşiv olarak yedekte kalmaya devam
-eder; bu, Notlar ürününü geri getirmez ve DB → Vault otomatik yeniden göçü
-yoktur ([PHASE 3](docs/obsidian-hybrid/phase3-cutover.md) §3).
-
-### Zamanlanmış yedek ne zaman atlanır
-
-Gece yedeği **anlamlı veri değişmediyse atlanır**: aynı veriyi her gece yeniden
-yazmanın anlamı yok. Değişiklik sinyali `event` geçmişinden türetilir
-(`backend/app/modules/system/dirty.py`) — uygulamada anlamlı her mutasyon zaten
-olay yazar. Şunlar "değişiklik" **sayılmaz**:
-
-- worker kalp atışı ve diğer makine durumu,
-- kaynak koşuları / kaynak kuyruğu ilerlemesi,
-- kaynak sağlığı bildirimleri,
-- cache bakımı (RSS budama, görsel önbelleği temizliği).
-
-Ayar değişiklikleri, görev/proje/fırsat düzenlemeleri ve bunun gibi
-tüm kullanıcı aksiyonları bir sonraki turda yedeği **tetikler**. Vault'a yazılan
-bilgi forkOS yedeğine girmediği için bu kapıyı tetiklemez.
-
-Elle **"Backup now"** bu kapıyı kullanmaz; her zaman yedek üretir.
-
-Veri klasörleri, kişisel ayarlar, OAuth token'ları ve üretilmiş cache dosyaları Git'e alınmaz.
-
-## Saklama ve bakım
-
-forkOS yalnızca **yeniden üretilebilir operasyonel** kayıtları budar. Kişisel
-verin (legacy not arşivi, görev, proje, fırsat, medya, finans, belge, etiket,
-bağlantı, anlamlı `event` kayıtları) hiçbir saklama kuralına tabi değildir.
-PHASE 3'ten sonra yazılan bilgi zaten forkOS veritabanında değildir.
-
-| Veri | Saklama |
-| --- | --- |
-| `source_run` — sorunsuz koşular (`ok`/`empty`) | 30 gün |
-| `source_run` — sorunlu koşular (`partial`/`error`/`abandoned`) | 90 gün |
-| `source_run` — kaynak başına **son 20 koşu** | her durumda kalır |
-| `source_sync_batch` — terminal batch'ler | 60 gün |
-| `source_sync_batch` — aktif batch'ler | **asla silinmez** |
-| `notification` — okunmuş/kapatılmış | 90 gün |
-| `notification` — okunmuş/kapatılmış ve `importance >= 3` | 180 gün |
-| `notification` — okunmamış ve kapatılmamış | **asla silinmez** |
-| `event` | **asla budanmaz** (kişisel aktivite hafızası) |
-
-Kaynak sağlığı kararları (devre kesici, sessiz ölüm alarmı, kapsam küçülmesi
-tespiti) bu geçmişten türetildiği için "son 20 koşu" kuralı eşiklerden
-bağımsızdır. Ayrıntılı politika: `backend/app/core/retention.py`.
-
-Budama, hafif bakım mekanizmasıyla günde en fazla bir kez çalışır ve hiçbir
-ağ çağrısı yapmaz.
-
-- Bakım worker'dan **bağımsızdır**: worker açıkken gecelik zamanlanır, kapalıyken
-  API açılışında arka planda (açılışı bloklamadan) bir kez denenir.
-- Gün talebi tek bir atomik `INSERT ... ON CONFLICT ... WHERE day <> :day` ile
-  alınır; API ve worker aynı anda denese bile yalnızca biri koşar.
-- Adımlar birbirinden bağımsızdır: biri hata verirse diğerleri devam eder ve
-  hata kayda geçer (`maintenance.last_run`, `system.maintenance` event'i).
-- Kapsam: operasyonel saklama ve RSS öğeleri; emekli medya dosyaları korunur. Ayrıntı:
-  `backend/app/modules/system/maintenance.py`.
-
-## Not ekleri (dondurulmuş arşiv)
-
-Legacy Notlar eklerinin **binary içeriği veritabanında tutulmaz**:
-`data/attachments/` altında, içeriğin `sha256` özetiyle adlandırılmış tek bir
-dosyada durur. Veritabanındaki `note_attachment` satırı yalnızca metadata taşır
-(id, not, ad, mime, boyut, sha256, tarih).
-
-- **Yeni ek yazılmaz.** PHASE 3'ten sonra hiçbir ürün akışı not veya ek
-  oluşturmaz; satırlar ve blob'lar **dondurulmuş arşiv**dir — günlük bakım
-  budamasına girmez, global aramada görünmez ve kaynak parmak izi sabit kalır.
-- **Ad güvenliği:** dosya adı hiçbir zaman istemciden gelmez, yalnızca
-  özetten türetilir; `data/attachments` dışına yol üretilemez.
-- **Dönüşüm:** eski `note.attachments` (base64 JSONB) içerikleri PHASE 2 göçünde
-  Vault'a kopyalandı; not bazlı dönüşüm adımı (`convert_legacy_attachments`)
-  PHASE 3'te bakımdan kaldırıldı, çünkü arşivi değiştirecek zamanlanmış iş
-  kalmadı.
-- **Yedek:** kullanılan ek blob'ları soğuk güvenlik arşivi olarak yedeğe girer
-  (yetimler girmez) ve restore'da geri yazılır. Geri yüklemede içeriğin özeti
-  anahtarla uyuşmazsa dosya **yazılmaz**. Bu, Notlar ürününü yeniden
-  etkinleştirmez; PHASE 3'ten sonra yazılan bilgi f0rknbrain Vault'unda yaşar ve
-  forkOS yedeğine girmez.
-
-## Offline ve PWA cache'i
-
-Offline mod **salt okunurdur**: mutation'lar hiçbir koşulda cache'lenmez.
-
-Service worker yalnızca okunması anlamlı, küçük JSON yanıtlarını saklar. Beyaz
-liste yanıt sözleşmesi üzerinden kurulur (`frontend/vite.config.ts`):
-
-| Koşul | Değer |
-| --- | --- |
-| Origin | aynı origin |
-| Metot | yalnızca `GET` |
-| İçerik tipi | `application/json` |
-| Gövde boyutu | en fazla 256 KB |
-| Cache adı / girdi | `lifeos-api-v2`, en fazla 120 girdi, 7 gün |
-
-Binary ve büyük yanıtlar cache dışıdır: `/api/export/*`, `/api/backup/*`,
-`/api/documents/*/file`
-ve JSON olmayan her yanıt. Boyut ölçümü **gövdeden** yapılır: `Content-Length`
-gzip'li yanıtlarda hiç gelmez ve "yok"u sıfır saymak tavanı işlevsiz bırakır.
-
-`localStorage` gibi Cache Storage de göç ettirilir: eski `lifeos-api` cache'i
-yeni service worker activate olduğunda silinir
-(`frontend/public/sw-cleanup.js`). Aksi halde Workbox'un expirasyon eklentisi
-onu yönetemez ve binary'lerle dolu halde diskte kalırdı.
-
-## Dizin yapısı
+## 9. Dizin Yapısı
 
 ```text
-backend/       FastAPI, SQLAlchemy modelleri, migration'lar ve kaynak adaptörleri
-frontend/      React/Vite uygulaması, modül registry'si ve ortak UI sistemi
-extension/     Chrome MV3 yakalama eklentisi
-docs/          Yaşayan mimari ve ürün görselleri
-.agents/       Projeye özel agent becerileri ve guardrail'ler
-compose.yaml   Günlük (stable) çalışma ortamı
-compose.dev.yaml  Geliştirme overlay'i (Vite + HMR + --reload)
-compose.obsidian.yaml  Obsidian Vault mount overlay'i (yalnızca `api` servisi)
+forkOS/
+├── backend/            # FastAPI, SQLAlchemy 2.0 modelleri, Alembic migration'ları
+│   ├── app/
+│   │   ├── core/       # Entity, Link, Event, Runs, UI ve ortak altyapı
+│   │   ├── modules/    # Modül router, model ve iş mantığı servisleri
+│   │   └── sources/    # SourceAdapter'lar: ATS, Kamu Duyuruları, RSS, LinkedIn
+│   ├── tests/          # Sözleşme ve izolasyon testleri
+│   └── alembic/        # Veritabanı şema versiyonları
+├── frontend/           # React 18, TypeScript, Vite, TanStack Query, Tailwind CSS
+│   ├── src/
+│   │   ├── core/       # Tasarım tokenları, @/core/ui primitive'leri, API istemcisi
+│   │   └── modules/    # UI modülleri (Today, Todo, Career, Learning, Bookmarks...)
+├── extension/          # Manifest V3 Chrome yakalama eklentisi
+├── docs/               # Mimari kararlar, yaşam döngüsü dokümantasyonu ve sözleşmeler
+├── .agents/skills/     # Geliştirme agent becerileri ve değişmez kurallar
+├── compose.yaml        # Standart ve kararlı çalışma ortamı
+├── compose.dev.yaml    # Canlı geliştirme (hot-reload) ortamı
+└── Makefile            # Standart operasyonel komutlar
 ```
 
-Geliştirme kuralları için [AGENTS.md](AGENTS.md), migration zinciri için [backend/alembic/README.md](backend/alembic/README.md) dosyasını oku.
+---
 
-## Güvenlik ve gizlilik sınırı
+## 10. Lisans
 
-forkOS tek kullanıcı içindir ve auth içermez. `BIND_ADDR=127.0.0.1` değerini native Linux/Docker ortamında değiştirme; `0.0.0.0` uygulamayı yerel ağa açabilir. Harici kaynaklar yalnızca içerik çekmek veya kullanıcının açıkça yapılandırdığı entegrasyonu çalıştırmak için çağrılır; kişisel veritabanı bir bulut servisine senkronlanmaz.
-
-## Hermes Goal Studio ve Capture V1
-
-Goals içinde konuşma, tipli taslak, revizyon incelemesi ve açık kullanıcı onayı desteklenir. Hermes ayrı araçsız profil gerektirir; yerel çıkarım ve açık backend iznine bağlı Codex OAuth/Nous desteklenir. Manuel Goals bağımsızdır. Capture 0.2.0 her hedefte kalıcı UUID, doğru teslim durumu ve kariyer/akademi ayrımı kullanır. Kurulum, ağ sınırı, migration ve doğrulama için [güncel sözleşme](docs/architecture/hermes-goal-studio-extension-v1.md).
-
-
-## V1 final kapanış — 12 Ekim 2026
-
-[Güncel kapanış kanıtı](docs/architecture/v1-final-closure.md) ve [Hermes sağlayıcı/izin/topoloji sözleşmesi](docs/hermes/goal-studio-runtime.md).
-
-Ürün adı ve FastAPI title **forkOS**; API sözleşme sürümü **0.1.0**, frontend özel paket adı **forkos-frontend**, Capture extension **0.2.0**. V1 release candidate, bu ayrı bileşen sürümlerini eşitlemez. CI bu kapanışın dışındadır.
+Bu proje [MIT Lisansı](LICENSE) kapsamında sunulmaktadır. forkOS açık kaynaklı, şeffaf ve yerel-öncelikli bir kişisel projedir.
