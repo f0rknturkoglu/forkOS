@@ -124,37 +124,53 @@ export function CareerBulkCleanupDialog({
           <div className="stack-y-3 rounded-card border border-subtle bg-surface-sunken p-3">
             <p className="label-caps text-muted">Temizlik Kriterleri</p>
             <div className="stack-y-2">
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <Checkbox
-                  checked={lowScore}
-                  onChange={(e) => {
-                    setLowScore(e.target.checked);
+              <div className="flex items-start gap-2.5">
+                <div className="pt-0.5">
+                  <Checkbox
+                    checked={lowScore}
+                    onChange={(checked) => {
+                      setLowScore(checked);
+                      setConfirmed(false);
+                    }}
+                  />
+                </div>
+                <div
+                  className="cursor-pointer select-none"
+                  onClick={() => {
+                    setLowScore((v) => !v);
                     setConfirmed(false);
                   }}
-                />
-                <div>
+                >
                   <span className="text-body font-medium text-primary">Düşük skorlu ilanlar (0 – 40 puan)</span>
                   <p className="text-meta text-muted">
                     Uygunluk skoru 40 veya altında kalan, profille uyuşmayan ilanlar.
                   </p>
                 </div>
-              </label>
+              </div>
 
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <Checkbox
-                  checked={dismissed}
-                  onChange={(e) => {
-                    setDismissed(e.target.checked);
+              <div className="flex items-start gap-2.5">
+                <div className="pt-0.5">
+                  <Checkbox
+                    checked={dismissed}
+                    onChange={(checked) => {
+                      setDismissed(checked);
+                      setConfirmed(false);
+                    }}
+                  />
+                </div>
+                <div
+                  className="cursor-pointer select-none"
+                  onClick={() => {
+                    setDismissed((v) => !v);
                     setConfirmed(false);
                   }}
-                />
-                <div>
+                >
                   <span className="text-body font-medium text-primary">Elenmiş ilanlar (-1 puan veya elendi durumu)</span>
                   <p className="text-meta text-muted">
                     Manuel veya filtre kuralıyla elenen keşif kayıtları.
                   </p>
                 </div>
-              </label>
+              </div>
             </div>
           </div>
 
@@ -210,15 +226,18 @@ export function CareerBulkCleanupDialog({
 
               {preview.deletable_total > 0 ? (
                 <div className="stack-y-2 pt-2 border-t border-subtle">
-                  <label className="flex items-center gap-2 cursor-pointer text-meta text-danger">
+                  <div className="flex items-center gap-2 text-meta text-danger">
                     <Checkbox
                       checked={confirmed}
-                      onChange={(e) => setConfirmed(e.target.checked)}
+                      onChange={(checked) => setConfirmed(checked)}
                     />
-                    <span>
+                    <span
+                      className="cursor-pointer select-none"
+                      onClick={() => setConfirmed((v) => !v)}
+                    >
                       {preview.deletable_total} ilanın kalıcı olarak silinmesini ve tekrar içeri alınmamasını onaylıyorum.
                     </span>
-                  </label>
+                  </div>
                 </div>
               ) : (
                 <p className="text-meta text-muted text-center py-2">

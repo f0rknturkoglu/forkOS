@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, delete, exists, func, insert, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity, delete_entity, touch_entity
@@ -1864,129 +1864,126 @@ async def pending_follow_up_rows(session: AsyncSession) -> list[dict]:
 # Toplu Kalıcı İlan Temizliği & Yeniden Giriş Önleme (Suppression)
 # ═════════════════════════════════════════════════════════════════════
 
-async def _bulk_cleanup_candidates(
-    session: AsyncSession, criteria: BulkCleanupCriteria
-) -> tuple[list[Opportunity], list[Opportunity], dict[str, int]]:
-    """(silinebilir satirlar, korunan satirlar, koruma kirilimi)"""
+def _cleanup_match_condition(criteria: BulkCleanupCriteria):
     if not criteria.low_score and not criteria.dismissed:
-        return [], [], {
-            "applied": 0, "shortlisted": 0, "interviews": 0, "manual": 0, "notes": 0, "linked": 0
-        }
-
-    # Yalnızca job / internship türleri temizlenir; resmî duyurular dahil edilmez
+        return None
     kind_filter = Opportunity.kind.in_(["job", "internship"])
-
     score_conditions = []
     if criteria.low_score:
-        score_conditions.append(and_(Opportunity.score.is_not(None), Opportunity.score >= 0, Opportunity.score <= 40))
+        score_conditions.append(
+            and_(Opportunity.score.is_not(None), Opportunity.score >= 0, Opportunity.score <= 40)
+        )
     if criteria.dismissed:
-        score_conditions.append(or_(Opportunity.score == -1, Opportunity.status == "dismissed"))
+        score_conditions.append(
+            or_(Opportunity.score == -1, Opportunity.status == "dismissed")
+        )
+    return and_(
+        kind_filter,
+        Opportunity.trashed_at.is_(None),
+        or_(*score_conditions),
+    )
 
-    matched_query = (
-        select(Opportunity)
-        .where(
-            kind_filter,
-            or_(*score_conditions),
-            Opportunity.trashed_at.is_(None),
+
+def _cleanup_protection_conditions():
+    has_app = exists(
+        select(1).select_from(Application).where(Application.opportunity_id == Opportunity.id)
+    )
+    has_app_hist = exists(
+        select(1).select_from(ApplicationHistory).where(
+            ApplicationHistory.opportunity_id == Opportunity.id,
+            ApplicationHistory.scope == "application",
         )
     )
-    matched_rows = list((await session.execute(matched_query)).scalars().all())
-    if not matched_rows:
-        return [], [], {
-            "applied": 0, "shortlisted": 0, "interviews": 0, "manual": 0, "notes": 0, "linked": 0
-        }
+    is_applied = or_(has_app, has_app_hist)
 
-    matched_ids = [m.id for m in matched_rows]
+    is_shortlisted = (Opportunity.status == "shortlisted")
 
-    # Koruma alt kümeleri
-    applied_ids = set(
-        (await session.execute(
-            select(Application.opportunity_id).where(Application.opportunity_id.in_(matched_ids))
-        )).scalars().all()
-    )
-    history_ids = set(
-        (await session.execute(
-            select(ApplicationHistory.opportunity_id).where(
-                ApplicationHistory.opportunity_id.in_(matched_ids),
-                ApplicationHistory.scope == "application",
-            )
-        )).scalars().all()
-    )
-    all_applied = applied_ids | history_ids
-
-    interview_ids = set(
-        (await session.execute(
-            select(Interview.opportunity_id).where(Interview.opportunity_id.in_(matched_ids))
-        )).scalars().all()
+    is_interview = exists(
+        select(1).select_from(Interview).where(Interview.opportunity_id == Opportunity.id)
     )
 
-    linked_ids = set(
-        (await session.execute(
-            select(Link.from_id).where(Link.from_id.in_(matched_ids))
-            .union(select(Link.to_id).where(Link.to_id.in_(matched_ids)))
-        )).scalars().all()
-    )
-    req_doc_ids = set(
-        (await session.execute(
-            select(OpportunityRequirement.opportunity_id).where(
-                OpportunityRequirement.opportunity_id.in_(matched_ids),
-                OpportunityRequirement.document_entity_id.is_not(None),
-            )
-        )).scalars().all()
-    )
-    all_linked = linked_ids | req_doc_ids
+    is_manual = (Opportunity.source == "manual")
 
-    breakdown = {
-        "applied": 0,
-        "shortlisted": 0,
-        "interviews": 0,
-        "manual": 0,
-        "notes": 0,
-        "linked": 0,
+    has_notes = and_(
+        Opportunity.notes.is_not(None),
+        func.length(func.trim(Opportunity.notes)) > 0,
+    )
+
+    has_link = exists(
+        select(1).select_from(Link).where(or_(Link.from_id == Opportunity.id, Link.to_id == Opportunity.id))
+    )
+    has_doc_req = exists(
+        select(1).select_from(OpportunityRequirement).where(
+            OpportunityRequirement.opportunity_id == Opportunity.id,
+            OpportunityRequirement.document_entity_id.is_not(None),
+        )
+    )
+    is_linked = or_(has_link, has_doc_req)
+
+    is_protected = or_(
+        is_applied,
+        is_shortlisted,
+        is_interview,
+        is_manual,
+        has_notes,
+        is_linked,
+    )
+
+    return {
+        "applied": is_applied,
+        "shortlisted": is_shortlisted,
+        "interviews": is_interview,
+        "manual": is_manual,
+        "notes": has_notes,
+        "linked": is_linked,
+        "protected": is_protected,
     }
-
-    deletable: list[Opportunity] = []
-    protected: list[Opportunity] = []
-
-    for opp in matched_rows:
-        is_protected = False
-        if opp.id in all_applied:
-            breakdown["applied"] += 1
-            is_protected = True
-        if opp.status == "shortlisted":
-            breakdown["shortlisted"] += 1
-            is_protected = True
-        if opp.id in interview_ids:
-            breakdown["interviews"] += 1
-            is_protected = True
-        if opp.source == "manual":
-            breakdown["manual"] += 1
-            is_protected = True
-        if opp.notes and opp.notes.strip():
-            breakdown["notes"] += 1
-            is_protected = True
-        if opp.id in all_linked:
-            breakdown["linked"] += 1
-            is_protected = True
-
-        if is_protected:
-            protected.append(opp)
-        else:
-            deletable.append(opp)
-
-    return deletable, protected, breakdown
 
 
 async def bulk_cleanup_preview(
     session: AsyncSession, criteria: BulkCleanupCriteria
 ) -> BulkCleanupPreviewOut:
     """Toplu silme önizlemesi: eşleşen, korunan ve silinecek kayıt sayıları."""
-    deletable, protected, breakdown = await _bulk_cleanup_candidates(session, criteria)
+    cond = _cleanup_match_condition(criteria)
+    if cond is None:
+        return BulkCleanupPreviewOut(
+            matched_total=0,
+            protected_total=0,
+            deletable_total=0,
+            breakdown=BulkCleanupProtectionBreakdown(
+                applied=0, shortlisted=0, interviews=0, manual=0, notes=0, linked=0
+            ),
+        )
+
+    prot = _cleanup_protection_conditions()
+    counts_stmt = select(
+        func.count(Opportunity.id),
+        func.count(Opportunity.id).filter(not_(prot["protected"])),
+        func.count(Opportunity.id).filter(prot["applied"]),
+        func.count(Opportunity.id).filter(prot["shortlisted"]),
+        func.count(Opportunity.id).filter(prot["interviews"]),
+        func.count(Opportunity.id).filter(prot["manual"]),
+        func.count(Opportunity.id).filter(prot["notes"]),
+        func.count(Opportunity.id).filter(prot["linked"]),
+    ).where(cond)
+
+    row = (await session.execute(counts_stmt)).one()
+    matched_total = int(row[0] or 0)
+    deletable_total = int(row[1] or 0)
+    protected_total = max(0, matched_total - deletable_total)
+
     return BulkCleanupPreviewOut(
-        matched_total=len(deletable) + len(protected),
-        protected_total=len(protected),
-        deletable_total=len(deletable),
-        breakdown=BulkCleanupProtectionBreakdown(**breakdown),
+        matched_total=matched_total,
+        protected_total=protected_total,
+        deletable_total=deletable_total,
+        breakdown=BulkCleanupProtectionBreakdown(
+            applied=int(row[2] or 0),
+            shortlisted=int(row[3] or 0),
+            interviews=int(row[4] or 0),
+            manual=int(row[5] or 0),
+            notes=int(row[6] or 0),
+            linked=int(row[7] or 0),
+        ),
     )
 
 
@@ -1998,36 +1995,78 @@ async def bulk_cleanup_execute(
         raise ValueError("Kalıcı silme işlemi için açık onay (confirm=true) zorunludur.")
 
     criteria = BulkCleanupCriteria(low_score=payload.low_score, dismissed=payload.dismissed)
-    deletable, protected, _breakdown = await _bulk_cleanup_candidates(session, criteria)
+    cond = _cleanup_match_condition(criteria)
+    if cond is None:
+        return BulkCleanupExecuteOut(deleted_count=0, skipped_count=0, suppressed_count=0)
+
+    prot = _cleanup_protection_conditions()
+    deletable_cond = and_(cond, not_(prot["protected"]))
+
+    protected_count = int(
+        await session.scalar(select(func.count(Opportunity.id)).where(cond, prot["protected"])) or 0
+    )
 
     deleted_count = 0
     suppressed_count = 0
-    batch_size = 200
+    batch_size = 500
 
-    for i in range(0, len(deletable), batch_size):
-        batch = deletable[i : i + batch_size]
-        for opp in batch:
-            await _suppress_opportunity(session, opp, reason="bulk_cleanup")
-            suppressed_count += 1
-            await delete_entity(session, opp.id)
-            deleted_count += 1
-
-        await log_event(
-            session,
-            verb="opportunity.bulk_cleaned",
-            entity_type="opportunity",
-            payload={
-                "batch_size": len(batch),
-                "total_deletable": len(deletable),
-                "low_score": payload.low_score,
-                "dismissed": payload.dismissed,
-            },
+    while True:
+        batch_stmt = (
+            select(Opportunity)
+            .where(deletable_cond)
+            .limit(batch_size)
         )
-        await session.flush()
+        batch = list((await session.execute(batch_stmt)).scalars().all())
+        if not batch:
+            break
 
+        suppressions_data = []
+        batch_ids = []
+        for opp in batch:
+            batch_ids.append(opp.id)
+            canonical = canonical_url(opp.url) if opp.url else None
+            raw = opp.raw if isinstance(opp.raw, dict) else {}
+            forkjob = raw.get("forkjob") if isinstance(raw.get("forkjob"), dict) else {}
+            cluster_key = forkjob.get("cluster_key") or raw.get("cluster_key")
+            if opp.source or canonical or opp.external_id:
+                suppressions_data.append(
+                    {
+                        "id": uuid.uuid4(),
+                        "source": opp.source or "unknown",
+                        "external_id": str(opp.external_id) if opp.external_id else None,
+                        "canonical_url": canonical,
+                        "dedup_hash": str(cluster_key) if cluster_key else None,
+                        "reason": "bulk_cleanup",
+                    }
+                )
+
+        if suppressions_data:
+            await session.execute(insert(OpportunitySuppression).values(suppressions_data))
+            suppressed_count += len(suppressions_data)
+
+        await session.execute(
+            delete(Entity).where(Entity.id.in_(batch_ids))
+        )
+        deleted_count += len(batch_ids)
+
+        await session.commit()
+
+    await log_event(
+        session,
+        verb="opportunity.bulk_cleaned",
+        entity_type="opportunity",
+        payload={
+            "deleted_count": deleted_count,
+            "suppressed_count": suppressed_count,
+            "skipped_count": protected_count,
+            "low_score": payload.low_score,
+            "dismissed": payload.dismissed,
+        },
+    )
     await session.commit()
+
     return BulkCleanupExecuteOut(
         deleted_count=deleted_count,
-        skipped_count=len(protected),
+        skipped_count=protected_count,
         suppressed_count=suppressed_count,
     )
