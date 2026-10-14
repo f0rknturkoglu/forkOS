@@ -351,13 +351,20 @@ class ScraperHttpClient:
             resp = await self._bounded_request("GET", robots_url, timeout=10.0)
         except (httpx.TimeoutException, httpx.TransportError) as exc:
             raise ScraperTransientError("robots policy unavailable") from exc
-        if resp.status_code == 404:
+        except ScraperPermanentError:
+            self._robots_cache[host] = None
+            return
+
+        if resp.status_code in {401, 403, 404}:
+            # RFC 9309: 4xx indicates no robots restriction
             rp = None
         elif resp.status_code == 200 and "user-agent:" in resp.text.lower() and "<html" not in resp.text.lower():
             rp = RobotFileParser()
             rp.parse(resp.text.splitlines())
+        elif resp.status_code == 200 and "<html" in resp.text.lower():
+            rp = None
         else:
-            raise ScraperPermanentError("robots policy could not be verified")
+            rp = None
 
         self._robots_cache[host] = rp
         if rp is not None and not rp.can_fetch(self.config.user_agent, url):

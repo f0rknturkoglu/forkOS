@@ -602,6 +602,18 @@ def anchor_title(anchor) -> str:
         alt = image.attributes.get("alt")
         if alt and len(alt.strip()) >= 8:
             return " ".join(alt.split())
+    classes = anchor.attributes.get("class") or ""
+    if "stretched-link" in classes or not title:
+        node = anchor.parent
+        for _ in range(4):
+            if node is None:
+                break
+            heading = node.css_first("h1, h2, h3, h4, h5, h6")
+            if heading is not None:
+                htext = " ".join((heading.text(deep=True) or "").split())
+                if len(htext) >= 8:
+                    return htext
+            node = node.parent
     return title
 
 

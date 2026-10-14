@@ -107,6 +107,7 @@ class InstitutionSpec:
     canonical: bool = False
     verified: bool = False
     embedded_json: bool = False
+    ssl_verify: bool = True
     note: str = ""
 
 
@@ -146,7 +147,10 @@ class InstitutionAnnouncementSource(AnnouncementSource):
         devre kesici devreye girer.
         """
         async with httpx.AsyncClient(
-            timeout=25, follow_redirects=True, headers={"User-Agent": _USER_AGENT}
+            timeout=25,
+            follow_redirects=True,
+            headers={"User-Agent": _USER_AGENT},
+            verify=self.spec.ssl_verify,
         ) as client:
             response = await _request_with_retry(
                 client, "GET", self.url, headers={"Accept": "text/html"}
@@ -177,6 +181,8 @@ class InstitutionAnnouncementSource(AnnouncementSource):
         self, anchor, base_url: str, now: datetime | None
     ) -> RawItem | None:
         href = anchor.attributes.get("href")
+        if href:
+            href = href.strip()
         title = anchor_title(anchor)
         if not href or href.startswith(("mailto:", "javascript:", "#")) or len(title) < 8:
             return None
@@ -311,10 +317,12 @@ SPECS: tuple[InstitutionSpec, ...] = (
         id="tuseb",
         name="TÜSEB",
         url="https://www.tuseb.gov.tr/tr/duyurular",
-        detail_pattern=r"duyuru|haber|\.pdf$",
-        keywords=("burs", "destek", "başvuru", "çağrı", "kontenjan", "yüksek lisans", "doktora", "proje"),
+        detail_pattern=r"insan-kaynaklari|duyuru|haber|\.pdf$",
+        keywords=("burs", "destek", "başvuru", "çağrı", "kontenjan", "yüksek lisans", "doktora", "proje", "personel", "alım", "işçi"),
         embedded_json=True,
-        note="React kabuğu: sunucu HTML'inde duyuru bağlantısı sınırlı; __NEXT_DATA__ yedeği.",
+        ssl_verify=False,
+        verified=True,
+        note="TÜSEB duyuruları kart h6 başlıklarında; TUBITAK kök sertifikası için ssl_verify=False.",
     ),
     InstitutionSpec(
         id="tua",
@@ -401,10 +409,12 @@ SPECS: tuple[InstitutionSpec, ...] = (
     InstitutionSpec(
         id="mapeg",
         name="Maden ve Petrol İşleri Genel Müdürlüğü",
-        url="https://www.mapeg.gov.tr/duyurular",
-        detail_pattern=r"mapeg\.gov\.tr/(duyuru|haber)",
+        url="https://www.mapeg.gov.tr/Sayfa/Duyurular/1",
+        detail_pattern=r"Sayfa/Duyuru/",
         keywords=("alım", "sınav", "başvuru", "personel", "ihale", "burs"),
-        note="Kök sertifika zinciri doğrulanamadı + JS kabuğu; yalnızca erken sinyal.",
+        ssl_verify=False,
+        verified=True,
+        note="TUBITAK kök sertifikası için ssl_verify=False. Duyurular /Sayfa/Duyurular/1 altında.",
     ),
     InstitutionSpec(
         id="memurlar",

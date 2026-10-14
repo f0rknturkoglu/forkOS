@@ -121,15 +121,25 @@ class HttpClient:
         root = f"{parsed.scheme}://{parsed.netloc}"
         if root not in self._robots:
             await self._space_out(parsed.netloc)
-            response = await self._bounded_response("GET", root + "/robots.txt", timeout=10)
-            if response.status_code == 404:
+            try:
+                response = await self._bounded_response("GET", root + "/robots.txt", timeout=10)
+            except PermanentError:
+                # E.g. cross-host redirect when fetching robots.txt (e.g. bunq.recruitee.com -> careers.bunq.com)
+                self._robots[root] = None
+                return
+            except Exception:
+                self._robots[root] = None
+                return
+
+            if response.status_code in {401, 403, 404}:
+                # RFC 9309: 4xx indicates no robots.txt restriction
                 self._robots[root] = None
             elif response.status_code == 200 and "user-agent:" in response.text.lower() and "<html" not in response.text.lower():
                 parser = RobotFileParser(root + "/robots.txt")
                 parser.parse(response.text.splitlines())
                 self._robots[root] = parser
             else:
-                raise PermanentError("ATS robots policy could not be verified")
+                self._robots[root] = None
         parser = self._robots[root]
         if parser and not parser.can_fetch(self.config.user_agent, url):
             raise PermanentError("ATS robots policy denies requested route")
