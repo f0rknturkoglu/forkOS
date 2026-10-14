@@ -7,6 +7,13 @@
 [![React 18 + Vite](https://img.shields.io/badge/Frontend-React_18_%2B_Vite-indigo.svg)](frontend/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+> [!NOTE]
+> **Hobi Projesi & Kişisel Hikâye (TR):**<br>
+> forkOS tamamen **bireysel bir hobi projesidir**. Staj dönemimde yaşadığım depresyonu ve zihinsel yorgunluğu aşmak, bir şeyler üretmenin getirdiği heyecanı ve canlılığı yeniden hissetmek ve kendime eğlenceli bir geliştirme alanı yaratmak amacıyla başlatılmıştır. Temel motivasyonu eğlence, kişisel öğrenme ve kendi günlük iş akışımı organize etmektir.
+>
+> **Hobby Project & Personal Backstory (EN):**<br>
+> forkOS is purely an **individual hobby project**. It was started during my internship to cope with depression and mental exhaustion, rediscover the excitement and vitality of building things, and create a fun playground for development. Its core motivation is fun, personal learning, and organizing my own daily workflow.
+
 Kişisel verilerini kendi donanımında tutan, tek kullanıcılı ve **local-only** kişisel işletim sistemi.
 
 forkOS; görev yürütme, haftalık planlama, derin odaklanma (Pomodoro), aralıklı tekrarla öğrenme (SRS/Flashcards), iş ve kamu duyurusu takibi (ATS/YLSY/ÖSYM/TÜSEB/MAPEG), tam metin RSS okuma ve yer imi arşivini birbirine bağlı tek bir çalışma alanında toplar. Barındırılan (hosted) backend, kullanıcı hesabı veya telemetri yoktur; servisler varsayılan olarak yalnızca `127.0.0.1` üzerinde çalışır.
@@ -263,18 +270,16 @@ forkOS/
 
 ---
 
-## 10. Geliştirici Notu & Sorumluluk Reddi (Disclaimer)
-
-> [!NOTE]
-> **Hobi Projesi & Kişisel Hikâye:**<br>
-> forkOS tamamen **bireysel bir hobi projesidir**. Staj dönemimde yaşadığım depresyonu ve zihinsel yorgunluğu aşmak, bir şeyler üretmenin getirdiği heyecanı ve canlılığı yeniden hissetmek ve kendime eğlenceli bir geliştirme alanı yaratmak amacıyla başlatılmıştır. Temel motivasyonu eğlence, kişisel öğrenme ve kendi günlük iş akışımı organize etmektir.
+## 10. Sorumluluk Reddi (Disclaimer)
 
 > [!CAUTION]
-> **Sorumluluk Reddi (No Warranty & Limitation of Liability):**<br>
+> **Sorumluluk Reddi / Limitation of Liability:**<br>
 > Bu yazılım *"olduğu gibi"* (AS-IS) ve hiçbir garanti (zımni, ticari, belirli bir amaca uygunluk vb.) olmaksızın sunulmaktadır. forkOS'un veya içerisindeki herhangi bir modülün (veri toplama, üçüncü taraf sitelerden/beslemelerden bilgi çekme, otomasyonlar vb.) kullanımından, veri kayıplarından, üçüncü taraf platformların hizmet koşulları (ToS) değişikliklerinden veya sisteminizde doğabilecek doğrudan/dolaylı hiçbir teknik veya hukuki sonuçtan **geliştirici hiçbir sorumluluk kabul etmez**. Sistemi kuran ve çalıştıran kullanıcı, tüm kullanımın ve yerel yapılandırmanın tek sorumlusudur.
+>
+> *This software is provided "as is", without warranty of any kind, express or implied. In no event shall the author or copyright holders be liable for any claim, damages, or other liability arising from, out of, or in connection with the software or the use or other dealings in the software.*
 
 ---
 
 ## 11. Lisans
 
-Bu proje MIT Lisansı kapsamında sunulmaktadır. forkOS açık kaynaklı, şeffaf ve yerel-öncelikli bir kişisel projedir.
+Bu proje [MIT Lisansı](LICENSE) kapsamında sunulmaktadır. forkOS açık kaynaklı, şeffaf ve yerel-öncelikli bir kişisel projedir.
