@@ -16,20 +16,19 @@ export function OverdueTodosWidget() {
   if (overdue.length === 0) return null;
   return (
     <Section title="Geciken görevler">
-        <RowList>
-          {overdue.map((todo) => (
-            <div key={todo.id} className="flex items-center gap-2 py-2 text-meta">
-              <a
-                href={`#/todos?focus=${todo.id}`}
-                className="min-w-0 flex-1 truncate text-body text-primary hover:text-accent"
-              >
-                {todo.title}
-              </a>
-              <Chip tone="danger">{daysBetween(localDateKey(new Date(todo.due_at!)), today)} gün</Chip>
-            </div>
-          ))}
-        </RowList>
-      )}
+      <RowList>
+        {overdue.map((todo) => (
+          <div key={todo.id} className="flex items-center gap-2 py-2 text-meta">
+            <a
+              href={`#/todos?focus=${todo.id}`}
+              className="min-w-0 flex-1 truncate text-body text-primary hover:text-accent"
+            >
+              {todo.title}
+            </a>
+            <Chip tone="danger">{daysBetween(localDateKey(new Date(todo.due_at!)), today)} gün</Chip>
+          </div>
+        ))}
+      </RowList>
     </Section>
   );
 }
