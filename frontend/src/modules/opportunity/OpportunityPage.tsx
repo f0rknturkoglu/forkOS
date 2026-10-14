@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { ChevronDown, Trash2 } from "lucide-react";
 import { invalidateAfter } from "@/core/invalidation";
 import { api } from "@/core/api";
-import { Button, Empty, PageFrame, Tabs, useToast } from "@/core/ui";
+import { ActionMenu, Button, Empty, PageFrame, Tabs, useToast } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import { confirmDialog } from "@/core/dialog";
 import { navigate, useHashRoute } from "@/app/router";
@@ -12,6 +12,7 @@ import { SyncProgress } from "@/core/SyncProgress";
 import { useOnline } from "@/lib/hooks";
 import { SourcePicker } from "@/modules/sources/SourcePicker";
 import { SourcesWorkspace } from "@/modules/sources/SourcesWorkspace";
+import { CareerBulkCleanupDialog } from "./CareerBulkCleanupDialog";
 import { OpportunityDetail } from "./OpportunityDetail";
 import { OpportunityCard, OpportunityCollection } from "./OpportunityList";
 import { OpportunityKanban } from "./OpportunityKanban";
@@ -86,6 +87,7 @@ export function OpportunityPage() {
   // halde sayfa kendi URL'sini yazarken onları siler ve kayıt kapanırdı.
   const [story, setStory] = useState<string | null>(null);
   const [connection, setConnection] = useState<string | null>(null);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
 
   // ── URL <-> durum köprüsü ──────────────────────────────────────────
   // Filtreler ve sekme adres çubuğuna yazılır; tarayıcı geri/ileri çalışır ve
@@ -254,6 +256,26 @@ export function OpportunityPage() {
             <Tabs value={tab} onChange={changeTab} items={tabs} ariaLabel="Fırsat çalışma alanları" />
             <span className="ml-auto flex flex-wrap items-center gap-2">
               {(tab === "jobs" || tab === "announcements") && <SourcePicker />}
+              {tab === "jobs" && (
+                <ActionMenu
+                  label="İlanları yönet"
+                  trigger={
+                    <span className="inline-flex items-center gap-1.5 text-meta font-medium text-secondary hover:text-primary">
+                      <span>İlanları yönet</span>
+                      <ChevronDown size={14} />
+                    </span>
+                  }
+                  triggerClassName="w-auto h-8 px-2.5 border border-subtle"
+                  items={[
+                    {
+                      id: "bulk-cleanup",
+                      label: "Toplu temizlik…",
+                      icon: <Trash2 size={13} />,
+                      onSelect: () => setCleanupOpen(true),
+                    },
+                  ]}
+                />
+              )}
             </span>
           </div>
           {tab !== "sources" && (
@@ -428,6 +450,7 @@ export function OpportunityPage() {
       </Workspace>
 
       {selected && (!wideInspector || !browseEnabled) && <OpportunityDetail id={selected} close={closeRecord} />}
+      <CareerBulkCleanupDialog open={cleanupOpen} onClose={() => setCleanupOpen(false)} />
     </PageFrame>
   );
 }

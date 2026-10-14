@@ -156,21 +156,7 @@ export function ProjectsPage() {
             }
           />
           <WorkspaceScrollArea className="p-4">
-            <div data-onboarding="project-create" id="project-view" className="mx-auto max-w-4xl stack-y-4">
-              {current.execution_progress && (
-                <p className="text-meta text-secondary">
-                  Çalışma ilerlemesi:{" "}
-                  {current.execution_progress.percent == null
-                    ? "Henüz hesaplanamıyor"
-                    : `%${current.execution_progress.percent}`}{" "}
-                  · {current.execution_progress.completed}/{current.execution_progress.total} iş birimi tamamlandı
-                </p>
-              )}
-              <ContextualHelp
-                key={current.id}
-                context={{ kind: "project", entity_id: current.id }}
-                label="Proje özeti"
-              />
+            <div data-onboarding="project-create" id="project-view" className="mx-auto max-w-6xl stack-y-4">
               <ProjectViewContent key={current.id} project={current} />
             </div>
           </WorkspaceScrollArea>
@@ -193,27 +179,56 @@ export function ProjectsPage() {
 
 function ProjectViewContent({ project }: { project: Project }) {
   const nextMilestone = project.milestones.find((item) => !item.completed_at);
+  const progress = project.execution_progress;
   return (
     <>
-      <Section title="Sıradaki adım">
-        <p className="text-body text-primary">
-          {project.next_action || nextMilestone?.title || "Henüz bir sonraki adım belirlenmedi."}
-        </p>
-      </Section>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ProjectTodos project={project} />
-        <Milestones project={project} />
+      <div className="rounded-card border border-subtle bg-surface p-4 stack-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 stack-y-1">
+            <span className="text-micro font-semibold uppercase tracking-wider text-muted">Sıradaki adım</span>
+            <p className="text-body font-medium text-primary">
+              {project.next_action || nextMilestone?.title || "Henüz bir sonraki adım belirlenmedi."}
+            </p>
+          </div>
+          {progress && (
+            <div className="text-right shrink-0 min-w-36">
+              <span className="font-sans text-title font-bold text-primary tabular-nums">
+                {progress.percent == null ? "—" : `%${progress.percent}`}
+              </span>
+              <span className="block text-micro text-muted">
+                {progress.completed}/{progress.total} iş birimi
+              </span>
+            </div>
+          )}
+        </div>
+        {progress?.percent != null && (
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
+            <div
+              className="h-full rounded-full bg-accent transition-all duration-300"
+              style={{ width: `${Math.max(0, Math.min(100, progress.percent))}%` }}
+            />
+          </div>
+        )}
       </div>
-      <MilestoneTimeline project={project} />
-      <GithubPanel project={project} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ProjectKnowledgeNote project={project} />
-        <ProjectJournalBridge projectId={project.id} />
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div className="stack-y-4">
+          <ProjectTodos project={project} />
+          <Milestones project={project} />
+          <MilestoneTimeline project={project} />
+        </div>
+        <div className="stack-y-4">
+          <GithubPanel project={project} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ProjectKnowledgeNote project={project} />
+            <ProjectJournalBridge projectId={project.id} />
+          </div>
+          <ProjectConnections project={project} />
+          <Disclosure summary="Geçmiş hareketler" className="rounded-card border border-subtle p-3">
+            <ProjectActivityTimeline projectId={project.id} />
+          </Disclosure>
+        </div>
       </div>
-      <ProjectConnections project={project} />
-      <Disclosure summary="Geçmiş" className="rounded-card border border-subtle p-3">
-        <ProjectActivityTimeline projectId={project.id} />
-      </Disclosure>
     </>
   );
 }

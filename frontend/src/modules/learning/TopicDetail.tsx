@@ -33,6 +33,7 @@ import { RelatedPanel } from "@/core/RelatedPanel";
 import { invalidateAfter } from "@/core/invalidation";
 import { safeHref } from "@/core/markdownParser";
 import {
+  ActionMenu,
   Button,
   Chip,
   Empty,
@@ -404,16 +405,10 @@ export function TopicDetail({
           />
         </MetricStrip>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="primary" disabled={!online} onClick={runNextAction}>
             {nextAction.id === "todo" ? <ListPlus size={14} /> : <Play size={14} />}
             {nextAction.label}
-          </Button>
-          <Button disabled={!online} onClick={() => openPomodoro({ context: topic.id, topic: topic.title })}>
-            <Timer size={14} /> Pomodoro
-          </Button>
-          <Button disabled={!online || createTodo.isPending} onClick={() => createTodo.mutate()}>
-            <ListPlus size={14} /> Görev oluştur
           </Button>
           <span data-onboarding="learning-resource">
             <Button
@@ -426,54 +421,57 @@ export function TopicDetail({
               <ScrollText size={14} /> Kaynak ekle
             </Button>
           </span>
-          <Button disabled={!online} onClick={() => setSubTopicOpen(true)}>
-            <Baby size={14} /> Alt konu ekle
-          </Button>
-          <Button disabled={!online} onClick={() => setMoveOpen(true)}>
-            <FolderInput size={14} /> Taşı
-          </Button>
-          <span ref={menuAnchor} className="relative inline-flex">
-            <IconButton
-              title="Daha fazla"
-              disabled={!online}
-              className={cx(menuOpen && "bg-surface-hover text-primary")}
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              <MoreHorizontal size={14} />
-            </IconButton>
-            <Popover
-              open={menuOpen}
-              onClose={() => setMenuOpen(false)}
-              anchorRef={menuAnchor}
-              role="menu"
-              ariaLabel="Konu işlemleri"
-              className="right-0 top-full mt-1 w-44 py-1"
-            >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
+          <ActionMenu
+            ariaLabel="Konu işlemleri"
+            items={[
+              {
+                id: "pomodoro",
+                label: "Pomodoro başlat",
+                icon: Timer,
+                disabled: !online,
+                onSelect: () => openPomodoro({ context: topic.id, topic: topic.title }),
+              },
+              {
+                id: "todo",
+                label: "Görev oluştur",
+                icon: ListPlus,
+                disabled: !online || createTodo.isPending,
+                onSelect: () => createTodo.mutate(),
+              },
+              {
+                id: "subtopic",
+                label: "Alt konu ekle",
+                icon: Baby,
+                disabled: !online,
+                onSelect: () => setSubTopicOpen(true),
+              },
+              {
+                id: "move",
+                label: "Konuyu taşı",
+                icon: FolderInput,
+                disabled: !online,
+                onSelect: () => setMoveOpen(true),
+              },
+              {
+                id: "rename",
+                label: "Yeniden adlandır",
+                icon: Pencil,
+                disabled: !online,
+                onSelect: () => {
                   setRenameTitle(topic.title);
                   setRenameOpen(true);
-                  setMenuOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-meta text-primary transition hover:bg-surface-hover"
-              >
-                <Pencil size={13} /> Yeniden adlandır
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setImpactOpen(true);
-                  setMenuOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-meta text-danger transition hover:bg-danger-surface"
-              >
-                <Trash2 size={13} /> Sil
-              </button>
-            </Popover>
-          </span>
+                },
+              },
+              {
+                id: "delete",
+                label: "Sil",
+                icon: Trash2,
+                danger: true,
+                disabled: !online,
+                onSelect: () => setImpactOpen(true),
+              },
+            ]}
+          />
         </div>
       </header>
 

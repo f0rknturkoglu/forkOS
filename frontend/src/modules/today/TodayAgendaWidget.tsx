@@ -130,6 +130,7 @@ export function TodayAgendaWidget() {
 
   const [draft, setDraft] = useState("");
   const [completedOpen, setCompletedOpen] = useState(false);
+  const [unplannedOpen, setUnplannedOpen] = useState(false);
 
   const agendaQuery = useQuery({
     queryKey: ["today-agenda", day],
@@ -226,10 +227,18 @@ export function TodayAgendaWidget() {
     weeklyReviews,
   });
 
-  const openTodos = agenda ? unplannedTodoRows(todos, agenda) : [];
+  const overdueList = todos.filter(
+    (todo) =>
+      (todo.status === "open" || todo.status === "doing") &&
+      todo.due_at &&
+      localDateKey(new Date(todo.due_at)) < day,
+  );
+  const allUnplanned = agenda ? unplannedTodoRows(todos, agenda) : [];
+  const openTodos = allUnplanned.filter((row) => !overdueList.some((o) => o.id === row.id));
   const routineRows = agenda ? [...agenda.timed, ...agenda.checklist].filter(hasRoutine) : [];
   const timedRows = agenda ? agenda.timed.filter((row) => !hasRoutine(row)) : [];
   const checklistRows = agenda ? agenda.checklist.filter((row) => !hasRoutine(row)) : [];
+  const plannedCount = timedRows.length + routineRows.length + checklistRows.length;
 
   const phaseIcon = phase === "morning" ? Sunrise : phase === "evening" ? Sunset : Sun;
   const PhaseIcon = phaseIcon;
@@ -244,7 +253,7 @@ export function TodayAgendaWidget() {
   return (
     <Section
       title="Bugünün planı"
-      hint={agenda ? `${agenda.timed.length + agenda.checklist.length + openTodos.length} öğe` : undefined}
+      hint={agenda ? `${plannedCount} planlı görev` : undefined}
       bodyClassName="stack-y-4"
     >
       {!online && (
@@ -253,14 +262,6 @@ export function TodayAgendaWidget() {
         </p>
       )}
 
-      {openTodos.length > 0 && (
-        <div className="flex justify-end">
-          <ScheduleTasks
-            tasks={openTodos.slice(0, 10).map((todo) => ({ id: todo.id, title: todo.title }))}
-            label="Görevlerin planını düzenle"
-          />
-        </div>
-      )}
       {/* Tek Satırlık Hızlı Görev Ekleme Formu */}
       <form onSubmit={handleQuickAdd} className="flex items-center gap-2">
         <Input
@@ -290,6 +291,18 @@ export function TodayAgendaWidget() {
         </Empty>
       ) : (
         <>
+          {overdueList.length > 0 && (
+            <div className="flex items-center justify-between gap-2 rounded-control border border-warn-border bg-warn-surface px-3 py-2 text-meta text-warn">
+              <span className="flex items-center gap-1.5 font-medium">
+                <AlertTriangle size={14} className="shrink-0" />
+                {overdueList.length} geciken görev var
+              </span>
+              <Button size="sm" variant="ghost" onClick={() => navigate(`/todos?focus=${overdueList[0].id}`)}>
+                Gecikenleri gör →
+              </Button>
+            </div>
+          )}
+
           <AgendaGroup
             label="Saatli"
             rows={timedRows}
@@ -314,14 +327,39 @@ export function TodayAgendaWidget() {
             remove={(row) => remove.mutate(row)}
             deleteTodo={(id) => deleteTodo.mutate(id)}
           />
-          <AgendaGroup
-            label="Açık görevler"
-            rows={openTodos}
-            online={online}
-            complete={(row) => complete.mutate(row)}
-            remove={(row) => remove.mutate(row)}
-            deleteTodo={(id) => deleteTodo.mutate(id)}
-          />
+
+          {openTodos.length > 0 && (
+            <div className="pt-2 border-t border-subtle">
+              <button
+                type="button"
+                onClick={() => setUnplannedOpen((val) => !val)}
+                className="flex w-full items-center justify-between py-1 text-left text-meta font-medium text-secondary hover:text-primary transition-colors"
+                aria-expanded={unplannedOpen}
+              >
+                <span className="flex items-center gap-1.5">
+                  <ChevronRight size={14} className={cx("transition-transform", unplannedOpen && "rotate-90")} />
+                  Tarihsiz açık görevler ({openTodos.length})
+                </span>
+                <span className="text-micro text-muted">Planlanmamış</span>
+              </button>
+              {unplannedOpen && (
+                <div className="mt-2 pl-4">
+                  <RowList>
+                    {openTodos.map((row) => (
+                      <AgendaLine
+                        key={`${row.kind}:${row.id}`}
+                        row={row}
+                        online={online}
+                        complete={(item) => complete.mutate(item)}
+                        remove={(item) => remove.mutate(item)}
+                        deleteTodo={(id) => deleteTodo.mutate(id)}
+                      />
+                    ))}
+                  </RowList>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Gün Özeti ve Ritim Durumu */}
           <div className="rounded-card border border-subtle bg-surface-hover/30 p-3 stack-y-2">

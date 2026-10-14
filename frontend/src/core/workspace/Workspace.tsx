@@ -1,5 +1,6 @@
 import type { KeyboardEventHandler, ReactNode } from "react";
-import { cx } from "@/core/ui";
+import { X } from "lucide-react";
+import { IconButton, cx } from "@/core/ui";
 
 /**
  * AFFiNE esinli ortak çalışma yüzeyi.
@@ -173,10 +174,14 @@ export function WorkspaceScrollArea({ children, className }: { children: ReactNo
 export function WorkspaceInspectorContent({
   title,
   hint,
+  action,
+  onClose,
   children,
 }: {
   title: ReactNode;
   hint?: ReactNode;
+  action?: ReactNode;
+  onClose?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -184,6 +189,12 @@ export function WorkspaceInspectorContent({
       <div className="mb-3 flex min-w-0 items-center gap-2 px-1">
         <h2 className="label-caps min-w-0 flex-1 truncate text-secondary">{title}</h2>
         {hint ? <span className="text-meta text-muted">{hint}</span> : null}
+        {action}
+        {onClose && (
+          <IconButton title="Kapat" onClick={onClose}>
+            <X size={15} />
+          </IconButton>
+        )}
       </div>
       {children}
     </div>

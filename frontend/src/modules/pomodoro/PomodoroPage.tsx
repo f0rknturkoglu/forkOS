@@ -315,17 +315,18 @@ export function PomodoroPage() {
 
 function FocusTrend({ points }: { points: PomodoroDailyPoint[] }) {
   const visible = points.slice(-7);
+  const totalMin = visible.reduce((sum, p) => sum + p.minutes, 0);
   const max = Math.max(1, ...visible.map((point) => point.minutes));
   return (
     <Section title="Haftalık odak trendi" bodyClassName="pb-3">
-      {visible.length === 0 ? (
-        <Empty>Grafik için henüz odak kaydı yok.</Empty>
+      {visible.length === 0 || totalMin === 0 ? (
+        <p className="py-4 text-center text-meta text-muted">Bu hafta henüz odak kaydı yok.</p>
       ) : (
-        <div className="flex h-44 items-end gap-2" role="img" aria-label="Günlere göre odak dakikaları">
+        <div className="flex h-36 items-end gap-2" role="img" aria-label="Günlere göre odak dakikaları">
           {visible.map((point) => (
             <div key={point.date} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
               <span className="text-micro tabular-nums text-secondary">{point.minutes || ""}</span>
-              <div className="flex h-28 w-full items-end rounded-t-control bg-surface-sunken">
+              <div className="flex h-24 w-full items-end rounded-t-control bg-surface-sunken">
                 <div
                   className={cx("w-full rounded-t-control", point.minutes ? "bg-ok" : "bg-subtle")}
                   style={{ height: `${point.minutes ? Math.max(8, (point.minutes / max) * 100) : 2}%` }}

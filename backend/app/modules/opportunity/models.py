@@ -268,3 +268,24 @@ class CareerConnection(EntityBacked, Base):
     normalized_company: Mapped[str | None] = mapped_column(Text)
     position: Mapped[str | None] = mapped_column(Text)
     connected_on: Mapped[date | None] = mapped_column(Date)
+
+
+class OpportunitySuppression(Base):
+    """Kalıcı silinen ilanların tekrar içeri alınmasını önleyen hafif tombstone kaydı.
+
+    Destek tablosudur (AGENTS.md kural 1 istisnası; test_migrations.py support_tables).
+    """
+
+    __tablename__ = "opportunity_suppression"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    external_id: Mapped[str | None] = mapped_column(Text)
+    canonical_url: Mapped[str | None] = mapped_column(Text)
+    dedup_hash: Mapped[str | None] = mapped_column(Text)
+    reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Plus, RefreshCw, X } from "lucide-react";
 import { api } from "@/core/api";
 import { entityRoute } from "@/core/entityRegistry";
 import type { CalendarEvent } from "@/core/types";
-import { Button, Chip, Empty, PageFrame, cx } from "@/core/ui";
+import { Button, Chip, Empty, Modal, PageFrame, cx } from "@/core/ui";
 import { Workspace, WorkspacePaneHeader, WorkspaceScrollArea } from "@/core/workspace/Workspace";
 import {
   addAppDays,
@@ -84,6 +84,7 @@ export function CalendarPage() {
   const [anchor, setAnchor] = useState(() => appDayUtc(new Date()));
   const online = useOnline();
   const [taskDay, setTaskDay] = useState<string | null>(null);
+  const [selectedDayEvents, setSelectedDayEvents] = useState<{ day: Date; events: CalendarEvent[] } | null>(null);
 
   const days = rangeDays(anchor, view);
   const start = useMemo(() => rangeStart(anchor, view), [anchor, view]);
@@ -247,7 +248,12 @@ export function CalendarPage() {
                       {rows.slice(0, view === "week" ? 8 : 3).map((event) => (
                         <article
                           key={`${event.source}-${event.id}`}
-                          className="rounded border border-subtle bg-canvas px-1.5 py-1"
+                          className={cx(
+                            "rounded border bg-canvas px-1.5 py-1 transition-colors",
+                            event.source === "google"
+                              ? "border-subtle border-l-2 border-l-sky-500"
+                              : "border-subtle border-l-2 border-l-accent",
+                          )}
                         >
                           <div className="flex items-start justify-between gap-1">
                             {event.entity_type && event.entity_id ? (
@@ -293,7 +299,13 @@ export function CalendarPage() {
                         </article>
                       ))}
                       {rows.length > (view === "week" ? 8 : 3) && (
-                        <p className="px-1 text-micro text-muted">+{rows.length - (view === "week" ? 8 : 3)} daha</p>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDayEvents({ day, events: rows })}
+                          className="w-full text-left px-1 text-micro font-medium text-accent hover:underline"
+                        >
+                          +{rows.length - (view === "week" ? 8 : 3)} daha
+                        </button>
                       )}
                     </div>
                   </div>
@@ -310,6 +322,68 @@ export function CalendarPage() {
             </div>
           )}
         </WorkspaceScrollArea>
+
+        {selectedDayEvents && (
+          <Modal
+            open={Boolean(selectedDayEvents)}
+            onClose={() => setSelectedDayEvents(null)}
+            title={formatTrDate(selectedDayEvents.day, {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+              timeZone: "UTC",
+            })}
+          >
+            <div className="stack-y-3">
+              <div className="flex items-center justify-between text-meta text-muted">
+                <span>{selectedDayEvents.events.length} etkinlik / plan bloku</span>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => {
+                    const dKey = localDateKey(selectedDayEvents.day);
+                    setSelectedDayEvents(null);
+                    setTaskDay(dKey);
+                  }}
+                >
+                  <Plus size={13} /> Bu güne görev ekle
+                </Button>
+              </div>
+              <div className="stack-y-2 max-h-96 overflow-y-auto">
+                {selectedDayEvents.events.map((event) => (
+                  <article
+                    key={`${event.source}-${event.id}`}
+                    className={cx(
+                      "rounded-card border p-3 bg-surface stack-y-1",
+                      event.source === "google" ? "border-l-4 border-l-sky-500 border-subtle" : "border-l-4 border-l-accent border-subtle",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-medium text-body text-primary break-words">{event.title}</h4>
+                      <Chip>{event.source}</Chip>
+                    </div>
+                    <p className="text-meta text-muted">
+                      {event.all_day
+                        ? "Tüm gün"
+                        : formatTrDateTime(event.starts_at, { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                    {event.url && (
+                      <a
+                        href={event.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-meta text-accent hover:underline"
+                      >
+                        Bağlantıyı aç ↗
+                      </a>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </div>
+          </Modal>
+        )}
       </Workspace>
     </PageFrame>
   );

@@ -19,7 +19,7 @@ import { CalendarPlus, ChevronLeft, ChevronRight, GripVertical } from "lucide-re
 import { api, qs } from "@/core/api";
 import { Button, Empty, IconButton, PageFrame, cx, useToast } from "@/core/ui";
 import type { PlanSlot, Todo } from "@/core/types";
-import { addAppDays, appWeekStartKey, formatTrDate, keyToUtc, localDateKey } from "@/lib/date";
+import { addAppDays, appWeekStartKey, formatTrDate, keyToUtc, localDateKey, todayKey } from "@/lib/date";
 import { useOnline } from "@/lib/hooks";
 import { TodoComposer } from "./TodoComposer";
 import { PlanViews } from "./PlanViews";
@@ -72,7 +72,7 @@ function DraggableCard({
         className="flex min-w-0 flex-1 touch-none items-center gap-1.5 cursor-grab px-2 py-2 text-left active:cursor-grabbing"
       >
         <GripVertical size={14} className="shrink-0 text-muted" aria-hidden />
-        <span>{title}</span>
+        <span className="line-clamp-2 break-words leading-tight">{title}</span>
       </button>
       {onSelect ? (
         <IconButton
@@ -102,19 +102,33 @@ function DayColumn({
   disabled: boolean;
 }) {
   const drop = useDroppable({ id: `day:${isoDay(day)}` });
+  const isToday = isoDay(day) === todayKey();
   return (
     <div
       ref={drop.setNodeRef}
       className={cx(
-        "min-h-72 border-r border-subtle p-2 last:border-r-0",
+        "min-h-72 border-r border-subtle p-2 last:border-r-0 transition-colors",
+        isToday && "bg-accent-surface/15",
         drop.isOver && "border-accent-border bg-accent-surface",
       )}
     >
-      <div className="mb-2 flex items-center gap-1 text-meta font-medium">
+      <div
+        className={cx(
+          "mb-2 flex items-center gap-1 rounded-control px-1.5 py-1 text-meta font-medium",
+          isToday ? "bg-accent-surface text-accent font-semibold" : "text-primary",
+        )}
+      >
         <span className="min-w-0 flex-1 truncate">
           {day.toLocaleDateString("tr-TR", { weekday: "short", timeZone: "UTC" })}
-          <span className="ml-1 text-muted">{day.getUTCDate()}</span>
+          <span className={cx("ml-1", isToday ? "text-accent font-bold" : "text-muted")}>
+            {day.getUTCDate()}
+          </span>
         </span>
+        {isToday && (
+          <span className="rounded bg-accent px-1 py-0.5 text-[10px] font-bold uppercase tracking-wider text-canvas">
+            Bugün
+          </span>
+        )}
         {selectedTask ? (
           <IconButton title={`Seçili görevi ${isoDay(day)} gününe planla`} onClick={onPlace} disabled={disabled}>
             <CalendarPlus size={13} />
@@ -122,14 +136,20 @@ function DayColumn({
         ) : null}
       </div>
       <div className="stack-y-2">
-        {slots.map((slot) => (
-          <DraggableCard
-            key={slot.id}
-            id={`slot:${slot.id}`}
-            disabled={disabled}
-            title={`${slot.start_min != null ? `${String(Math.floor(slot.start_min / 60)).padStart(2, "0")}:${String(slot.start_min % 60).padStart(2, "0")} · ` : ""}${slot.title}`}
-          />
-        ))}
+        {slots.length === 0 ? (
+          <div className="flex h-32 items-center justify-center rounded-control border border-dashed border-subtle/60 p-2 text-center text-micro text-muted">
+            Planlanmış iş yok
+          </div>
+        ) : (
+          slots.map((slot) => (
+            <DraggableCard
+              key={slot.id}
+              id={`slot:${slot.id}`}
+              disabled={disabled}
+              title={`${slot.start_min != null ? `${String(Math.floor(slot.start_min / 60)).padStart(2, "0")}:${String(slot.start_min % 60).padStart(2, "0")} · ` : ""}${slot.title}`}
+            />
+          ))
+        )}
       </div>
     </div>
   );

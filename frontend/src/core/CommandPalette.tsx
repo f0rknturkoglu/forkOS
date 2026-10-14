@@ -223,8 +223,11 @@ export function CommandPalette() {
             </div>
           ) : (
             <Command.List className="max-h-[380px] overflow-y-auto p-2">
-              <Command.Empty className="px-2 py-8 text-center text-body text-secondary">
-                “{query}” için sonuç yok.
+              <Command.Empty className="px-4 py-8 text-center">
+                <p className="text-body text-secondary">“{query}” için sonuç bulunamadı.</p>
+                <p className="mt-1.5 text-meta text-muted">
+                  Bir sayfayı, görevi, hedefi, notu veya fırsatı bulmak için farklı bir anahtar kelime deneyebilirsin.
+                </p>
               </Command.Empty>
 
               {filteredNav.length > 0 && (

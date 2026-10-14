@@ -1,10 +1,11 @@
 import { RelatedPanel } from "@/core/RelatedPanel";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ExternalLink, X } from "lucide-react";
 import { api } from "@/core/api";
 import { invalidateAfter } from "@/core/invalidation";
 import { entityRoute, typeLabel } from "@/core/entityRegistry";
-import { Button, Disclosure, Field, Input, Select, Textarea } from "@/core/ui";
+import { Button, Disclosure, Field, IconButton, Input, Select, Textarea } from "@/core/ui";
 import { GoalRoadmap, type RoadmapNode } from "./GoalRoadmap";
 import { GoalPackagePreview } from "./GoalPackagePreview";
 import type { components } from "@/generated/api-schema";
@@ -86,8 +87,9 @@ export function GoalLivingWorkspace({
     setParent(n.parent_id ?? "");
   };
   const linkTo = (type: string, id: string, label: string) => (
-    <a className="text-accent underline break-words" href={`#${entityRoute(type, id).replace(/^#/, "")}`}>
-      {label}
+    <a className="inline-flex items-center gap-1 text-accent hover:underline break-words" href={`#${entityRoute(type, id).replace(/^#/, "")}`}>
+      <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+      <span>{label}</span>
     </a>
   );
   return (
@@ -109,11 +111,9 @@ export function GoalLivingWorkspace({
           className="rounded-card border border-subtle p-4 stack-y-3"
           aria-label="Adım ayrıntıları"
         >
-          <div className="flex flex-wrap justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 border-b border-subtle pb-3">
             <h3 className="text-heading font-semibold break-words">{node.title}</h3>
-            <Button size="sm" variant="ghost" onClick={() => setNode(null)}>
-              Ayrıntıları kapat
-            </Button>
+            <IconButton icon={X} label="Ayrıntıları kapat" onClick={() => setNode(null)} />
           </div>
           {node.description && <p className="text-body text-secondary whitespace-pre-wrap">{node.description}</p>}
           {node.target_title && node.target_title !== node.title && (

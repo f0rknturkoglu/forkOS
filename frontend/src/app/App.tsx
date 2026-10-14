@@ -67,17 +67,22 @@ function Banner({
     <div
       role="status"
       className={cx(
-        "flex items-center gap-2.5 border-b px-8 py-2 text-meta",
+        "flex items-center gap-2 border-b px-4 py-1.5 text-xs leading-normal transition-colors",
         tone === "warn"
-          ? "border-warn-border bg-warn-surface text-warn"
-          : "border-danger-border bg-danger-surface text-danger",
+          ? "border-warn-border/60 bg-warn-surface/70 text-warn"
+          : "border-danger-border/60 bg-danger-surface/70 text-danger",
       )}
     >
       <span className="shrink-0">{icon}</span>
       <span className="min-w-0 flex-1">{children}</span>
       {onDismiss && (
-        <button type="button" onClick={onDismiss} aria-label="Kapat" className="shrink-0 opacity-70 hover:opacity-100">
-          <X size={14} />
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Kapat"
+          className="shrink-0 p-0.5 rounded opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10"
+        >
+          <X size={13} />
         </button>
       )}
     </div>

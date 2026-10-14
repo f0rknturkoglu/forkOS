@@ -13,8 +13,9 @@ import {
 import type { DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/core/api";
-import { CheckSquare, StickyNote, Tag, Trash2 } from "lucide-react";
+import { ArrowRight, CheckSquare, StickyNote, Tag, Trash2 } from "lucide-react";
 import {
+  ActionMenu,
   Button,
   Chip,
   Empty,
@@ -47,12 +48,14 @@ function InboxCard({
   disabled,
   selected,
   onSelect,
+  onMove,
   registerRef,
 }: {
   bookmark: Bookmark;
   disabled: boolean;
   selected: boolean;
   onSelect: () => void;
+  onMove: (collection: Collection) => void;
   registerRef: (node: HTMLLIElement | null) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -155,16 +158,44 @@ function InboxCard({
             </p>
           )}
         </div>
-        <div className="flex shrink-0 gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <IconButton title="Goreve donustur" disabled={disabled} onClick={() => convertToTask.mutate()}>
             <CheckSquare size={15} className="text-accent" />
           </IconButton>
-          <IconButton title="Duzenle" disabled={disabled} onClick={() => setEditing((v) => !v)}>
-            <Tag size={15} />
-          </IconButton>
-          <IconButton title="Sil" tone="danger" disabled={disabled} onClick={() => remove.mutate()}>
-            <Trash2 size={15} />
-          </IconButton>
+          <ActionMenu
+            ariaLabel="Kart eylemleri"
+            items={[
+              {
+                id: "convert-task",
+                label: "Göreve dönüştür",
+                icon: CheckSquare,
+                disabled,
+                onSelect: () => convertToTask.mutate(),
+              },
+              {
+                id: "edit",
+                label: editing ? "Düzenlemeyi kapat" : "Başlık ve etiketleri düzenle",
+                icon: Tag,
+                disabled,
+                onSelect: () => setEditing((v) => !v),
+              },
+              ...TARGETS.map((target) => ({
+                id: `move-${target}`,
+                label: `${COLLECTION_LABELS[target]} içine taşı`,
+                icon: ArrowRight,
+                disabled,
+                onSelect: () => onMove(target),
+              })),
+              {
+                id: "delete",
+                label: "Sil",
+                icon: Trash2,
+                danger: true,
+                disabled,
+                onSelect: () => remove.mutate(),
+              },
+            ]}
+          />
         </div>
       </div>
 
@@ -314,6 +345,7 @@ function QuickCapture() {
 export function InboxPage() {
   const online = useOnline();
   const [dragging, setDragging] = useState<Bookmark | null>(null);
+  const [showInspector, setShowInspector] = useState(true);
   /** Klavye yolunun oznesi: uzerinde islem yapilacak kart. */
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const cardRefs = useRef(new Map<string, HTMLLIElement>());
@@ -371,17 +403,21 @@ export function InboxPage() {
     cardRefs.current.get(target.id)?.focus();
   }
 
-  function moveSelected(collection: Collection) {
-    if (!selectedId || !online) return;
-    const bookmark = data.find((b) => b.id === selectedId);
+  function moveCard(id: string, collection: Collection) {
+    if (!online) return;
+    const bookmark = data.find((b) => b.id === id);
     if (!bookmark) return;
-    const index = data.findIndex((b) => b.id === selectedId);
-    move.mutate({ id: selectedId, collection });
+    const index = data.findIndex((b) => b.id === id);
+    move.mutate({ id, collection });
     toast.push(`“${(bookmark.title || bookmark.url).slice(0, 40)}” ${COLLECTION_LABELS[collection]} içine taşındı`, {
       tone: "ok",
-      action: { label: "Geri al", run: () => move.mutate({ id: selectedId, collection: "inbox" }) },
+      action: { label: "Geri al", run: () => move.mutate({ id, collection: "inbox" }) },
     });
     restoreIndex.current = index;
+  }
+
+  function moveSelected(collection: Collection) {
+    if (selectedId) moveCard(selectedId, collection);
   }
 
   /** Liste uzerindeki kisayollar. Kart odaktayken calisir. */
@@ -417,37 +453,54 @@ export function InboxPage() {
     >
       <Workspace
         inspector={
-          <WorkspaceInspectorContent title="Taşı" hint={selectedId ? "1 kart seçili" : "önce kart seç"}>
-            <div className="stack-y-2">
-              {TARGETS.map((collection, index) => (
-                <DropTarget
-                  key={collection}
-                  collection={collection}
-                  index={index}
-                  count={countOf(collection)}
-                  hasSelection={Boolean(selectedId) && online}
-                  onMove={() => moveSelected(collection)}
-                />
-              ))}
-            </div>
-            <dl className="mt-4 stack-y-1.5 border-t border-subtle pt-3 text-meta text-muted">
-              {[
-                ["↑ ↓", "kartlar arasında gez"],
-                [`1–${TARGETS.length}`, "seçili kartı taşı"],
-              ].map(([keys, what]) => (
-                <div key={keys} className="flex items-center gap-2">
-                  <dt>
-                    <Kbd>{keys}</Kbd>
-                  </dt>
-                  <dd>{what}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="mt-3 text-meta text-muted">Sürükle, hedefe tıkla veya sayı tuşlarını kullan.</p>
-          </WorkspaceInspectorContent>
+          showInspector ? (
+            <WorkspaceInspectorContent
+              title="Taşı"
+              hint={selectedId ? "1 kart seçili" : "önce kart seç"}
+              onClose={() => setShowInspector(false)}
+            >
+              <div className="stack-y-2">
+                {TARGETS.map((collection, index) => (
+                  <DropTarget
+                    key={collection}
+                    collection={collection}
+                    index={index}
+                    count={countOf(collection)}
+                    hasSelection={Boolean(selectedId) && online}
+                    onMove={() => moveSelected(collection)}
+                  />
+                ))}
+              </div>
+              <dl className="mt-4 stack-y-1.5 border-t border-subtle pt-3 text-meta text-muted">
+                {[
+                  ["↑ ↓", "kartlar arasında gez"],
+                  [`1–${TARGETS.length}`, "seçili kartı taşı"],
+                ].map(([keys, what]) => (
+                  <div key={keys} className="flex items-center gap-2">
+                    <dt>
+                      <Kbd>{keys}</Kbd>
+                    </dt>
+                    <dd>{what}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-3 text-meta text-muted">Sürükle, hedefe tıkla veya sayı tuşlarını kullan.</p>
+            </WorkspaceInspectorContent>
+          ) : undefined
         }
       >
-        <WorkspacePaneHeader title="Bekleyenler" eyebrow="Gelen Kutusu" hint={`${data.length} kayıt`} />
+        <WorkspacePaneHeader
+          title="Bekleyenler"
+          eyebrow="Gelen Kutusu"
+          hint={`${data.length} kayıt`}
+          action={
+            !showInspector ? (
+              <Button size="sm" variant="ghost" onClick={() => setShowInspector(true)}>
+                Hedefleri göster
+              </Button>
+            ) : undefined
+          }
+        />
         <WorkspaceToolbar className="h-auto py-2">
           <QuickCapture />
         </WorkspaceToolbar>
@@ -465,6 +518,7 @@ export function InboxPage() {
                   disabled={!online}
                   selected={selectedId === bookmark.id}
                   onSelect={() => setSelectedId(bookmark.id)}
+                  onMove={(target) => moveCard(bookmark.id, target)}
                   registerRef={(node) => {
                     if (node) cardRefs.current.set(bookmark.id, node);
                     else cardRefs.current.delete(bookmark.id);

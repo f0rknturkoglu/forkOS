@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.entity import create_entity, delete_entity, touch_entity
@@ -68,12 +68,19 @@ from app.modules.opportunity.identity import (
 )
 from app.modules.opportunity.models import (
     Application,
+    ApplicationHistory,
     Interview,
     Opportunity,
     OpportunityRequirement,
     OpportunitySourceObservation,
+    OpportunitySuppression,
 )
 from app.modules.opportunity.schemas import (
+    BulkCleanupCriteria,
+    BulkCleanupExecuteIn,
+    BulkCleanupExecuteOut,
+    BulkCleanupPreviewOut,
+    BulkCleanupProtectionBreakdown,
     OpportunityEvaluationOut,
     OpportunityIn,
     OpportunityOut,
@@ -396,6 +403,27 @@ async def _record_discovery_change(
     )
 
 
+async def _suppress_opportunity(
+    session: AsyncSession, item: Opportunity, reason: str = "deleted"
+) -> None:
+    """Kalıcı silinen ilanın yeniden import edilmesini önlemek için tombstone kaydı yazar."""
+    canonical = canonical_url(item.url) if item.url else None
+    raw = item.raw if isinstance(item.raw, dict) else {}
+    forkjob = raw.get("forkjob") if isinstance(raw.get("forkjob"), dict) else {}
+    cluster_key = forkjob.get("cluster_key") or raw.get("cluster_key")
+    if not item.source and not canonical and not item.external_id:
+        return
+    sup = OpportunitySuppression(
+        id=uuid.uuid4(),
+        source=item.source or "unknown",
+        external_id=str(item.external_id) if item.external_id else None,
+        canonical_url=canonical,
+        dedup_hash=str(cluster_key) if cluster_key else None,
+        reason=reason,
+    )
+    session.add(sup)
+
+
 async def delete_opportunity(session: AsyncSession, item_id: uuid.UUID) -> bool:
     row = (
         await session.execute(
@@ -405,6 +433,7 @@ async def delete_opportunity(session: AsyncSession, item_id: uuid.UUID) -> bool:
     if row is None:
         return False
     item, title = row
+    await _suppress_opportunity(session, item, reason="user_deleted")
     await log_event(
         session,
         verb="opportunity.deleted",
@@ -416,6 +445,7 @@ async def delete_opportunity(session: AsyncSession, item_id: uuid.UUID) -> bool:
     await delete_entity(session, item.id)
     await session.commit()
     return True
+
 
 
 async def create(
@@ -1158,8 +1188,48 @@ async def ingest_jobs(session: AsyncSession, jobs: list[Any], source_label: str)
             if key:
                 existing_by_cluster.setdefault(str(key), []).append(row)
 
+    # Kalıcı silinenlerin yeniden içeri alınmasını önle (suppression filter)
+    suppressed_ext_ids: set[str] = set()
+    suppressed_canonical_urls: set[str] = set()
+    suppressed_clusters: set[str] = set()
+    suppression_clauses = []
+    if external_ids:
+        suppression_clauses.append(
+            and_(
+                OpportunitySuppression.source == source_label,
+                OpportunitySuppression.external_id.in_(external_ids),
+            )
+        )
+    if canonical_urls:
+        suppression_clauses.append(OpportunitySuppression.canonical_url.in_(canonical_urls))
+    if cluster_keys:
+        suppression_clauses.append(OpportunitySuppression.dedup_hash.in_(cluster_keys))
+
+    if suppression_clauses:
+        for sup in (
+            (await session.execute(select(OpportunitySuppression).where(or_(*suppression_clauses))))
+            .scalars()
+            .all()
+        ):
+            if sup.external_id:
+                suppressed_ext_ids.add(sup.external_id)
+            if sup.canonical_url:
+                suppressed_canonical_urls.add(sup.canonical_url)
+            if sup.dedup_hash:
+                suppressed_clusters.add(sup.dedup_hash)
+
     touched: list[Opportunity] = []
     for job, raw, forkjob in rows_by_job:
+        ext_id_str = str(job.external_id or getattr(job, "job_id", None) or "")
+        c_url = canonical_url(job.url) if job.url else None
+        c_key = str(forkjob.get("cluster_key") or raw.get("cluster_key") or "")
+        if (
+            (ext_id_str and ext_id_str in suppressed_ext_ids)
+            or (c_url and c_url in suppressed_canonical_urls)
+            or (c_key and c_key in suppressed_clusters)
+        ):
+            continue
+
         external_id = job.external_id or getattr(job, "job_id", None)
         published_at = getattr(job, "published_at", None)
         deadline_at = getattr(job, "deadline_at", None)
@@ -1791,4 +1861,173 @@ async def pending_follow_up_rows(session: AsyncSession) -> list[dict]:
 
 
 # ═════════════════════════════════════════════════════════════════════
-# Application CRM — basvuru akisi, gecmis, gorusme, takip, funnel
+# Toplu Kalıcı İlan Temizliği & Yeniden Giriş Önleme (Suppression)
+# ═════════════════════════════════════════════════════════════════════
+
+async def _bulk_cleanup_candidates(
+    session: AsyncSession, criteria: BulkCleanupCriteria
+) -> tuple[list[Opportunity], list[Opportunity], dict[str, int]]:
+    """(silinebilir satirlar, korunan satirlar, koruma kirilimi)"""
+    if not criteria.low_score and not criteria.dismissed:
+        return [], [], {
+            "applied": 0, "shortlisted": 0, "interviews": 0, "manual": 0, "notes": 0, "linked": 0
+        }
+
+    # Yalnızca job / internship türleri temizlenir; resmî duyurular dahil edilmez
+    kind_filter = Opportunity.kind.in_(["job", "internship"])
+
+    score_conditions = []
+    if criteria.low_score:
+        score_conditions.append(and_(Opportunity.score.is_not(None), Opportunity.score >= 0, Opportunity.score <= 40))
+    if criteria.dismissed:
+        score_conditions.append(or_(Opportunity.score == -1, Opportunity.status == "dismissed"))
+
+    matched_query = (
+        select(Opportunity)
+        .where(
+            kind_filter,
+            or_(*score_conditions),
+            Opportunity.trashed_at.is_(None),
+        )
+    )
+    matched_rows = list((await session.execute(matched_query)).scalars().all())
+    if not matched_rows:
+        return [], [], {
+            "applied": 0, "shortlisted": 0, "interviews": 0, "manual": 0, "notes": 0, "linked": 0
+        }
+
+    matched_ids = [m.id for m in matched_rows]
+
+    # Koruma alt kümeleri
+    applied_ids = set(
+        (await session.execute(
+            select(Application.opportunity_id).where(Application.opportunity_id.in_(matched_ids))
+        )).scalars().all()
+    )
+    history_ids = set(
+        (await session.execute(
+            select(ApplicationHistory.opportunity_id).where(
+                ApplicationHistory.opportunity_id.in_(matched_ids),
+                ApplicationHistory.scope == "application",
+            )
+        )).scalars().all()
+    )
+    all_applied = applied_ids | history_ids
+
+    interview_ids = set(
+        (await session.execute(
+            select(Interview.opportunity_id).where(Interview.opportunity_id.in_(matched_ids))
+        )).scalars().all()
+    )
+
+    linked_ids = set(
+        (await session.execute(
+            select(Link.from_id).where(Link.from_id.in_(matched_ids))
+            .union(select(Link.to_id).where(Link.to_id.in_(matched_ids)))
+        )).scalars().all()
+    )
+    req_doc_ids = set(
+        (await session.execute(
+            select(OpportunityRequirement.opportunity_id).where(
+                OpportunityRequirement.opportunity_id.in_(matched_ids),
+                OpportunityRequirement.document_entity_id.is_not(None),
+            )
+        )).scalars().all()
+    )
+    all_linked = linked_ids | req_doc_ids
+
+    breakdown = {
+        "applied": 0,
+        "shortlisted": 0,
+        "interviews": 0,
+        "manual": 0,
+        "notes": 0,
+        "linked": 0,
+    }
+
+    deletable: list[Opportunity] = []
+    protected: list[Opportunity] = []
+
+    for opp in matched_rows:
+        is_protected = False
+        if opp.id in all_applied:
+            breakdown["applied"] += 1
+            is_protected = True
+        if opp.status == "shortlisted":
+            breakdown["shortlisted"] += 1
+            is_protected = True
+        if opp.id in interview_ids:
+            breakdown["interviews"] += 1
+            is_protected = True
+        if opp.source == "manual":
+            breakdown["manual"] += 1
+            is_protected = True
+        if opp.notes and opp.notes.strip():
+            breakdown["notes"] += 1
+            is_protected = True
+        if opp.id in all_linked:
+            breakdown["linked"] += 1
+            is_protected = True
+
+        if is_protected:
+            protected.append(opp)
+        else:
+            deletable.append(opp)
+
+    return deletable, protected, breakdown
+
+
+async def bulk_cleanup_preview(
+    session: AsyncSession, criteria: BulkCleanupCriteria
+) -> BulkCleanupPreviewOut:
+    """Toplu silme önizlemesi: eşleşen, korunan ve silinecek kayıt sayıları."""
+    deletable, protected, breakdown = await _bulk_cleanup_candidates(session, criteria)
+    return BulkCleanupPreviewOut(
+        matched_total=len(deletable) + len(protected),
+        protected_total=len(protected),
+        deletable_total=len(deletable),
+        breakdown=BulkCleanupProtectionBreakdown(**breakdown),
+    )
+
+
+async def bulk_cleanup_execute(
+    session: AsyncSession, payload: BulkCleanupExecuteIn
+) -> BulkCleanupExecuteOut:
+    """Kalıcı toplu silme: kontrollü partiler halinde siler ve suppression yazar."""
+    if not payload.confirm:
+        raise ValueError("Kalıcı silme işlemi için açık onay (confirm=true) zorunludur.")
+
+    criteria = BulkCleanupCriteria(low_score=payload.low_score, dismissed=payload.dismissed)
+    deletable, protected, _breakdown = await _bulk_cleanup_candidates(session, criteria)
+
+    deleted_count = 0
+    suppressed_count = 0
+    batch_size = 200
+
+    for i in range(0, len(deletable), batch_size):
+        batch = deletable[i : i + batch_size]
+        for opp in batch:
+            await _suppress_opportunity(session, opp, reason="bulk_cleanup")
+            suppressed_count += 1
+            await delete_entity(session, opp.id)
+            deleted_count += 1
+
+        await log_event(
+            session,
+            verb="opportunity.bulk_cleaned",
+            entity_type="opportunity",
+            payload={
+                "batch_size": len(batch),
+                "total_deletable": len(deletable),
+                "low_score": payload.low_score,
+                "dismissed": payload.dismissed,
+            },
+        )
+        await session.flush()
+
+    await session.commit()
+    return BulkCleanupExecuteOut(
+        deleted_count=deleted_count,
+        skipped_count=len(protected),
+        suppressed_count=suppressed_count,
+    )

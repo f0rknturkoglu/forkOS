@@ -840,3 +840,37 @@ class ResolveAnswerIn(BaseModel):
 
 class PackageCoverLetterReviewIn(BaseModel):
     decision: Literal["approved", "rejected"]
+
+
+class BulkCleanupCriteria(BaseModel):
+    low_score: bool = False
+    dismissed: bool = False
+
+
+class BulkCleanupProtectionBreakdown(BaseModel):
+    applied: int = 0
+    shortlisted: int = 0
+    interviews: int = 0
+    manual: int = 0
+    notes: int = 0
+    linked: int = 0
+
+
+class BulkCleanupPreviewOut(BaseModel):
+    matched_total: int
+    protected_total: int
+    deletable_total: int
+    breakdown: BulkCleanupProtectionBreakdown
+
+
+class BulkCleanupExecuteIn(BaseModel):
+    low_score: bool = False
+    dismissed: bool = False
+    confirm: bool = False
+    expected_deletable: int | None = None
+
+
+class BulkCleanupExecuteOut(BaseModel):
+    deleted_count: int
+    skipped_count: int
+    suppressed_count: int

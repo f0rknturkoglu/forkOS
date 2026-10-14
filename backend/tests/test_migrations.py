@@ -148,6 +148,8 @@ def test_module_tables_reference_entity():
         # A4 anlamsal terfi ve dayanıklı hafıza aday tablosu:
         # operasyonel inceleme durumu; kanonik bilgi f0rknbrain Vault'unda yaşar.
         "agent_semantic_candidate",
+        # Kalıcı silinen ilanların tekrar içeri alınmasını önleyen tombstone tablosu.
+        "opportunity_suppression",
     }
     for name, table in Base.metadata.tables.items():
         if name in core_tables or name in support_tables:

@@ -10,6 +10,14 @@ import type { ImportResult } from "./types";
 
 type S = components["schemas"];
 
+const QUICK_TOPICS = [
+  { label: "İngilizce", query: "english" },
+  { label: "Almanca", query: "german" },
+  { label: "İspanyolca", query: "spanish" },
+  { label: "Türkçe", query: "turkish" },
+  { label: "Yazılım & Kod", query: "programming" },
+];
+
 export function DeckCatalog({ onOpen }: { onOpen: (id: string) => void }) {
   const online = useOnline();
   const toast = useToast();
@@ -54,7 +62,7 @@ export function DeckCatalog({ onOpen }: { onOpen: (id: string) => void }) {
       }
     >
       <form
-        className="mb-3 flex gap-2"
+        className="mb-2 flex gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           const link = /^https:\/\/(?:www\.)?ankiweb\.net\/shared\/info\/(\d+)\/?$/.exec(draft.trim());
@@ -73,6 +81,27 @@ export function DeckCatalog({ onOpen }: { onOpen: (id: string) => void }) {
           <Search size={14} /> {draft.trim().startsWith("https://ankiweb.net/shared/info/") ? "İncele" : "Ara"}
         </Button>
       </form>
+      <div className="mb-3 flex flex-wrap items-center gap-1.5 text-meta">
+        <span className="text-muted mr-1">Hızlı filtre:</span>
+        {QUICK_TOPICS.map((item) => (
+          <button
+            key={item.query}
+            type="button"
+            onClick={() => {
+              setDraft(item.query);
+              setSearch(item.query);
+            }}
+            className={cx(
+              "rounded-control border px-2 py-0.5 text-xs transition",
+              search === item.query
+                ? "border-accent-border bg-accent-surface font-medium text-accent"
+                : "border-subtle bg-surface text-secondary hover:border-strong",
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
       {catalog.isPending && online ? (
         <SkeletonRows rows={3} />
       ) : catalog.isError ? (
@@ -89,9 +118,10 @@ export function DeckCatalog({ onOpen }: { onOpen: (id: string) => void }) {
           {catalog.data.map((deck) => (
             <article key={deck.id} className="flex min-w-0 flex-col rounded-card border border-subtle p-3 stack-y-2">
               <h3 className="break-words text-body font-medium">{deck.title}</h3>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 <Chip>{deck.notes} not</Chip>
-                {deck.has_media && <Chip variant="outline">Medya içerir</Chip>}
+                {deck.notes >= 500 && <Chip tone="accent">Kapsamlı</Chip>}
+                {deck.has_media && <Chip variant="outline">Medya</Chip>}
               </div>
               <div className="mt-auto flex items-center justify-between gap-2 pt-2">
                 <a

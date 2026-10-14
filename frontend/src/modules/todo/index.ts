@@ -29,7 +29,7 @@ registerModule({
       component: OverdueTodosWidget,
       placement: "attention",
       order: 15,
-      defaultVisible: false,
+      defaultVisible: true,
     },
   ],
   commands: [

@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { api } from "@/core/api";
 import { createTask } from "@/core/tasks";
-import { IconButton, Input, cx, useToast } from "@/core/ui";
+import { ActionMenu, IconButton, Input, cx, useToast } from "@/core/ui";
 import { useOnline } from "@/lib/hooks";
 import { openPomodoro } from "@/modules/pomodoro/dock";
 import type { Todo } from "@/core/types";
@@ -368,15 +368,6 @@ export function TodoRow({
             "opacity-0 focus-within:opacity-100 group-hover:opacity-100",
           )}
         >
-          {!done && !dropped && !nested && (
-            <IconButton
-              title="Alt görev ekle"
-              disabled={!online}
-              onClick={() => setSubtask((current) => (current === null ? "" : null))}
-            >
-              <ListTree size={14} />
-            </IconButton>
-          )}
           {!done && !dropped && (
             <IconButton
               title="Odaklan — pomodoro seçeneklerini aç"
@@ -386,27 +377,69 @@ export function TodoRow({
               <Timer size={14} />
             </IconButton>
           )}
-          {!done && !dropped && !compact && !todo.due_at && (
-            <IconButton
-              title="Son tarih ver (bugün) — plan değil"
-              disabled={!online}
-              onClick={() => {
-                // App gununun ogleni (Faz 14/34): tarayicinin yerel saati
-                // degil; app tz wall time -> ISO UTC donusumu appLocalToUtc.
-                patch.mutate({ due_at: appLocalToUtc(todayKey(), 12, 0) });
-              }}
-            >
-              <CalendarPlus size={14} />
-            </IconButton>
-          )}
-          {!done && !dropped && !compact && (
-            <IconButton title="Bırak" disabled={!online} onClick={() => patch.mutate({ status: "dropped" })}>
-              <X size={14} />
-            </IconButton>
-          )}
-          <IconButton title="Sil" tone="danger" disabled={!online || remove.isPending} onClick={() => remove.mutate()}>
-            <Trash2 size={14} />
-          </IconButton>
+
+          <ActionMenu
+            items={[
+              ...(!done && !dropped && !nested
+                ? [
+                    {
+                      id: "subtask",
+                      label: "Alt görev ekle",
+                      icon: ListTree,
+                      onSelect: () => setSubtask((current) => (current === null ? "" : null)),
+                    },
+                  ]
+                : []),
+              ...(!done && !dropped && !todo.due_at
+                ? [
+                    {
+                      id: "due-today",
+                      label: "Son tarih ver (bugün)",
+                      icon: CalendarPlus,
+                      onSelect: () => patch.mutate({ due_at: appLocalToUtc(todayKey(), 12, 0) }),
+                    },
+                  ]
+                : []),
+              ...(!done && !dropped && !todo.planned_day
+                ? [
+                    {
+                      id: "plan-today",
+                      label: "Bugüne planla",
+                      icon: Calendar,
+                      onSelect: () => patch.mutate({ plan_day: todayKey() }),
+                    },
+                  ]
+                : []),
+              ...(!done && !dropped
+                ? [
+                    {
+                      id: "drop",
+                      label: "Bırak",
+                      icon: X,
+                      onSelect: () => patch.mutate({ status: "dropped" }),
+                    },
+                  ]
+                : []),
+              ...(dropped || done
+                ? [
+                    {
+                      id: "reopen",
+                      label: "Yeniden aç",
+                      icon: Check,
+                      onSelect: () => patch.mutate({ status: "open" }),
+                    },
+                  ]
+                : []),
+              {
+                id: "delete",
+                label: "Sil",
+                icon: Trash2,
+                danger: true,
+                disabled: !online || remove.isPending,
+                onSelect: () => remove.mutate(),
+              },
+            ]}
+          />
         </div>
       </div>
 

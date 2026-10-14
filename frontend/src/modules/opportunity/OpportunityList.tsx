@@ -1,5 +1,5 @@
 import { Bookmark, CalendarDays, ExternalLink, MapPin, MoreHorizontal, RotateCcw, Trash2, Users } from "lucide-react";
-import { Button, Chip, FilterChip, Select, cx, relativeTime } from "@/core/ui";
+import { ActionMenu, type ActionMenuItem, Button, Chip, FilterChip, Select, cx, relativeTime } from "@/core/ui";
 import type { Opportunity } from "@/core/types";
 import {
   REMOTE_LABELS,
@@ -194,95 +194,129 @@ export function OpportunityCard({
               ))}
             </Select>
           )}
-          <details
-            className="relative"
-            onKeyDown={(event) => {
-              if (event.key !== "Escape") return;
-              event.preventDefault();
-              event.currentTarget.open = false;
-              event.currentTarget.querySelector("summary")?.focus();
-            }}
+          <ActionMenu
+            label={`${item.title} — diğer işlemler`}
+            header={
+              <div>
+                <span>
+                  {kindLabel(item.kind)} · {sourceLabel(item.source)}
+                </span>
+                {item.evaluation_stale_reason && (
+                  <p className="mt-0.5 text-meta text-warn">Değerlendirme güncel değil</p>
+                )}
+                {item.intelligence?.is_repost && (
+                  <p className="mt-0.5 text-meta text-warn">Tekrar ilan · {item.intelligence.repost_count}</p>
+                )}
+                {item.intelligence?.pay_transparency_risk && (
+                  <p className="mt-0.5 text-meta text-warn">Geniş ücret bandı</p>
+                )}
+              </div>
+            }
+            items={[
+              ...(item.url
+                ? [
+                    {
+                      id: "open-url",
+                      label: "İlanı aç",
+                      icon: <ExternalLink size={13} />,
+                      href: item.url,
+                    },
+                  ]
+                : []),
+              ...(onSave && item.allowed_transitions.includes("shortlisted") && !isTrash
+                ? [
+                    {
+                      id: "shortlist",
+                      label: "Kısa listeye al",
+                      icon: <Bookmark size={13} />,
+                      onSelect: onSave,
+                      disabled,
+                    },
+                  ]
+                : []),
+              ...(onSource
+                ? [
+                    {
+                      id: "filter-source",
+                      label: `Kaynağa göre filtrele (${sourceLabel(item.source)})`,
+                      onSelect: () => onSource(item.source),
+                    },
+                  ]
+                : []),
+              ...(onRemote && rk
+                ? [
+                    {
+                      id: "filter-remote",
+                      label: `Çalışma biçimine göre filtrele (${REMOTE_LABELS[rk]})`,
+                      onSelect: () => onRemote(rk),
+                    },
+                  ]
+                : []),
+              ...(onKind
+                ? [
+                    {
+                      id: "filter-kind",
+                      label: `Türe göre filtrele (${kindLabel(item.kind)})`,
+                      onSelect: () => onKind(item.kind),
+                    },
+                  ]
+                : []),
+              ...(isTrash
+                ? [
+                    {
+                      id: "restore",
+                      label: "Geri yükle",
+                      icon: <RotateCcw size={13} />,
+                      onSelect: onRestore,
+                      disabled,
+                      separatorBefore: true,
+                    },
+                    {
+                      id: "delete",
+                      label: "Kalıcı sil",
+                      icon: <Trash2 size={13} />,
+                      onSelect: onDelete,
+                      disabled,
+                      tone: "danger" as const,
+                    },
+                  ]
+                : [
+                    {
+                      id: "trash",
+                      label: "Çöpe at",
+                      icon: <Trash2 size={13} />,
+                      onSelect: onTrash,
+                      disabled,
+                      tone: "danger" as const,
+                      separatorBefore: true,
+                    },
+                  ]),
+            ]}
           >
-            <summary
-              role="button"
-              className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-control border border-subtle text-secondary hover:bg-surface-hover"
-              aria-label={`${item.title} — diğer işlemler`}
-            >
-              <MoreHorizontal size={16} />
-            </summary>
-            <div className="absolute right-0 top-full z-popover mt-1 flex w-56 flex-col gap-1 rounded-card border border-subtle bg-surface-raised p-2 shadow-overlay">
-              <p className="px-2 text-micro text-muted">
-                {kindLabel(item.kind)} · {sourceLabel(item.source)}
-              </p>
-              {!isTrash && (
-                <Select
-                  value={item.status}
-                  disabled={disabled}
-                  ariaLabel={`${item.title} — durum (dar ekran)`}
-                  onChange={onStatus}
-                  className="w-full sm:hidden"
-                >
-                  <option value={item.status}>{statusLabel(item.status)}</option>
-                  {(item.allowed_transitions ?? []).map((status) => (
-                    <option key={status} value={status}>
-                      {statusLabel(status)}
-                    </option>
-                  ))}
-                </Select>
-              )}
-              {item.evaluation_stale_reason && <p className="px-2 text-meta text-warn">Değerlendirme güncel değil</p>}
-              {item.intelligence?.is_repost && (
-                <p className="px-2 text-meta text-warn">Tekrar ilan · {item.intelligence.repost_count}</p>
-              )}
-              {item.intelligence?.pay_transparency_risk && (
-                <p className="px-2 text-meta text-warn">Geniş ücret bandı</p>
-              )}
-              {item.url && (
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2 py-1 text-meta text-accent hover:underline"
-                >
-                  İlanı aç <ExternalLink size={12} className="inline" />
-                </a>
-              )}
-              {onSave && item.allowed_transitions.includes("shortlisted") && !isTrash && (
-                <Button size="sm" onClick={onSave} disabled={disabled}>
-                  <Bookmark size={13} /> Kısa Listeye Al
-                </Button>
-              )}
-              {onSource && (
-                <Button size="sm" onClick={() => onSource(item.source)}>
-                  Kaynağa göre filtrele
-                </Button>
-              )}
-              {onRemote && rk && (
-                <Button size="sm" onClick={() => onRemote(rk)}>
-                  Çalışma biçimine göre filtrele
-                </Button>
-              )}
-              {onKind && (
-                <Button size="sm" onClick={() => onKind(item.kind)}>
-                  Türe göre filtrele
-                </Button>
-              )}
-              {isTrash ? (
-                <>
-                  <Button size="sm" onClick={onRestore} disabled={disabled}>
-                    <RotateCcw size={13} /> Geri yükle
-                  </Button>
-                  <Button size="sm" variant="danger" onClick={onDelete} disabled={disabled}>
-                    Kalıcı sil
-                  </Button>
-                </>
-              ) : (
-                <Button size="sm" variant="danger" onClick={onTrash} disabled={disabled}>
-                  <Trash2 size={13} /> Çöpe at
-                </Button>
-              )}
-            </div>
-          </details>
+            {(close) =>
+              !isTrash ? (
+                <div className="p-1 sm:hidden">
+                  <Select
+                    value={item.status}
+                    disabled={disabled}
+                    ariaLabel={`${item.title} — durum (dar ekran)`}
+                    onChange={(newStatus) => {
+                      onStatus(newStatus);
+                      close();
+                    }}
+                    className="w-full"
+                  >
+                    <option value={item.status}>{statusLabel(item.status)}</option>
+                    {(item.allowed_transitions ?? []).map((status) => (
+                      <option key={status} value={status}>
+                        {statusLabel(status)}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null
+            }
+          </ActionMenu>
         </div>
       </article>
     );

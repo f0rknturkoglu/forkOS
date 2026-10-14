@@ -147,69 +147,71 @@ export function RssReadingPane({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        <h1 className="text-title leading-snug text-primary">{detail.title}</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted">
-          <span className="text-secondary">{detail.feed_title}</span>
-          {detail.author && <span>· {detail.author}</span>}
-          {detail.published_at && <span>· {relativeTime(detail.published_at)}</span>}
-          {detail.url && (
-            <a
-              href={detail.url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-accent hover:underline"
-            >
-              <ExternalLink size={12} /> orijinali
-            </a>
-          )}
-        </div>
-
-        {view === "full" && fullText ? (
-          <div
-            className="article-content mt-5 text-secondary"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(fullText) }}
-          />
-        ) : hasBody ? (
-          detail.content ? (
-            <div
-              className="article-content mt-5 text-secondary"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(detail.content) }}
-            />
-          ) : (
-            <p className="mt-5 whitespace-pre-wrap text-body leading-relaxed text-secondary">
-              {stripHtml(detail.summary ?? "")}
-            </p>
-          )
-        ) : (
-          <p className="mt-5 text-body text-muted">
-            Bu yazının özeti veya içeriği yok.{" "}
+        <div className="mx-auto max-w-prose">
+          <h1 className="text-title leading-snug font-semibold text-primary">{detail.title}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-muted border-b border-subtle pb-3">
+            <span className="font-medium text-secondary">{detail.feed_title}</span>
+            {detail.author && <span>· {detail.author}</span>}
+            {detail.published_at && <span>· {relativeTime(detail.published_at)}</span>}
             {detail.url && (
-              <a href={detail.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-                Orijinal sayfasında aç →
+              <a
+                href={detail.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-accent hover:underline ml-auto"
+              >
+                <ExternalLink size={12} /> orijinali ↗
               </a>
             )}
-          </p>
-        )}
-
-        {detail.url && view === "summary" && !fullText && (
-          <div className="mt-4 flex items-center gap-3">
-            <Button size="sm" disabled={!online || fetching} onClick={fetchFullText}>
-              {fetching ? "Getiriliyor…" : "Tam metni getir"}
-            </Button>
-            {notice && <span className="text-meta text-muted">Tam metin alınamadı</span>}
           </div>
-        )}
 
-        {fullText && (
-          <div className="mt-4 flex items-center gap-2">
-            <Button size="sm" variant={view === "summary" ? "primary" : "ghost"} onClick={() => setView("summary")}>
-              Özet
-            </Button>
-            <Button size="sm" variant={view === "full" ? "primary" : "ghost"} onClick={() => setView("full")}>
-              Tam metin
-            </Button>
-          </div>
-        )}
+          {view === "full" && fullText ? (
+            <div
+              className="article-content mt-5 text-secondary leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(fullText) }}
+            />
+          ) : hasBody ? (
+            detail.content ? (
+              <div
+                className="article-content mt-5 text-secondary leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(detail.content) }}
+              />
+            ) : (
+              <p className="mt-5 whitespace-pre-wrap text-body leading-relaxed text-secondary">
+                {stripHtml(detail.summary ?? "")}
+              </p>
+            )
+          ) : (
+            <p className="mt-5 text-body text-muted">
+              Bu yazının özeti veya içeriği yok.{" "}
+              {detail.url && (
+                <a href={detail.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                  Orijinal sayfasında aç →
+                </a>
+              )}
+            </p>
+          )}
+
+          {detail.url && view === "summary" && !fullText && (
+            <div className="mt-5 flex items-center gap-3">
+              <Button size="sm" disabled={!online || fetching} onClick={fetchFullText}>
+                {fetching ? "Getiriliyor…" : "Tam metni getir"}
+              </Button>
+              {notice && <span className="text-meta text-muted">Tam metin alınamadı</span>}
+            </div>
+          )}
+
+          {fullText && (
+            <div className="mt-5 flex items-center gap-2">
+              <Button size="sm" variant={view === "summary" ? "primary" : "ghost"} onClick={() => setView("summary")}>
+                Özet
+              </Button>
+              <Button size="sm" variant={view === "full" ? "primary" : "ghost"} onClick={() => setView("full")}>
+                Tam metin
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </>
   );

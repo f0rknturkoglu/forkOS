@@ -189,95 +189,123 @@ export function GoalsPage() {
               <>
                 {!selected ? (
                   <div className="stack-y-5">
+                    {data.objectives.length > 0 && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {data.objectives
+                          .filter((o) => !o.goal.parent_goal_id)
+                          .map((o) => {
+                            const workPct =
+                              o.roadmap_progress_percent !== undefined
+                                ? o.roadmap_progress_percent
+                                : o.work?.progress_percent;
+                            const totalScope = o.roadmap_scope_count ?? o.work?.total_count ?? 0;
+                            const completedScope = o.roadmap_completed_scope_count ?? o.work?.completed_count ?? 0;
+                            return (
+                              <button
+                                key={o.goal.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelected(o.goal.id);
+                                  navigate(`/goals?entity=${encodeURIComponent(o.goal.id)}`);
+                                }}
+                                className="group rounded-card border border-subtle bg-surface p-4 text-left transition hover:border-strong hover:bg-surface-raised stack-y-3"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0 flex-1">
+                                    <h2 className="text-heading font-semibold group-hover:text-accent transition-colors line-clamp-2">
+                                      {o.goal.title}
+                                    </h2>
+                                    {o.goal.target_at && (
+                                      <p className="mt-0.5 text-meta text-muted">
+                                        Hedef: {formatAppDate(o.goal.target_at, { day: "numeric", month: "short", year: "numeric" })}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <span className="font-sans text-title font-bold tabular-nums">
+                                      {workPct == null ? "—" : `%${workPct}`}
+                                    </span>
+                                    <span className="block text-[11px] text-muted">ilerleme</span>
+                                  </div>
+                                </div>
+                                <WorkProgress
+                                  work={
+                                    o.roadmap_progress_percent !== undefined
+                                      ? { ...o.work, progress_percent: o.roadmap_progress_percent }
+                                      : o.work
+                                  }
+                                />
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-meta text-secondary pt-1 border-t border-subtle">
+                                  <span>
+                                    {totalScope > 0
+                                      ? `${completedScope}/${totalScope} adım`
+                                      : "İlk adımı ekle"}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {o.strategic_progress_percent != null && (
+                                      <span className="text-meta text-muted">
+                                        Sonuç: %{o.strategic_progress_percent}
+                                      </span>
+                                    )}
+                                    {o.trajectory && o.trajectory !== "unknown" && o.trajectory !== "not_applicable" && (
+                                      <span className="rounded bg-surface-raised px-1.5 py-0.5 text-[11px] font-medium text-secondary">
+                                        {pace[o.trajectory]}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    )}
                     <section
-                      className="rounded-card border border-subtle bg-surface p-5 stack-y-3"
+                      className="rounded-card border border-subtle bg-surface p-4 stack-y-3"
                       aria-label="Hedefini anlat"
                     >
-                      <h2 className="text-title font-semibold">Neyi başarmak istiyorsun?</h2>
-                      <p className="text-body text-secondary">
-                        Hedefini ve ayırabileceğin zamanı anlat. Hermes yapılabilir bir yol haritası, görevler ve
-                        öğrenme planı hazırlasın.
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <h2 className="text-body font-semibold">Yeni bir hedef planla</h2>
+                        <span className="text-meta text-muted">Hermes ile yol haritası ve görevler hazırla</span>
+                      </div>
                       <Textarea
                         ariaLabel="Yeni hedef isteği"
                         value={composer}
                         onChange={setComposer}
-                        rows={4}
-                        placeholder="Örneğin: YDS’den en az 55 almak istiyorum. Günde iki saat çalışabilirim."
+                        rows={2}
+                        placeholder="Örn: 3 ayda Go ile mikroservis mimarisi öğrenmek istiyorum. Günde 1 saat çalışabilirim."
                       />
-                      <div className="flex flex-wrap items-center gap-3">
-                        <Checkbox label="Uzun vadeli" checked={longTerm} onChange={setLongTerm} />
-                        <Button
-                          variant="primary"
-                          disabled={!online || !composer.trim()}
-                          onClick={() => {
-                            setInitialRequest(composer.trim());
-                            setCreateOpen(true);
-                            setManual(false);
-                          }}
-                        >
-                          Hedef planımı hazırla
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          disabled={!online}
-                          onClick={() => {
-                            setManual(true);
-                            setCreateOpen(true);
-                          }}
-                        >
-                          Kendim oluştur
-                        </Button>
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                        <Checkbox label="Uzun vadeli hedef" checked={longTerm} onChange={setLongTerm} />
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={!online}
+                            onClick={() => {
+                              setManual(true);
+                              setCreateOpen(true);
+                            }}
+                          >
+                            Kendim oluştur
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={!online || !composer.trim()}
+                            onClick={() => {
+                              setInitialRequest(composer.trim());
+                              setCreateOpen(true);
+                              setManual(false);
+                            }}
+                          >
+                            Plan hazırla
+                          </Button>
+                        </div>
                       </div>
                     </section>
-                    {data.objectives.length ? (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {data.objectives
-                          .filter((o) => !o.goal.parent_goal_id)
-                          .map((o) => (
-                            <button
-                              key={o.goal.id}
-                              type="button"
-                              onClick={() => {
-                                setSelected(o.goal.id);
-                                navigate(`/goals?entity=${encodeURIComponent(o.goal.id)}`);
-                              }}
-                              className="rounded-card border border-subtle bg-surface p-4 text-left transition hover:border-strong stack-y-3"
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <h2 className="text-heading">{o.goal.title}</h2>
-                                <span className="font-sans text-title font-bold tabular-nums">
-                                  {(o.roadmap_progress_percent !== undefined
-                                    ? o.roadmap_progress_percent
-                                    : o.work?.progress_percent) == null
-                                    ? "—"
-                                    : `%${o.roadmap_progress_percent !== undefined ? o.roadmap_progress_percent : o.work?.progress_percent}`}
-                                </span>
-                              </div>
-                              <WorkProgress
-                                work={
-                                  o.roadmap_progress_percent !== undefined
-                                    ? { ...o.work, progress_percent: o.roadmap_progress_percent }
-                                    : o.work
-                                }
-                              />
-                              <p className="text-meta text-muted">
-                                {(o.roadmap_scope_count ?? o.work?.total_count)
-                                  ? `${o.roadmap_completed_scope_count ?? o.work?.completed_count}/${o.roadmap_scope_count ?? o.work?.total_count} ana adım tamamlandı`
-                                  : "İlk adımını ekle"}
-                                {o.goal.target_at
-                                  ? ` · ${formatAppDate(o.goal.target_at, { day: "numeric", month: "long", year: "numeric" })}`
-                                  : ""}
-                              </p>
-                            </button>
-                          ))}
-                      </div>
-                    ) : (
-                      <Empty title="İlk hedefini oluştur">
-                        <span>Ne başarmak istediğini Hermes’e anlat; birlikte yapılabilir adımlara ayırın.</span>
-                        <Button variant="primary" disabled={!online} onClick={() => setCreateOpen(true)}>
-                          Hedef oluştur
-                        </Button>
+                    {data.objectives.length === 0 && (
+                      <Empty title="Henüz bir hedef eklenmedi">
+                        <span>Ne başarmak istediğini yukarıdaki kutucuğa yaz; Hermes ile birlikte yapılabilir adımlara ayırın.</span>
                       </Empty>
                     )}
                   </div>

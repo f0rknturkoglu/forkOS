@@ -61,18 +61,20 @@ import {
   statusLabel,
 } from "./labels";
 
-type JobTab = "ozet" | "uyum" | "basvuru" | "notlar";
+type JobTab = "ozet" | "uyum" | "uzman" | "basvuru" | "notlar";
 
 const TAB_ITEMS = [
   { id: "ozet", label: "Özet" },
-  { id: "uyum", label: "Uyum" },
+  { id: "uyum", label: "Uyum ve CV" },
+  { id: "uzman", label: "Kariyer Uzmanı" },
   { id: "basvuru", label: "Başvuru" },
   { id: "notlar", label: "Notlar ve İlişkiler" },
 ] as const;
 
 const TAB_LABELS: Record<JobTab, string> = {
   ozet: "Özet",
-  uyum: "Uyum",
+  uyum: "Uyum ve CV",
+  uzman: "Kariyer Uzmanı",
   basvuru: "Başvuru",
   notlar: "Notlar ve İlişkiler",
 };
@@ -176,19 +178,20 @@ const TIMELINE_ICONS: Record<ApplicationTimelineEntry["kind"], LucideIcon> = {
   rejection: XCircle,
 };
 
-/** Is ilani detayi: ozet, uc katmanli uyum, basvuru hatti ve iliski/notlar. */
-export function JobDetail({ item }: { item: Opportunity }) {
+/** Is ilani detayi: ozet, uc katmanli uyum, uzman analizi, basvuru hatti ve iliski/notlar. */
+export function JobDetail({ item, onOpenFull }: { item: Opportunity; onOpenFull?: () => void }) {
   const online = useOnline();
   const [tab, setTab] = useState<JobTab>("ozet");
 
   return (
     <div className="flex flex-col gap-4">
-      <JobSummary item={item} online={online} />
+      <JobSummary item={item} online={online} onOpenFull={onOpenFull} />
       <ContextualHelp key={item.id} context={{ kind: "career", entity_id: item.id }} label="Sonraki adımım ne?" />
       <Tabs<JobTab> ariaLabel="İş ilanı sekmeleri" value={tab} onChange={setTab} items={[...TAB_ITEMS]} />
       <div role="tabpanel" aria-label={TAB_LABELS[tab]} id={`job-tabpanel-${tab}`}>
         {tab === "ozet" && <JobOverview item={item} online={online} />}
         {tab === "uyum" && <JobFit item={item} online={online} />}
+        {tab === "uzman" && <JobExpert item={item} online={online} />}
         {tab === "basvuru" && <JobApplication item={item} online={online} />}
         {tab === "notlar" && <JobNotes item={item} online={online} />}
       </div>
@@ -196,7 +199,7 @@ export function JobDetail({ item }: { item: Opportunity }) {
   );
 }
 
-function JobSummary({ item, online }: { item: Opportunity; online: boolean }) {
+function JobSummary({ item, online, onOpenFull }: { item: Opportunity; online: boolean; onOpenFull?: () => void }) {
   const shortlist = useMutation({
     mutationFn: () => api.post(`/opportunities/${item.id}/transition`, { to: "shortlisted" }),
     onSuccess: () => invalidateAfter("opportunity.write"),
@@ -205,15 +208,20 @@ function JobSummary({ item, online }: { item: Opportunity; online: boolean }) {
   const left = daysLeft(item.deadline_at);
   const workMode = remoteKind(item.remote);
   const url = item.url;
+  const isEliminated = band === "eliminated" || item.status === "dismissed";
 
   return (
     <div className="stack-y-3">
       <div className="flex flex-wrap items-center gap-1.5">
         <Chip>{kindLabel(item.kind)}</Chip>
         <Chip>{jobCategoryLabel(item.category)}</Chip>
-        <Chip tone={STATUS_TONES[item.status] ?? "neutral"}>{statusLabel(item.status)}</Chip>
-        {band && (
-          <Chip tone={SCORE_TONE[band]}>{band === "eliminated" ? "Elendi" : `${displayScore(item.score)} Puan`}</Chip>
+        <Chip tone={isEliminated ? "danger" : STATUS_TONES[item.status] ?? "neutral"}>
+          {statusLabel(item.status)}
+        </Chip>
+        {item.score !== null && item.score !== undefined && (
+          <Chip tone={isEliminated ? "danger" : band ? SCORE_TONE[band] : "neutral"}>
+            {isEliminated ? "Elendi" : `${displayScore(item.score)} Puan`}
+          </Chip>
         )}
       </div>
       <p className="text-meta text-muted">
@@ -223,27 +231,30 @@ function JobSummary({ item, online }: { item: Opportunity; online: boolean }) {
       </p>
       <div className="flex flex-wrap items-center gap-2">
         {url && (
-          <>
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="flex h-control items-center gap-1.5 rounded-control border border-subtle bg-surface px-3 text-meta font-medium text-primary transition hover:bg-surface-hover"
-            >
-              <ExternalLink size={13} /> İlanı Aç
-            </a>
-            {item.allowed_transitions.includes("shortlisted") && (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={!online || shortlist.isPending}
-                title="Kısa Listeye Al"
-                onClick={() => shortlist.mutate()}
-              >
-                <Star size={13} /> Kısa Listeye Al
-              </Button>
-            )}
-          </>
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-control items-center gap-1.5 rounded-control border border-subtle bg-surface px-3 text-meta font-medium text-primary transition hover:bg-surface-hover"
+          >
+            <ExternalLink size={13} /> İlanı Aç
+          </a>
+        )}
+        {!isEliminated && item.allowed_transitions.includes("shortlisted") && (
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!online || shortlist.isPending}
+            title="Kısa Listeye Al"
+            onClick={() => shortlist.mutate()}
+          >
+            <Star size={13} /> Kısa Listeye Al
+          </Button>
+        )}
+        {onOpenFull && (
+          <Button size="sm" variant="primary" onClick={onOpenFull}>
+            Tam detayı aç
+          </Button>
         )}
         {left !== null && (
           <span className={`text-meta font-medium tabular-nums ${left <= 7 ? "text-warn" : "text-muted"}`}>
@@ -392,6 +403,7 @@ function ListingHealthSection({ item, online }: { item: Opportunity; online: boo
 function JobOverview({ item, online }: { item: Opportunity; online: boolean }) {
   const risk = closureRisk(item);
   const workMode = remoteKind(item.remote);
+  const rawDesc = item.raw?.description || item.raw?.forkjob?.description;
   const rows: [string, string][] = [
     ["Kurum", item.organization || "—"],
     ["Lokasyon", item.location || "Belirtilmemiş"],
@@ -418,6 +430,14 @@ function JobOverview({ item, online }: { item: Opportunity; online: boolean }) {
           ))}
         </dl>
       </Section>
+
+      {rawDesc && (
+        <Section title="Görev tanımı ve açıklama">
+          <div className="max-h-96 overflow-y-auto rounded-card border border-subtle bg-surface-sunken p-3 text-meta text-primary leading-relaxed whitespace-pre-line">
+            {rawDesc}
+          </div>
+        </Section>
+      )}
 
       <ListingHealthSection item={item} online={online} />
 
@@ -611,8 +631,14 @@ function JobFit({ item, online }: { item: Opportunity; online: boolean }) {
         <OpportunityEvaluationSection id={item.id} evaluation={evaluation} online={online} />
       </Section>
 
-      {/* (d) Derin Uzman Değerlendirmesi (C4). */}
-      <Section title="Kariyer Uzmanı Derin Değerlendirmesi" hint="kanıta dayalı analiz">
+    </div>
+  );
+}
+
+function JobExpert({ item, online }: { item: Opportunity; online: boolean }) {
+  return (
+    <div className="stack-y-4">
+      <Section title="Kariyer Uzmanı Derin Değerlendirmesi" hint="Kanıta dayalı analiz">
         <OpportunityDeepEvaluationSection opportunityId={item.id} online={online} />
       </Section>
     </div>

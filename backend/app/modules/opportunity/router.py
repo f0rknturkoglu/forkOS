@@ -40,6 +40,10 @@ from app.modules.opportunity.schemas import (
     ApplicationListOut,
     ApplicationPackageOut,
     ApplicationTimelineOut,
+    BulkCleanupCriteria,
+    BulkCleanupExecuteIn,
+    BulkCleanupExecuteOut,
+    BulkCleanupPreviewOut,
     CareerConnectionOut,
     CareerConnectionsImportOut,
     CareerStoryIn,
@@ -838,6 +842,27 @@ async def prune_opportunities(
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
     return PruneResultOut(**result)
+
+
+@router.post("/opportunities/cleanup/preview", response_model=BulkCleanupPreviewOut)
+async def bulk_cleanup_preview(
+    criteria: BulkCleanupCriteria,
+    session: AsyncSession = Depends(get_session),
+):
+    """Toplu silme önizlemesi: kriterlere uyan, korunan ve silinebilecek kayıtları listeler."""
+    return await service.bulk_cleanup_preview(session, criteria)
+
+
+@router.post("/opportunities/cleanup/execute", response_model=BulkCleanupExecuteOut)
+async def bulk_cleanup_execute(
+    payload: BulkCleanupExecuteIn,
+    session: AsyncSession = Depends(get_session),
+):
+    """Kalıcı toplu silme ve suppression kaydı oluşturma."""
+    try:
+        return await service.bulk_cleanup_execute(session, payload)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 # Liveness ve JD zenginleştirme (C3)

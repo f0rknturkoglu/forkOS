@@ -21,17 +21,18 @@ export function GoalRoadmap({
   selected: string | null;
   onSelect: (node: RoadmapNode) => void;
 }) {
-  const [collapsed, setCollapsed] = useState<Set<string>>(
-    () => new Set(graph.nodes.filter((n) => !n.parent_id).map((n) => n.id)),
-  );
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [scale, setScale] = useState(1);
   const [list, setList] = useState(false);
   const viewport = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+
   useEffect(() => {
-    setCollapsed(new Set(graph.nodes.filter((n) => !n.parent_id).map((n) => n.id)));
+    // Kök aşamaları açık tut, çok derin düğümleri isteğe bağlı aç/kapat
+    setCollapsed(new Set());
     setScale(1);
   }, [graph.goal_id]);
+
   const children = useMemo(() => {
     const map = new Map<string | null, RoadmapNode[]>();
     for (const n of graph.nodes) {
@@ -40,19 +41,57 @@ export function GoalRoadmap({
     }
     return map;
   }, [graph.nodes]);
+
   const layout = useMemo(() => {
     const out: { node: RoadmapNode; x: number; y: number; depth: number }[] = [];
     const seen = new Set<string>();
-    const walk = (parent: string | null, depth: number) => {
-      if (depth > 32) return;
-      for (const node of children.get(parent) ?? []) {
-        if (seen.has(node.id)) continue;
-        seen.add(node.id);
-        out.push({ node, x: depth * COLUMN + 24, y: out.length * ROW + 96, depth });
-        if (!collapsed.has(node.id)) walk(node.id, depth + 1);
+    let leafY = 80;
+
+    const computeSubtree = (nodeId: string, depth: number): { topY: number; bottomY: number; centerY: number } => {
+      const nodeChildren = (children.get(nodeId) ?? []).filter((c) => !seen.has(c.id));
+      const isExpanded = !collapsed.has(nodeId) && nodeChildren.length > 0;
+
+      if (!isExpanded) {
+        const y = leafY;
+        leafY += ROW;
+        return { topY: y, bottomY: y, centerY: y };
       }
+
+      const childPositions: { centerY: number }[] = [];
+      let minChildY = Infinity;
+      let maxChildY = -Infinity;
+
+      for (const child of nodeChildren) {
+        seen.add(child.id);
+        const childBox = computeSubtree(child.id, depth + 1);
+        childPositions.push(childBox);
+        minChildY = Math.min(minChildY, childBox.topY);
+        maxChildY = Math.max(maxChildY, childBox.bottomY);
+        out.push({
+          node: child,
+          x: (depth + 1) * COLUMN + 24,
+          y: childBox.centerY,
+          depth: depth + 1,
+        });
+      }
+
+      const centerY = (childPositions[0].centerY + childPositions[childPositions.length - 1].centerY) / 2;
+      return { topY: minChildY, bottomY: maxChildY, centerY };
     };
-    walk(null, 0);
+
+    const roots = children.get(null) ?? [];
+    for (const root of roots) {
+      if (seen.has(root.id)) continue;
+      seen.add(root.id);
+      const rootBox = computeSubtree(root.id, 0);
+      out.push({
+        node: root,
+        x: 24,
+        y: rootBox.centerY,
+        depth: 0,
+      });
+    }
+
     return out;
   }, [children, collapsed]);
   const positions = new Map(layout.map((p) => [p.node.id, p]));
@@ -130,6 +169,11 @@ export function GoalRoadmap({
           {w}
         </p>
       ))}
+      {graph.nodes.length > 0 && !graph.nodes.some((n) => n.target_id || n.kind === "record") && (
+        <p className="p-3 text-meta text-muted border-b border-subtle bg-surface-sunken">
+          Bu hedef aşamalarına bağlı otomatik görev bulunmuyor; düğümleri seçerek ilgili görev veya adımları takip edebilirsiniz.
+        </p>
+      )}
       <div className={list ? "hidden" : "hidden sm:block"}>
         <div
           ref={viewport}

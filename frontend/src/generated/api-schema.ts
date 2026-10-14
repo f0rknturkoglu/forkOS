@@ -2763,6 +2763,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/opportunities/cleanup/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Cleanup Execute
+         * @description Kalıcı toplu silme ve suppression kaydı oluşturma.
+         */
+        post: operations["bulk_cleanup_execute_api_opportunities_cleanup_execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/opportunities/cleanup/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Cleanup Preview
+         * @description Toplu silme önizlemesi: kriterlere uyan, korunan ve silinebilecek kayıtları listeler.
+         */
+        post: operations["bulk_cleanup_preview_api_opportunities_cleanup_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/opportunities/followups": {
         parameters: {
             query?: never;
@@ -6252,6 +6292,91 @@ export interface components {
             tool_count: number;
             /** Transport */
             transport: string;
+        };
+        /** BulkCleanupCriteria */
+        BulkCleanupCriteria: {
+            /**
+             * Dismissed
+             * @default false
+             */
+            dismissed: boolean;
+            /**
+             * Low Score
+             * @default false
+             */
+            low_score: boolean;
+        };
+        /** BulkCleanupExecuteIn */
+        BulkCleanupExecuteIn: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /**
+             * Dismissed
+             * @default false
+             */
+            dismissed: boolean;
+            /** Expected Deletable */
+            expected_deletable?: number | null;
+            /**
+             * Low Score
+             * @default false
+             */
+            low_score: boolean;
+        };
+        /** BulkCleanupExecuteOut */
+        BulkCleanupExecuteOut: {
+            /** Deleted Count */
+            deleted_count: number;
+            /** Skipped Count */
+            skipped_count: number;
+            /** Suppressed Count */
+            suppressed_count: number;
+        };
+        /** BulkCleanupPreviewOut */
+        BulkCleanupPreviewOut: {
+            breakdown: components["schemas"]["BulkCleanupProtectionBreakdown"];
+            /** Deletable Total */
+            deletable_total: number;
+            /** Matched Total */
+            matched_total: number;
+            /** Protected Total */
+            protected_total: number;
+        };
+        /** BulkCleanupProtectionBreakdown */
+        BulkCleanupProtectionBreakdown: {
+            /**
+             * Applied
+             * @default 0
+             */
+            applied: number;
+            /**
+             * Interviews
+             * @default 0
+             */
+            interviews: number;
+            /**
+             * Linked
+             * @default 0
+             */
+            linked: number;
+            /**
+             * Manual
+             * @default 0
+             */
+            manual: number;
+            /**
+             * Notes
+             * @default 0
+             */
+            notes: number;
+            /**
+             * Shortlisted
+             * @default 0
+             */
+            shortlisted: number;
         };
         /** CacheClearIn */
         CacheClearIn: {
@@ -19250,6 +19375,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpportunityBrowseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_cleanup_execute_api_opportunities_cleanup_execute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkCleanupExecuteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkCleanupExecuteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_cleanup_preview_api_opportunities_cleanup_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkCleanupCriteria"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkCleanupPreviewOut"];
                 };
             };
             /** @description Validation Error */

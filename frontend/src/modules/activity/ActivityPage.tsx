@@ -231,14 +231,10 @@ export function ActivityPage() {
             </Section>
           )}
 
-          {/* Ayrıntılı olaylar yalnız isteyince açılır; ritim ana yüzeydir. */}
-          <details className="rounded-card border border-subtle bg-surface">
-            <summary className="cursor-pointer px-3.5 py-3 text-body font-medium text-secondary">
-              Detaylı geçmiş
-            </summary>
-            <Section
-              title="Hareket akışı"
-              hint={`${data.length}${canLoadMore ? "+" : ""} hareket · ${dayKeys.length} gün`}
+          {/* Hareket akışı: alan filtreleri, arama ve gün grupları */}
+          <Section
+            title="Hareket akışı"
+            hint={`${data.length}${canLoadMore ? "+" : ""} hareket · ${dayKeys.length} gün`}
               action={
                 <div className="flex items-center gap-1">
                   <Button
@@ -360,7 +356,6 @@ export function ActivityPage() {
                 )}
               </div>
             </Section>
-          </details>
         </WorkspaceScrollArea>
       </Workspace>
     </PageFrame>

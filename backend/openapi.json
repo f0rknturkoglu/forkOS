@@ -2479,6 +2479,140 @@
         "title": "BrainStatusOut",
         "type": "object"
       },
+      "BulkCleanupCriteria": {
+        "properties": {
+          "dismissed": {
+            "default": false,
+            "title": "Dismissed",
+            "type": "boolean"
+          },
+          "low_score": {
+            "default": false,
+            "title": "Low Score",
+            "type": "boolean"
+          }
+        },
+        "title": "BulkCleanupCriteria",
+        "type": "object"
+      },
+      "BulkCleanupExecuteIn": {
+        "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "dismissed": {
+            "default": false,
+            "title": "Dismissed",
+            "type": "boolean"
+          },
+          "expected_deletable": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Deletable"
+          },
+          "low_score": {
+            "default": false,
+            "title": "Low Score",
+            "type": "boolean"
+          }
+        },
+        "title": "BulkCleanupExecuteIn",
+        "type": "object"
+      },
+      "BulkCleanupExecuteOut": {
+        "properties": {
+          "deleted_count": {
+            "title": "Deleted Count",
+            "type": "integer"
+          },
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          },
+          "suppressed_count": {
+            "title": "Suppressed Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted_count",
+          "skipped_count",
+          "suppressed_count"
+        ],
+        "title": "BulkCleanupExecuteOut",
+        "type": "object"
+      },
+      "BulkCleanupPreviewOut": {
+        "properties": {
+          "breakdown": {
+            "$ref": "#/components/schemas/BulkCleanupProtectionBreakdown"
+          },
+          "deletable_total": {
+            "title": "Deletable Total",
+            "type": "integer"
+          },
+          "matched_total": {
+            "title": "Matched Total",
+            "type": "integer"
+          },
+          "protected_total": {
+            "title": "Protected Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "matched_total",
+          "protected_total",
+          "deletable_total",
+          "breakdown"
+        ],
+        "title": "BulkCleanupPreviewOut",
+        "type": "object"
+      },
+      "BulkCleanupProtectionBreakdown": {
+        "properties": {
+          "applied": {
+            "default": 0,
+            "title": "Applied",
+            "type": "integer"
+          },
+          "interviews": {
+            "default": 0,
+            "title": "Interviews",
+            "type": "integer"
+          },
+          "linked": {
+            "default": 0,
+            "title": "Linked",
+            "type": "integer"
+          },
+          "manual": {
+            "default": 0,
+            "title": "Manual",
+            "type": "integer"
+          },
+          "notes": {
+            "default": 0,
+            "title": "Notes",
+            "type": "integer"
+          },
+          "shortlisted": {
+            "default": 0,
+            "title": "Shortlisted",
+            "type": "integer"
+          }
+        },
+        "title": "BulkCleanupProtectionBreakdown",
+        "type": "object"
+      },
       "CacheClearIn": {
         "properties": {
           "confirm": {
@@ -31666,6 +31800,90 @@
           }
         },
         "summary": "Opportunity Browse",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/cleanup/execute": {
+      "post": {
+        "description": "Kalıcı toplu silme ve suppression kaydı oluşturma.",
+        "operationId": "bulk_cleanup_execute_api_opportunities_cleanup_execute_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkCleanupExecuteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkCleanupExecuteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Cleanup Execute",
+        "tags": [
+          "opportunities"
+        ]
+      }
+    },
+    "/api/opportunities/cleanup/preview": {
+      "post": {
+        "description": "Toplu silme önizlemesi: kriterlere uyan, korunan ve silinebilecek kayıtları listeler.",
+        "operationId": "bulk_cleanup_preview_api_opportunities_cleanup_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkCleanupCriteria"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkCleanupPreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Cleanup Preview",
         "tags": [
           "opportunities"
         ]

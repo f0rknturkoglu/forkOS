@@ -1,6 +1,7 @@
 import type { ClipboardEventHandler, DragEventHandler, KeyboardEventHandler, ReactNode, RefObject } from "react";
 import { createContext, forwardRef, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Copy, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown, Copy, MoreHorizontal, X } from "lucide-react";
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -1405,6 +1406,259 @@ export function Popover({
     >
       {children}
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ActionMenu — ortak üç nokta / eylem menüsü
+
+   Menü `document.body` içine portal ile çizilir ve tetikleyiciye göre
+   `fixed` konumlanır. Böylece:
+   - scroll/overflow kapsayıcıları menüyü kırpmaz,
+   - sağ detay paneli veya başka katmanlar menünün üstüne binmez,
+   - ekranın altına yakın satırlarda menü yukarı açılır,
+   - sağ/sol kenarda ekran dışına taşmaz.
+   Escape, dışarı tıklama, scroll/resize ve ok tuşlarıyla gezinme desteklenir.
+   ══════════════════════════════════════════════════════════════════════ */
+
+export interface ActionMenuItem {
+  id: string;
+  label: ReactNode;
+  icon?: ReactNode;
+  onSelect?: () => void;
+  href?: string;
+  disabled?: boolean;
+  tone?: "default" | "danger";
+  hint?: ReactNode;
+  /** Bu öğeden önce ayırıcı çiz. */
+  separatorBefore?: boolean;
+}
+
+export function ActionMenu({
+  label,
+  items,
+  trigger,
+  header,
+  align = "end",
+  width = "w-56",
+  triggerClassName,
+  children,
+  disabled,
+}: {
+  /** Tetikleyicinin erişilebilir adı. */
+  label: string;
+  items?: ActionMenuItem[];
+  /** Varsayılan: üç nokta ikonu. */
+  trigger?: ReactNode;
+  /** Menünün üstünde küçük bağlam satırı. */
+  header?: ReactNode;
+  align?: "start" | "end";
+  width?: string;
+  triggerClassName?: string;
+  /** Serbest içerik (ör. durum seçici). `close` ile menü kapatılabilir. */
+  children?: ReactNode | ((close: () => void) => ReactNode);
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; maxHeight: number; up: boolean } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+
+  const place = useCallback(() => {
+    const trigger = triggerRef.current;
+    const panel = panelRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const panelW = panel?.offsetWidth ?? 224;
+    const panelH = panel?.scrollHeight ?? 240;
+    const gap = 4;
+    const spaceBelow = vh - rect.bottom - gap - 8;
+    const spaceAbove = rect.top - gap - 8;
+    const up = panelH > spaceBelow && spaceAbove > spaceBelow;
+    let left = align === "end" ? rect.right - panelW : rect.left;
+    left = Math.max(8, Math.min(left, vw - panelW - 8));
+    const maxHeight = Math.max(120, up ? spaceAbove : spaceBelow);
+    const top = up ? Math.max(8, rect.top - gap - Math.min(panelH, maxHeight)) : rect.bottom + gap;
+    setPos({ top, left, maxHeight, up });
+  }, [align]);
+
+  useEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    place();
+    const raf = requestAnimationFrame(place);
+    function onDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        setOpen(false);
+        triggerRef.current?.focus();
+        return;
+      }
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      const nodes = Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])') ?? [],
+      );
+      if (nodes.length === 0) return;
+      event.preventDefault();
+      const index = nodes.indexOf(document.activeElement as HTMLElement);
+      const next =
+        event.key === "ArrowDown" ? (index + 1) % nodes.length : (index - 1 + nodes.length) % nodes.length;
+      nodes[next]?.focus();
+    }
+    function onScroll(event: Event) {
+      if (panelRef.current && event.target instanceof Node && panelRef.current.contains(event.target)) return;
+      setOpen(false);
+    }
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [open, place, close]);
+
+  const itemClass = (item: ActionMenuItem) =>
+    cx(
+      "flex w-full items-center gap-2 rounded-control px-2 py-1.5 text-left text-meta outline-none transition",
+      "focus-visible:bg-surface-hover hover:bg-surface-hover",
+      item.disabled && "pointer-events-none opacity-50",
+      item.tone === "danger" ? "text-danger" : "text-primary",
+    );
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={label}
+        title={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((value) => !value);
+        }}
+        className={cx(
+          "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-secondary transition",
+          "hover:bg-surface-hover hover:text-primary disabled:opacity-50",
+          open && "bg-surface-hover text-primary",
+          triggerClassName,
+        )}
+      >
+        {trigger ?? <MoreHorizontal size={16} />}
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            role="menu"
+            aria-label={label}
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              position: "fixed",
+              top: pos?.top ?? -9999,
+              left: pos?.left ?? -9999,
+              maxHeight: pos?.maxHeight,
+              visibility: pos ? "visible" : "hidden",
+            }}
+            className={cx(
+              "z-toast flex flex-col gap-0.5 overflow-y-auto rounded-overlay border border-strong bg-surface p-1 shadow-overlay",
+              width,
+            )}
+          >
+            {header ? <div className="px-2 pb-1 pt-1 text-micro text-muted">{header}</div> : null}
+            {typeof children === "function" ? children(close) : children}
+            {items?.map((item) => (
+              <div key={item.id}>
+                {item.separatorBefore ? <div className="my-1 border-t border-subtle" /> : null}
+                {item.href ? (
+                  <a
+                    role="menuitem"
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-disabled={item.disabled || undefined}
+                    className={itemClass(item)}
+                    onClick={() => setOpen(false)}
+                  >
+                    {item.icon ? <span className="shrink-0 text-icon">{item.icon}</span> : null}
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {item.hint ? <span className="shrink-0 text-micro text-muted">{item.hint}</span> : null}
+                  </a>
+                ) : (
+                  <button
+                    role="menuitem"
+                    type="button"
+                    aria-disabled={item.disabled || undefined}
+                    disabled={item.disabled}
+                    className={itemClass(item)}
+                    onClick={() => {
+                      setOpen(false);
+                      item.onSelect?.();
+                    }}
+                  >
+                    {item.icon ? <span className="shrink-0 text-icon">{item.icon}</span> : null}
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {item.hint ? <span className="shrink-0 text-micro text-muted">{item.hint}</span> : null}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+/** Sayfa başlığı: tek başlık + kısa açıklama + birincil eylem + kompakt ikincil araçlar. */
+export function PageHeader({
+  title,
+  description,
+  primary,
+  actions,
+  children,
+  className,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  primary?: ReactNode;
+  actions?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <header className={cx("stack-y-3", className)}>
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-title text-primary">{title}</h1>
+          {description ? <p className="mt-1 max-w-prose text-meta text-muted">{description}</p> : null}
+        </div>
+        {(actions || primary) && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {actions}
+            {primary}
+          </div>
+        )}
+      </div>
+      {children}
+    </header>
   );
 }
 

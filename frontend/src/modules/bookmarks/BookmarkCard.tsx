@@ -48,9 +48,9 @@ export function BookmarkCard({ bookmark, selected, onToggleSelect, onOpenReader 
         selected ? "border-accent ring-1 ring-accent" : "border-subtle",
       )}
     >
-      {/* Kapak Gorseli / Yer Tutucu */}
-      <div className="relative h-44 w-full overflow-hidden bg-surface-sunken border-b border-subtle shrink-0">
-        {bookmark.hero_image_url ? (
+      {/* Kapak Gorseli / Kompakt Ust Serit */}
+      {bookmark.hero_image_url ? (
+        <div className="relative h-32 w-full overflow-hidden bg-surface-sunken border-b border-subtle shrink-0">
           <img
             src={bookmark.hero_image_url}
             alt={bookmark.title || host}
@@ -58,38 +58,39 @@ export function BookmarkCard({ bookmark, selected, onToggleSelect, onOpenReader 
             className="h-full w-full object-cover transition duration-300 group-hover:scale-105 cursor-pointer"
             onClick={onOpenReader}
           />
-        ) : (
-          <button
-            type="button"
-            onClick={onOpenReader}
-            className="flex h-full w-full items-center justify-center bg-surface-sunken hover:bg-surface-hover transition cursor-pointer"
-          >
-            <span className="text-display-lg font-serif font-bold text-muted/30 uppercase select-none">{initial}</span>
-          </button>
-        )}
-
-        {/* Coklu Secim Kutusu */}
-        <div className="absolute top-2 left-2 z-sticky rounded-control bg-surface/80 backdrop-blur-xs p-1">
-          <Checkbox checked={selected} onChange={onToggleSelect} />
+          <div className="absolute top-2 left-2 z-sticky rounded-control bg-surface/80 backdrop-blur-xs p-1">
+            <Checkbox checked={selected} onChange={onToggleSelect} />
+          </div>
+          {Boolean(bookmark.reading_time_min) && (
+            <div className="absolute top-2 right-2 z-sticky">
+              <Chip tone="accent">
+                <Clock size={10} className="mr-1 inline" />
+                {bookmark.reading_time_min} dk
+              </Chip>
+            </div>
+          )}
+          {Boolean(bookmark.scroll_progress && bookmark.scroll_progress > 0) && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-surface-sunken">
+              <div className="h-full bg-accent transition-all" style={{ width: `${bookmark.scroll_progress}%` }} />
+            </div>
+          )}
         </div>
-
-        {/* Okuma Suresi Rozeti */}
-        {Boolean(bookmark.reading_time_min) && (
-          <div className="absolute top-2 right-2 z-sticky">
+      ) : (
+        <div className="flex items-center justify-between border-b border-subtle px-3 py-2 bg-surface-sunken/40">
+          <div className="flex items-center gap-2">
+            <Checkbox checked={selected} onChange={onToggleSelect} />
+            <span className="flex h-6 w-6 items-center justify-center rounded bg-surface border border-subtle text-xs font-semibold uppercase text-muted">
+              {initial}
+            </span>
+          </div>
+          {Boolean(bookmark.reading_time_min) && (
             <Chip tone="accent">
               <Clock size={10} className="mr-1 inline" />
               {bookmark.reading_time_min} dk
             </Chip>
-          </div>
-        )}
-
-        {/* Kaydirma Ilerleme Cubugu */}
-        {Boolean(bookmark.scroll_progress && bookmark.scroll_progress > 0) && (
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-surface-sunken">
-            <div className="h-full bg-accent transition-all" style={{ width: `${bookmark.scroll_progress}%` }} />
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Kart Govdesi */}
       <div className="flex flex-1 flex-col justify-between p-3.5 stack-y-3">

@@ -13,11 +13,9 @@ export function OverdueTodosWidget() {
   // Gecikmis = due_at'in app gunu bugunun app gununden once (Faz 14).
   const today = todayKey();
   const overdue = data.filter((todo) => todo.due_at && localDateKey(new Date(todo.due_at)) < today).slice(0, 5);
+  if (overdue.length === 0) return null;
   return (
     <Section title="Geciken görevler">
-      {overdue.length === 0 ? (
-        <Empty>Geciken görev yok.</Empty>
-      ) : (
         <RowList>
           {overdue.map((todo) => (
             <div key={todo.id} className="flex items-center gap-2 py-2 text-meta">

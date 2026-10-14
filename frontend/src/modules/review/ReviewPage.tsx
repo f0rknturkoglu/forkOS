@@ -254,55 +254,15 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                 </Button>
               </div>
             )}
-            {stats.strategy_snapshot &&
-              Array.isArray(stats.strategy_snapshot.objectives) &&
-              stats.strategy_snapshot.objectives.length > 0 && (
-                <Section title="Hedefler">
-                  <StrategySnapshotSummary snapshot={stats.strategy_snapshot} />
-                </Section>
-              )}
-
+            {/* 1. NE OLDU? */}
             <div className="stack-y-3">
-              <SectionHeader label="Dönem özeti" />
+              <SectionHeader label="1. Ne oldu?" hint="Dönem metrikleri ve tamamlanan işler" />
               <MetricStrip className="grid-cols-2 lg:grid-cols-4">
                 {reviewMetricRows(snapshot).map((row) => (
                   <Metric key={row.label} label={row.label} value={row.value} hint={row.hint} href={row.href} />
                 ))}
               </MetricStrip>
-            </div>
 
-            {kind === "weekly" && (
-              <Section title="Kariyer haftası">
-                <div className="flex flex-wrap gap-2">
-                  {careerReviewRows(
-                    stats,
-                    previous?.period_start === adjacentPeriod("weekly", period, -1) ? previous.stats : null,
-                  ).map(([label, count, change]) => (
-                    <Chip key={label} tone="neutral">
-                      {label}: {count}
-                      {change ? ` · ${change}` : ""}
-                    </Chip>
-                  ))}
-                </div>
-                {(stats.career_goals ?? []).length > 0 && (
-                  <div className="mt-3 stack-y-1 border-t border-subtle pt-3">
-                    <p className="text-meta font-semibold text-primary">Hedef adımları (milestone)</p>
-                    {careerGoalReviewRows(
-                      stats,
-                      previous?.period_start === adjacentPeriod("weekly", period, -1) ? previous.stats : null,
-                    ).map((goal) => (
-                      <p key={goal.id} className="text-meta text-secondary">
-                        {goal.title}: {goal.progress}
-                        {goal.change ? ` · ${goal.change}` : ""}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </Section>
-            )}
-
-            <div className="stack-y-3">
-              <SectionHeader label="Neler oldu?" />
               <div className="grid gap-4 xl:grid-cols-2">
                 <Section title="Tamamlanan işler" hint={`${data.completed_todos.length} kayıt`}>
                   {data.completed_todos.length === 0 ? (
@@ -330,7 +290,7 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
                 </Section>
 
                 <Section
-                  title="İstatistikler"
+                  title="Odak dağılımı"
                   hint={stats.focus.minutes ? `${stats.focus.minutes} dk odak` : undefined}
                 >
                   <div className="stack-y-3">
@@ -381,19 +341,65 @@ function ReviewFlow({ kind }: { kind: ReviewKind }) {
               </div>
             </div>
 
-            {previous && changes.length > 0 && (
-              <Section title="Önemli değişiklik" hint={`önceki kayıt: ${shortDate(previous.period_start)}`}>
-                <RowList as="ul">
-                  {changes.map(([label, value]) => (
-                    <li key={label} className="flex items-center justify-between gap-3 py-2">
-                      <span className="text-body text-secondary">{label}</span>
-                      <span className="numeral text-body text-primary">{value}</span>
-                    </li>
-                  ))}
-                </RowList>
-              </Section>
-            )}
+            {/* 2. BU NE ANLAMA GELİYOR? */}
+            <div className="stack-y-3 border-t border-subtle pt-4">
+              <SectionHeader label="2. Bu ne anlama geliyor?" hint="Hedefler, eğilimler ve önemli değişiklikler" />
 
+              {stats.strategy_snapshot &&
+                Array.isArray(stats.strategy_snapshot.objectives) &&
+                stats.strategy_snapshot.objectives.length > 0 && (
+                  <Section title="Hedeflerdeki durum">
+                    <StrategySnapshotSummary snapshot={stats.strategy_snapshot} />
+                  </Section>
+                )}
+
+              {kind === "weekly" && (
+                <Section title="Kariyer ve fırsatlar">
+                  <div className="flex flex-wrap gap-2">
+                    {careerReviewRows(
+                      stats,
+                      previous?.period_start === adjacentPeriod("weekly", period, -1) ? previous.stats : null,
+                    ).map(([label, count, change]) => (
+                      <Chip key={label} tone="neutral">
+                        {label}: {count}
+                        {change ? ` · ${change}` : ""}
+                      </Chip>
+                    ))}
+                  </div>
+                  {(stats.career_goals ?? []).length > 0 && (
+                    <div className="mt-3 stack-y-1 border-t border-subtle pt-3">
+                      <p className="text-meta font-semibold text-primary">Hedef adımları (milestone)</p>
+                      {careerGoalReviewRows(
+                        stats,
+                        previous?.period_start === adjacentPeriod("weekly", period, -1) ? previous.stats : null,
+                      ).map((goal) => (
+                        <p key={goal.id} className="text-meta text-secondary">
+                          {goal.title}: {goal.progress}
+                          {goal.change ? ` · ${goal.change}` : ""}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </Section>
+              )}
+
+              {previous && changes.length > 0 && (
+                <Section title="Önceki döneme göre değişim" hint={`önceki kayıt: ${shortDate(previous.period_start)}`}>
+                  <RowList as="ul">
+                    {changes.map(([label, value]) => (
+                      <li key={label} className="flex items-center justify-between gap-3 py-2">
+                        <span className="text-body text-secondary">{label}</span>
+                        <span className="numeral text-body text-primary">{value}</span>
+                      </li>
+                    ))}
+                  </RowList>
+                </Section>
+              )}
+            </div>
+
+            {/* 3. SIRADA NE VAR? */}
+            <div className="stack-y-3 border-t border-subtle pt-4">
+              <SectionHeader label="3. Sırada ne var?" hint="Açık işler ve önümüzdeki dönemin kararları" />
             <Section
               title="Açık kalanlar"
               hint={open.length ? `${open.length} görev açık` : "Açık görev yok"}

@@ -140,7 +140,7 @@ export function TodoPage() {
         }
         inspector={
           focusId ? (
-            <WorkspaceInspectorContent title="Görev bağlantıları">
+            <WorkspaceInspectorContent title="Görev bağlantıları" onClose={() => navigate(path)}>
               <RelatedPanel entityId={focusId} />
             </WorkspaceInspectorContent>
           ) : undefined

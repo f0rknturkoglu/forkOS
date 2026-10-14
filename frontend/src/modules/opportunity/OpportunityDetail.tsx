@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/core/api";
-import { Button, Drawer, Empty, SkeletonRows } from "@/core/ui";
+import { Button, Drawer, Empty, Modal, SkeletonRows } from "@/core/ui";
 import { WorkspaceInspectorContent } from "@/core/workspace/Workspace";
 import type { Opportunity, OpportunityLifecycle } from "@/core/types";
 import { AnnouncementDetail } from "./AnnouncementDetail";
@@ -8,12 +9,9 @@ import { JobDetail } from "./JobDetail";
 import { kindLabel } from "./labels";
 
 /**
- * Firsat detay cekmecesi. Iki ayri calisma yuzeyine dagitir:
- * is ilanlari -> `JobDetail`, duyurular -> `AnnouncementDetail`.
- *
- * Tur karari elle kopyalanmis bir listeden DEGIL, backend'in
- * `GET /opportunities/lifecycle` cevabindaki `job_kinds` kumesinden gelir.
- * Cekmece odak tuzagi, Escape ve odak iadesini `Drawer` primitifi tasir.
+ * Firsat detay paneli ve tam ekran çalışma alanı.
+ * Hızlı panelde temel bilgiler ve X kapatma düğmesi,
+ * 'Tam detayı aç' ile geniş 5 sekmeli çalışma alanı açılır.
  */
 export function OpportunityDetail({
   id,
@@ -24,6 +22,8 @@ export function OpportunityDetail({
   close: () => void;
   mode?: "drawer" | "inline";
 }) {
+  const [fullModal, setFullModal] = useState(false);
+
   const itemQuery = useQuery({
     queryKey: ["opportunity", id],
     queryFn: () => api.get<Opportunity>(`/opportunities/${id}`),
@@ -50,31 +50,52 @@ export function OpportunityDetail({
         !failed &&
         lifecycle &&
         item &&
-        (lifecycle.job_kinds.includes(item.kind) ? <JobDetail item={item} /> : <AnnouncementDetail item={item} />)}
+        (lifecycle.job_kinds.includes(item.kind) ? (
+          <JobDetail item={item} onOpenFull={() => setFullModal(true)} />
+        ) : (
+          <AnnouncementDetail item={item} />
+        ))}
     </>
   );
 
-  if (mode === "inline") {
-    return (
-      <WorkspaceInspectorContent title={item?.title ?? "Fırsat detayı"} hint={item ? kindLabel(item.kind) : undefined}>
-        <Button size="sm" onClick={close} className="mb-3">
-          Detayı kapat
-        </Button>
-        {content}
-      </WorkspaceInspectorContent>
-    );
-  }
-
   return (
-    <Drawer
-      open
-      onClose={close}
-      title={item?.title ?? "Fırsat detayı"}
-      hint={item ? kindLabel(item.kind) : undefined}
-      ariaLabel="Fırsat detayı"
-      className="sm:max-w-2xl"
-    >
-      {content}
-    </Drawer>
+    <>
+      {mode === "inline" ? (
+        <WorkspaceInspectorContent
+          title={item?.title ?? "Fırsat detayı"}
+          hint={item ? kindLabel(item.kind) : undefined}
+          onClose={close}
+        >
+          {content}
+        </WorkspaceInspectorContent>
+      ) : (
+        <Drawer
+          open
+          onClose={close}
+          title={item?.title ?? "Fırsat detayı"}
+          hint={item ? kindLabel(item.kind) : undefined}
+          ariaLabel="Fırsat detayı"
+          className="sm:max-w-2xl"
+        >
+          {content}
+        </Drawer>
+      )}
+
+      {fullModal && item && lifecycle && (
+        <Modal
+          open
+          onClose={() => setFullModal(false)}
+          title={item.title}
+          hint={item.organization ?? kindLabel(item.kind)}
+          className="sm:max-w-4xl"
+        >
+          {lifecycle.job_kinds.includes(item.kind) ? (
+            <JobDetail item={item} />
+          ) : (
+            <AnnouncementDetail item={item} />
+          )}
+        </Modal>
+      )}
+    </>
   );
 }
